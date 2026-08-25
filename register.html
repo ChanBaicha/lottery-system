@@ -289,7 +289,7 @@ function submitRegister(){
   renderRegList();clearRegForm();updateStats();toast('登记成功：'+(data.name||'新参与者'));
 }
 
-function clearRegForm(){S.fields.forEach(f=>{const el=document.getElementById('reg_'+f.id);if(el)el.value='';var pre=document.getElementById('reg_'+f.id+'_pre');var suf=document.getElementById('reg_'+f.id+'_suf');if(pre)pre.value='';if(suf)suf.value=''})}}
+function clearRegForm(){S.fields.forEach(f=>{const el=document.getElementById('reg_'+f.id);if(el)el.value='';var pre=document.getElementById('reg_'+f.id+'_pre');var suf=document.getElementById('reg_'+f.id+'_suf');if(pre)pre.value='';if(suf)suf.value=''})}
 function renderRegList(){
   document.getElementById('regList').innerHTML=S.regList.map(r=>'<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((r.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+r.name+'</div><div style="font-size:.75em;color:var(--sub)">'+maskPhone(r.phone)+(r.ticket?' · '+r.ticket:'')+' · '+fmt(r.time)+'</div></div></div>').join('')||'<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无登记记录</div>';
 }
