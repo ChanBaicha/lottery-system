@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>抽奖系统入口</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0a0e27;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+:root{--pri:#6c5ce7;--acc:#fd79a8;--gold:#fdcb6e;--grn:#00b894;--card:#161b3c;--card2:#1e2550;--sub:#a0a8c8;--bd:rgba(255,255,255,.1)}
+.card{background:var(--card);border-radius:20px;padding:30px;width:100%;max-width:380px;text-align:center;border:1px solid var(--bd);margin-bottom:16px}
+h1{font-size:1.5em;margin-bottom:8px;background:linear-gradient(135deg,#6c5ce7,#fd79a8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.btn{display:block;width:100%;padding:16px;border-radius:12px;cursor:pointer;font-size:1em;font-weight:bold;transition:.2s;text-decoration:none;text-align:center;margin-bottom:12px}
+.btn-pri{background:var(--pri);color:#fff}
+.btn-acc{background:var(--acc);color:#fff}
+.btn-grn{background:var(--grn);color:#fff}
+.btn:hover{transform:translateY(-2px);opacity:.9}
+p{color:var(--sub);font-size:.85em}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🎉 抽奖系统</h1>
+  <p style="margin-bottom:24px">请选择入口</p>
+  <a class="btn btn-acc" href="register.html" id="linkRegister">📝 销售登记入口</a>
+  <a class="btn btn-grn" href="signin.html" id="linkSignin">📱 参与者签到入口</a>
+  <a class="btn btn-pri" href="admin.html" id="linkAdmin">⚙️ 后台管理入口</a>
+</div>
+<p style="font-size:.78em">Powered by TeleAgent</p>
+<script>
+// 保留 room 参数
+(function(){
+  var p=new URLSearchParams(location.search);
+  var room=p.get('room');
+  if(room){
+    document.getElementById('linkRegister').href='register.html?room='+room;
+    document.getElementById('linkSignin').href='signin.html?room='+room;
+    document.getElementById('linkAdmin').href='admin.html?room='+room;
+  }
+})();
+</script>
+</body>
+</html>

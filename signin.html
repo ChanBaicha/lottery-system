@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>抽奖签到端</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0a0e27;color:#fff;min-height:100vh;user-select:none}
+input,button,select,textarea{font-family:inherit;outline:none;border:none}
+:root{--pri:#6c5ce7;--pri-l:#a29bfe;--acc:#fd79a8;--gold:#fdcb6e;--grn:#00b894;--red:#e17055;--card:#161b3c;--card2:#1e2550;--sub:#a0a8c8;--bd:rgba(255,255,255,.1)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--pri);border-radius:2px}
+.btn{padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.95em;transition:.2s;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn-pri{background:var(--pri);color:#fff}.btn-pri:active{background:#5a4bd1}
+.btn-out{background:transparent;border:1px solid var(--bd);color:var(--sub)}.btn-out:active{border-color:var(--pri);color:#fff}
+.btn-suc{background:var(--grn);color:#fff}.btn-dng{background:var(--red);color:#fff}
+.btn-gold{background:var(--gold);color:#333;font-weight:bold}
+.card{background:var(--card);border-radius:16px;padding:20px;margin-bottom:14px;border:1px solid var(--bd)}
+.f-grp{margin-bottom:12px}
+.f-grp label{display:block;font-size:.85em;color:var(--sub);margin-bottom:4px}
+.f-grp input,.f-grp select,.f-grp textarea{width:100%;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em}
+.f-grp input:focus{border-color:var(--pri)}
+.f-grp input::placeholder{color:#4a5070}
+textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em;resize:vertical}
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal-card{background:var(--card);border-radius:20px;padding:30px;width:100%;max-width:400px;text-align:center;border:1px solid var(--bd)}
+.tab-bar{display:flex;gap:0;margin-bottom:16px;background:var(--card);border-radius:12px;overflow:hidden}
+.tab-item{flex:1;padding:10px;text-align:center;font-size:.9em;cursor:pointer;color:var(--sub);transition:.2s}
+.tab-item.active{background:var(--pri);color:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 签到页 -->
+  <div id="signPage" style="padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
+    <div style="text-align:center;padding:20px 0">
+      <h1 style="font-size:1.6em;background:linear-gradient(135deg,#fd79a8,#fdcb6e);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎉 幸运抽奖签到</h1>
+      <p style="color:var(--sub);font-size:.85em;margin-top:4px">填写信息完成签到参与抽奖</p>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05);width:fit-content;margin:0 auto 16px"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
+    <!-- 签到表单 -->
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:12px">📝 签到信息</div>
+      <div id="signForm"></div>
+      <div class="f-grp" id="signRemarkGrp" style="display:none">
+        <label>备注说明</label>
+        <textarea id="signRemark" rows="2" placeholder="可填写备注信息（选填）"></textarea>
+      </div>
+      <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em" onclick="doSignin()">✅ 签 到</button>
+    </div>
+    <!-- 定位签到 -->
+    <div class="card" id="signLocCard" style="display:none">
+      <div style="font-weight:bold;margin-bottom:10px">📍 定位验证</div>
+      <p style="font-size:.82em;color:var(--sub);margin-bottom:12px" id="signLocDesc">需要获取您的定位信息进行签到验证</p>
+      <div id="signLocStatus" style="text-align:center;padding:12px;border-radius:10px;background:var(--card2);font-size:.88em;color:var(--sub);margin-bottom:12px">签到时自动获取定位</div>
+    </div>
+  </div>
+
+  <!-- 签到成功等待页 -->
+  <div id="signWaiting" style="display:none;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
+    <div style="text-align:center;padding:40px 0">
+      <div style="font-size:3em;margin-bottom:16px">✅</div>
+      <div class="card">
+        <div style="font-size:1.1em;font-weight:bold;color:var(--grn);margin-bottom:10px">签到成功！</div>
+        <p style="color:var(--sub);font-size:.9em;line-height:2">当前已有 <b id="waitCount" style="color:var(--gold);font-size:1.3em">0</b> 人参与<br>请等待主办方开始抽奖<br>中奖结果将实时推送到此页面</p>
+      </div>
+      <div id="signPrizes" style="margin-top:16px"></div>
+    </div>
+    <!-- 弹幕 + 互动游戏入口 -->
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn btn-out" style="flex:1;padding:12px" onclick="showDanmakuModal()">💬 发弹幕</button>
+      <button class="btn btn-gold" style="flex:1;padding:12px" onclick="showGameModal()">🎮 互动游戏</button>
+    </div>
+    <!-- 拍照入口 -->
+    <button class="btn btn-out" style="width:100%;padding:12px;margin-top:10px" onclick="showAvatarModal()">📷 拍摄头像</button>
+    <!-- 已拍头像预览 -->
+    <div id="avatarPreview" style="display:none;text-align:center;margin-top:12px">
+      <img id="avatarImg" style="width:80px;height:80px;border-radius:50%;border:2px solid var(--pri);object-fit:cover">
+      <p style="color:var(--grn);font-size:.82em;margin-top:4px">✓ 头像已上传</p>
+    </div>
+  </div>
+
+  <!-- 中奖结果页 -->
+  <div id="signWon" style="display:none;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
+    <div style="text-align:center;padding:40px 0">
+      <div style="font-size:3em;margin-bottom:16px" id="wonIcon">🎉</div>
+      <div class="card" style="border:2px solid var(--gold)">
+        <div style="font-size:1.2em;font-weight:bold;color:var(--gold);margin-bottom:10px" id="wonTitle">🎊 恭喜中奖！</div>
+        <div id="wonName" style="font-size:1.5em;font-weight:bold;margin-bottom:8px"></div>
+        <div id="wonPrize" style="color:var(--gold);font-size:1.3em"></div>
+        <div id="wonTime" style="color:var(--sub);font-size:.82em;margin-top:8px"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-out" style="flex:1;padding:12px" onclick="showDanmakuModal()">💬 发弹幕</button>
+        <button class="btn btn-gold" style="flex:1;padding:12px" onclick="showGameModal()">🎮 互动游戏</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 互动游戏页 -->
+  <div id="gamePage" style="display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center">
+    <div style="position:absolute;top:16px;right:16px"><button class="btn btn-out" style="padding:6px 14px;font-size:.85em" onclick="exitGame()">← 返回</button></div>
+    <h2 id="gameTitle" style="font-size:1.5em;margin-bottom:8px"></h2>
+    <p id="gameDesc" style="color:var(--gold);font-size:1em;margin-bottom:24px"></p>
+    <div id="gameContent" style="width:100%;max-width:400px"></div>
+    <div id="gameResult" style="display:none;margin-top:24px"></div>
+  </div>
+</div>
+
+<!-- 签到失败弹窗 -->
+<div class="modal-bg" id="failModal">
+  <div class="modal-card">
+    <div style="font-size:2.5em;margin-bottom:10px">❌</div>
+    <div style="font-size:1.1em;font-weight:bold;color:var(--red);margin-bottom:10px">签到失败</div>
+    <p id="failMsg" style="color:var(--sub);font-size:.95em;line-height:1.8;margin-bottom:20px"></p>
+    <button class="btn btn-pri" style="width:100%;padding:12px" onclick="closeFailModal()">我知道了</button>
+  </div>
+</div>
+
+<!-- 弹幕发送弹窗 -->
+<div class="modal-bg" id="danmakuModal">
+  <div class="modal-card">
+    <div style="font-size:1.2em;font-weight:bold;margin-bottom:16px">💬 发送弹幕</div>
+    <div class="f-grp"><textarea id="dmInput" rows="3" placeholder="输入弹幕内容..." maxlength="50"></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-pri" style="flex:1;padding:12px" onclick="sendDanmaku()">发送</button>
+      <button class="btn btn-out" style="flex:1;padding:12px" onclick="closeDanmakuModal()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 拍照弹窗 -->
+<div class="modal-bg" id="avatarModal">
+  <div class="modal-card" style="max-width:350px">
+    <div style="font-size:1.2em;font-weight:bold;margin-bottom:16px">📷 拍摄头像</div>
+    <div style="position:relative;width:200px;height:200px;margin:0 auto 16px;border-radius:50%;overflow:hidden;border:3px solid var(--pri);background:var(--card2)">
+      <video id="avatarVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover"></video>
+      <canvas id="avatarCanvas" style="display:none"></canvas>
+    </div>
+    <div id="avatarBtns" style="display:flex;gap:10px">
+      <button class="btn btn-pri" style="flex:1;padding:12px" onclick="captureAvatar()">📸 拍照</button>
+      <button class="btn btn-out" style="flex:1;padding:12px" onclick="closeAvatarModal()">取消</button>
+    </div>
+    <div id="avatarConfirm" style="display:none;flex-direction:column;gap:10px">
+      <img id="avatarPreviewImg" style="width:120px;height:120px;border-radius:50%;margin:0 auto;border:3px solid var(--grn);object-fit:cover">
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-suc" style="flex:1;padding:12px" onclick="confirmAvatar()">✓ 使用</button>
+        <button class="btn btn-out" style="flex:1;padding:12px" onclick="retakeAvatar()">重拍</button>
+      </div>
+    </div>
+    <p id="avatarHint" style="color:var(--sub);font-size:.78em;margin-top:8px;text-align:center">点击拍照后将获取摄像头画面作为头像</p>
+  </div>
+</div>
+
+<!-- 游戏选择弹窗 -->
+<div class="modal-bg" id="gameModal">
+  <div class="modal-card" style="max-width:350px">
+    <div style="font-size:1.2em;font-weight:bold;margin-bottom:16px">🎮 互动游戏</div>
+    <div id="gameMenu"></div>
+  </div>
+</div>
+
+<div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script>
+let S={mqtt:null,topic:'',room:'',
+  fields:[],prizes:[],signin:{enable:true},drawCount:1,signFailMsg:'签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。',
+  voidedTickets:[],allParticipants:[],
+  signedIn:false,myName:'',myData:{},avatarData:'',
+  danmakuSettings:{enable:true,anonymous:true},
+  gameType:null,shakeCount:0,shakeListening:false,reactionReady:false,quizAnswer:null,
+  _cameraStream:null
+};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
+function fmt(d){const dt=new Date(d);return(dt.getMonth()+1)+'/'+dt.getDate()+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}
+function maskPhone(p){if(!p)return'';return p.substr(0,3)+'****'+p.substr(-4)}
+
+// ========== 初始化 ==========
+(function init(){
+  const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
+  connectMQTT();
+})();
+
+// ========== MQTT ==========
+function connectMQTT(){
+  const cid='signin_'+uid();
+  try{
+    S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
+    S.mqtt.on('connect',()=>{
+      updateMqtt('online');
+      S.mqtt.subscribe(S.topic+'config');
+      S.mqtt.subscribe(S.topic+'lottery_result');
+      S.mqtt.subscribe(S.topic+'game_cmd');
+      S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'signin',time:Date.now()}));
+    });
+    S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
+    S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
+  }catch(e){updateMqtt('offline')}
+}
+function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
+function handleMsg(t,d){
+  if(t.endsWith('config')){
+    S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
+    S.signFailMsg=d.signFailMsg||S.signFailMsg;
+    S.voidedTickets=d.voidedTickets||[];S.allParticipants=d.participants||[];
+    S.danmakuSettings=d.danmaku||{enable:true,anonymous:true};
+    if(!S.signedIn)renderSignForm();
+    if(S.signedIn){document.getElementById('waitCount').textContent=d.participantCount||0;renderSignPrizes()}
+  }else if(t.endsWith('lottery_result')){
+    handleLotteryResult(d.winners||[]);
+  }else if(t.endsWith('game_cmd')){
+    handleGameCmd(d);
+  }
+}
+
+// ========== 签到表单 ==========
+function renderSignForm(){
+  const form=document.getElementById('signForm');
+  if(!S.fields.length){form.innerHTML='<p style="color:var(--sub);text-align:center;padding:16px">暂无签到字段</p>';return}
+  form.innerHTML=S.fields.map(f=>{
+    if(f.type==='select'){const opts=(f.options||'').split(',').filter(Boolean);return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><select id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'"><option value="">请选择</option>'+opts.map(o=>'<option value="'+o.trim()+'">'+o.trim()+'</option>').join('')+'</select></div>'}
+    if(f.type==='textarea')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><textarea id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" placeholder="'+(f.placeholder||'')+'" rows="3"></textarea></div>';
+    if(f.type==='phone')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" type="tel" placeholder="'+(f.placeholder||'')+'" maxlength="11"></div>';
+    if(f.type==='ticket')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" type="text" placeholder="'+(f.placeholder||'')+'"></div>';
+    if(f.type==='avatar')return '';
+    return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" type="'+(f.type==='number'?'number':'text')+'" placeholder="'+(f.placeholder||'')+'"></div>';
+  }).join('');
+  // 备注字段显示
+  document.getElementById('signRemarkGrp').style.display='block';
+  // 定位签到
+  if(S.signin.enable&&S.signin.lat!=null){
+    document.getElementById('signLocCard').style.display='block';
+    document.getElementById('signLocDesc').textContent='需要在指定位置('+S.signin.radius+'米内)和时间段内签到';
+  }else{
+    document.getElementById('signLocCard').style.display='none';
+  }
+}
+
+// ========== 签到验证 ==========
+function doSignin(){
+  const data={};let valid=true;
+  S.fields.forEach(f=>{
+    if(f.type==='avatar')return; // 头像不通过表单
+    const el=document.getElementById('sign_'+f.id);
+    if(!el)return;
+    const val=el.value.trim();
+    if(f.required&&!val){toast('请填写 '+f.name);valid=false;return}
+    data[f.id]=val;data[f.name]=val;
+    if(f.type==='text'&&!data.name)data.name=val;
+    if(f.type==='phone'&&!data.phone)data.phone=val;
+    if(f.type==='ticket'&&!data.ticket)data.ticket=val;
+  });
+  if(!valid)return;
+  // 提取关键信息
+  let sName='',sPhone='',sTicket='';
+  S.fields.forEach(f=>{
+    if(f.type==='text'&&!sName)sName=data[f.name]||'';
+    if(f.type==='phone'&&!sPhone)sPhone=data[f.name]||'';
+    if(f.type==='ticket'&&!sTicket)sTicket=data[f.name]||'';
+  });
+  // 验证三项匹配
+  if(S.allParticipants&&S.allParticipants.length){
+    const matched=S.allParticipants.find(p=>{
+      const pName=p.name||'';
+      const pPhone=p.phone||'';
+      const pTicket=p.ticket||(p.fields&&p.fields.ticket)||'';
+      let match=true;
+      if(sName&&pName&&sName!==pName)match=false;
+      if(sPhone&&pPhone&&sPhone!==pPhone)match=false;
+      if(sTicket&&pTicket&&sTicket!==pTicket)match=false;
+      return match;
+    });
+    if(!matched){
+      // 签到失败
+      showFailModal(S.signFailMsg);
+      return;
+    }
+    // 检查奖券是否已作废
+    if(sTicket&&S.voidedTickets&&S.voidedTickets.includes(sTicket)){
+      showFailModal('该抽奖券编码已被作废，无法签到！');
+      return;
+    }
+  }
+  // 备注信息
+  const remark=document.getElementById('signRemark').value.trim();
+  if(remark)data.remark=remark;
+  // 头像
+  if(S.avatarData){data.avatar=S.avatarData;data.fields=data.fields||{};data.fields.avatar=S.avatarData}
+  // 定位验证
+  if(S.signin.enable&&S.signin.lat!=null){
+    if(!navigator.geolocation){toast('不支持定位');submitSignin(data);return}
+    const ls=document.getElementById('signLocStatus');ls.innerHTML='📍 正在获取定位...';ls.style.color='var(--gold)';
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat=pos.coords.latitude,lng=pos.coords.longitude;
+      const dist=calcDist(lat,lng,S.signin.lat,S.signin.lng);
+      const now=new Date(),st=S.signin.startTime?new Date(S.signin.startTime):null,et=S.signin.endTime?new Date(S.signin.endTime):null;
+      if(dist>S.signin.radius){ls.innerHTML='❌ 距签到点 '+Math.round(dist)+' 米，超出 '+S.signin.radius+' 米范围';ls.style.color='var(--red)';toast('不在签到范围内');return}
+      if(st&&now<st){ls.innerHTML='⏰ 签到未开始';ls.style.color='var(--red)';toast('签到尚未开始');return}
+      if(et&&now>et){ls.innerHTML='⏰ 签到已截止';ls.style.color='var(--red)';toast('签到已截止');return}
+      ls.innerHTML='✅ 定位成功，距签到点 '+Math.round(dist)+' 米';ls.style.color='var(--grn)';
+      data.lat=lat;data.lng=lng;data.distance=Math.round(dist);
+      submitSignin(data);
+    },err=>{ls.innerHTML='❌ 定位失败：'+(err.message||'请允许定位');ls.style.color='var(--red)';toast('定位失败')},{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  }else{
+    submitSignin(data);
+  }
+}
+
+function submitSignin(data){
+  // 从字段数据中提取姓名和电话
+  S.fields.forEach(f=>{if(f.type==='text'&&!data.name)data.name=data[f.name]||data[f.id]||'';if(f.type==='phone'&&!data.phone)data.phone=data[f.name]||data[f.id]||''});
+  S.signedIn=true;S.myName=data.name||'';S.myData=data;
+  const id=data.id||uid();data.id=id;data.signed=true;data.signTime=Date.now();
+  S.mqtt.publish(S.topic+'sign_in',JSON.stringify({id:id,name:data.name||'',phone:data.phone||'',lat:data.lat,lng:data.lng,distance:data.distance,signTime:data.signTime,fields:data}));
+  // 切换到等待页
+  document.getElementById('signPage').style.display='none';
+  document.getElementById('signWaiting').style.display='block';
+  // 显示已拍头像
+  if(S.avatarData){
+    document.getElementById('avatarPreview').style.display='block';
+    document.getElementById('avatarImg').src=S.avatarData;
+  }
+  toast('签到成功！');
+}
+
+function showFailModal(msg){
+  document.getElementById('failMsg').textContent=msg||S.signFailMsg;
+  document.getElementById('failModal').classList.add('show');
+}
+function closeFailModal(){document.getElementById('failModal').classList.remove('show')}
+
+function renderSignPrizes(){
+  const c=document.getElementById('signPrizes');if(!S.prizes.length){c.innerHTML='';return}
+  c.innerHTML='<div class="card"><div style="font-weight:bold;margin-bottom:10px">🎁 奖品池</div>'+S.prizes.map(p=>'<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:20px;height:20px;border-radius:50%;background:'+p.color+';flex-shrink:0"></div><div style="flex:1;font-size:.9em">'+p.name+'</div><div style="color:var(--sub);font-size:.82em">×'+p.count+'</div></div>').join('')+'</div>';
+}
+function handleLotteryResult(winners){
+  if(!S.signedIn)return;
+  document.getElementById('signWaiting').style.display='none';
+  document.getElementById('signWon').style.display='block';
+  const won=winners.find(w=>w.name===S.myName);
+  if(won){
+    document.getElementById('wonIcon').textContent='🎉';
+    document.getElementById('wonTitle').textContent='🎊 恭喜中奖！';
+    document.getElementById('wonName').textContent=won.name;
+    document.getElementById('wonPrize').textContent='获得：'+won.prize;
+    document.getElementById('wonTime').textContent=fmt(Date.now());
+    if(navigator.vibrate)navigator.vibrate([200,100,200,100,200]);
+    toast('恭喜中奖！',5000);
+  }else{
+    document.getElementById('wonIcon').textContent='🙏';
+    document.getElementById('wonTitle').textContent='本轮中奖名单';
+    document.getElementById('wonName').textContent=winners.map(w=>w.name).join('、');
+    document.getElementById('wonPrize').textContent='继续等待下一轮吧~';
+    document.getElementById('wonTime').textContent=fmt(Date.now());
+  }
+}
+function calcDist(la1,lo1,la2,lo2){const R=6371000,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)*Math.sin(dLo/2);return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
+
+// ========== 弹幕 ==========
+function showDanmakuModal(){document.getElementById('danmakuModal').classList.add('show');document.getElementById('dmInput').focus()}
+function closeDanmakuModal(){document.getElementById('danmakuModal').classList.remove('show');document.getElementById('dmInput').value=''}
+function sendDanmaku(){
+  const text=document.getElementById('dmInput').value.trim();
+  if(!text){toast('请输入弹幕内容');return}
+  if(text.length>50){toast('弹幕最多50字');return}
+  S.mqtt.publish(S.topic+'danmaku',JSON.stringify({text,name:S.myName||'匿名',time:Date.now()}));
+  document.getElementById('dmInput').value='';
+  closeDanmakuModal();
+  toast('弹幕已发送');
+}
+
+// ========== 拍照头像 ==========
+function showAvatarModal(){
+  document.getElementById('avatarModal').classList.add('show');
+  document.getElementById('avatarBtns').style.display='flex';
+  document.getElementById('avatarConfirm').style.display='none';
+  document.getElementById('avatarHint').textContent='点击拍照后将获取摄像头画面作为头像';
+  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:320,height:320}}).then(stream=>{
+      S._cameraStream=stream;
+      document.getElementById('avatarVideo').srcObject=stream;
+    }).catch(err=>{
+      document.getElementById('avatarHint').textContent='摄像头获取失败：'+err.message+'，请检查权限';
+    });
+  }else{
+    document.getElementById('avatarHint').textContent='当前环境不支持摄像头，请使用微信打开';
+  }
+}
+function captureAvatar(){
+  const video=document.getElementById('avatarVideo');
+  const canvas=document.getElementById('avatarCanvas');
+  canvas.width=200;canvas.height=200;
+  canvas.getContext('2d').drawImage(video,0,0,200,200);
+  const dataUrl=canvas.toDataURL('image/jpeg',0.7);
+  document.getElementById('avatarPreviewImg').src=dataUrl;
+  document.getElementById('avatarBtns').style.display='none';
+  document.getElementById('avatarConfirm').style.display='flex';
+  document.getElementById('avatarHint').textContent='满意请点击"使用"，不满意可重拍';
+  S._avatarTmp=dataUrl;
+}
+function confirmAvatar(){
+  S.avatarData=S._avatarTmp;
+  closeAvatarModal();
+  // 发送到大屏
+  if(S.mqtt&&S.mqtt.connected){
+    S.mqtt.publish(S.topic+'avatar_update',JSON.stringify({name:S.myName||'',avatar:S.avatarData,time:Date.now()}));
+  }
+  toast('头像已设置');
+  if(S.signedIn){
+    document.getElementById('avatarPreview').style.display='block';
+    document.getElementById('avatarImg').src=S.avatarData;
+  }
+}
+function retakeAvatar(){
+  document.getElementById('avatarBtns').style.display='flex';
+  document.getElementById('avatarConfirm').style.display='none';
+}
+function closeAvatarModal(){
+  document.getElementById('avatarModal').classList.remove('show');
+  if(S._cameraStream){S._cameraStream.getTracks().forEach(t=>t.stop());S._cameraStream=null}
+}
+
+// ========== 互动游戏 ==========
+function showGameModal(){
+  const menu=document.getElementById('gameMenu');
+  menu.innerHTML='';
+  const games=[
+    {id:'shake',name:'摇一摇大赛',desc:'疯狂摇动手机比拼次数',icon:'📱'},
+    {id:'reaction',name:'反应速度测试',desc:'屏幕变绿后最快点击',icon:'⚡'},
+    {id:'quiz',name:'趣味抢答',desc:'选择正确答案抢分',icon:'🧠'}
+  ];
+  games.forEach(g=>{
+    const btn=document.createElement('button');
+    btn.className='btn btn-pri';btn.style.cssText='width:100%;padding:14px;margin-bottom:10px;justify-content:flex-start;flex-direction:column;gap:4px';
+    btn.innerHTML='<div style="font-size:1.1em;font-weight:bold">'+g.icon+' '+g.name+'</div><div style="font-size:.78em;opacity:.7">'+g.desc+'</div>';
+    btn.onclick=()=>{document.getElementById('gameModal').classList.remove('show');joinGame(g.id)};
+    menu.appendChild(btn);
+  });
+  document.getElementById('gameModal').classList.add('show');
+}
+function joinGame(id){
+  S.gameType=id;
+  document.getElementById('signWaiting').style.display='none';
+  document.getElementById('signWon').style.display='none';
+  document.getElementById('gamePage').style.display='flex';
+  if(id==='shake')initShakeGame();else if(id==='reaction')initReactionGame();else if(id==='quiz')initQuizGame();
+}
+function handleGameCmd(d){
+  if(d.action==='start'){
+    if(!S.gameType){S.gameType=d.game}
+    if(d.game===S.gameType){
+      if(d.game==='shake')startShakeRound();else if(d.game==='reaction')startReactionRound();else if(d.game==='quiz')showQuizQuestion(d);
+    }
+  }else if(d.action==='go'&&d.game==='reaction'){
+    reactionGo();
+  }else if(d.action==='end'){
+    showGameResult(d);
+  }else if(d.action==='close'){
+    exitGame();
+  }
+}
+// 摇一摇
+function initShakeGame(){
+  document.getElementById('gameTitle').textContent='📱 摇一摇大赛';
+  document.getElementById('gameDesc').textContent='等待大屏开始...';
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><p style="color:var(--sub);line-height:2">大屏开始后<br>请疯狂摇动手机<br>摇动次数越多排名越高！</p></div>';
+}
+function startShakeRound(){
+  S.shakeCount=0;document.getElementById('gameDesc').textContent='开始摇一摇！';
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><div style="font-size:3em;margin:20px 0">📳</div><div style="font-size:2em;font-weight:bold;color:var(--gold)" id="shakeNum">0</div><p style="color:var(--sub);margin-top:8px">摇动次数</p><p style="color:var(--gold);font-size:.85em;margin-top:12px">疯狂摇动手机！</p></div>';
+  if(window.DeviceMotionEvent){
+    shakeListening=true;
+    let lastAccel=0,lastTime=0;
+    window.addEventListener('devicemotion',e=>{
+      if(!shakeListening)return;
+      const acc=e.accelerationIncludingGravity;
+      if(!acc||!acc.x)return;
+      const mag=Math.sqrt(acc.x*acc.x+acc.y*acc.y+acc.z*acc.z);
+      const diff=Math.abs(mag-lastAccel);lastAccel=mag;
+      const now=Date.now();
+      if(diff>15&&now-lastTime>100){
+        S.shakeCount++;lastTime=now;
+        const el=document.getElementById('shakeNum');if(el)el.textContent=S.shakeCount;
+        if(S.mqtt&&S.mqtt.connected){S.mqtt.publish(S.topic+'shake_data',JSON.stringify({name:S.myName||'匿名',count:1}))}
+        if(navigator.vibrate)navigator.vibrate(30);
+      }
+    });
+  }else{
+    document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><div style="font-size:3em;margin:20px 0">📳</div><div style="font-size:2em;font-weight:bold;color:var(--gold)" id="shakeNum">0</div><p style="color:var(--sub);margin-top:8px">点击次数</p><button class="btn btn-pri" style="width:100%;padding:30px;margin-top:16px;font-size:1.2em" id="shakeBtn">👆 点击摇一摇</button></div>';
+    document.getElementById('shakeBtn').onclick=()=>{S.shakeCount++;document.getElementById('shakeNum').textContent=S.shakeCount;if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'shake_data',JSON.stringify({name:S.myName||'匿名',count:1}))};
+  }
+}
+// 反应速度
+function initReactionGame(){
+  document.getElementById('gameTitle').textContent='⚡ 反应速度测试';
+  document.getElementById('gameDesc').textContent='等待大屏信号...';
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><p style="color:var(--sub);line-height:2">大屏变绿后<br>最快点击下方按钮者获胜</p></div>';
+  S.reactionReady=false;
+}
+function startReactionRound(){
+  document.getElementById('gameDesc').textContent='准备...';
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center;background:#e17055;border-color:var(--red)"><div style="font-size:1.2em;font-weight:bold;color:#fff">🔴 等待信号</div><p style="color:rgba(255,255,255,.7);font-size:.85em;margin-top:8px">屏幕变绿后立刻点击</p></div>';
+  S.reactionReady=false;
+}
+function reactionGo(){
+  document.getElementById('gameDesc').textContent='快点击！';
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center;background:#00b894;border-color:var(--grn);cursor:pointer" onclick="reactionClick()"><div style="font-size:1.4em;font-weight:bold;color:#fff">🟢 点击！</div><p style="color:rgba(255,255,255,.7);font-size:.85em;margin-top:8px">尽快点击此区域</p></div>';
+  S.reactionReady=true;
+}
+function reactionClick(){
+  if(!S.reactionReady)return;
+  S.reactionReady=false;
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><div style="font-size:2em;margin:20px 0">✅</div><p style="color:var(--grn);font-weight:bold">已点击！</p><p style="color:var(--sub);font-size:.85em;margin-top:8px">等待排名结果...</p></div>';
+  if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'reaction_click',JSON.stringify({name:S.myName||'匿名'}));
+}
+// 趣味抢答
+function initQuizGame(){
+  document.getElementById('gameTitle').textContent='🧠 趣味抢答';
+  document.getElementById('gameDesc').textContent='等待大屏出题...';
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><p style="color:var(--sub);line-height:2">大屏出题后<br>在手机端选择答案</p></div>';
+  S.quizAnswer=null;
+}
+function showQuizQuestion(d){
+  document.getElementById('gameDesc').textContent='请选择答案！';
+  const q=d.question||'题目';const opts=d.options||['A','B','C','D'];
+  document.getElementById('gameContent').innerHTML='<div class="card"><div style="font-size:1.1em;font-weight:bold;margin-bottom:16px;text-align:center">'+q+'</div>'+opts.map((o,i)=>'<button class="btn btn-out" style="width:100%;padding:14px;margin-bottom:8px;text-align:left;justify-content:flex-start" onclick="quizSelect(this,\''+o.replace(/'/g,"\\'")+'\')"><b style="margin-right:8px">'+'ABCD'[i]+'.</b> '+o+'</button>').join('')+'</div>';
+}
+function quizSelect(btn,answer){
+  if(S.quizAnswer)return;S.quizAnswer=answer;
+  document.querySelectorAll('#gameContent .btn').forEach(b=>{b.style.opacity=.5;b.disabled=true});btn.style.opacity=1;btn.style.borderColor='var(--pri)';btn.style.color='#fff';
+  if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'quiz_answer',JSON.stringify({name:S.myName||'匿名',answer:answer}));
+  toast('已选择：'+answer);
+}
+function showGameResult(d){
+  const r=document.getElementById('gameResult');r.style.display='block';
+  if(d.rankings&&d.rankings.length){
+    r.innerHTML='<div class="card" style="border:2px solid var(--gold);text-align:center"><div style="font-size:1.2em;font-weight:bold;color:var(--gold);margin-bottom:12px">🏆 排名结果</div>'+d.rankings.map(function(p){return '<div style="padding:8px 16px;border-radius:10px;margin-bottom:6px;background:rgba(253,203,110,.1);font-size:.95em">'+(['🥇','🥈','🥉'][p.rank-1]||'🎉')+' '+p.name+(p.score?' - '+(d.game==='reaction'?(p.score/1000).toFixed(3)+'秒':p.score+'次'):'')+'</div>'}).join('')+'</div>';
+  }
+  if(d.correct){
+    var h='<div class="card" style="border:2px solid var(--grn);text-align:center;margin-top:12px"><div style="color:var(--grn);font-weight:bold">✅ 正确答案：'+d.correct+'</div>';
+    if(!(d.rankings&&d.rankings.length)){h+='<div style="margin-top:8px;color:var(--sub)">没有人答对</div>'}
+    h+='</div>';
+    r.innerHTML=h+r.innerHTML;
+  }
+}
+function exitGame(){
+  S.gameType=null;shakeListening=false;S.quizAnswer=null;S.reactionReady=false;
+  document.getElementById('gamePage').style.display='none';
+  document.getElementById('gameResult').style.display='none';
+  if(S.signedIn){
+    // 判断是否中奖
+    document.getElementById('signWon').style.display='block';
+    document.getElementById('signWaiting').style.display='none';
+  }else{
+    document.getElementById('signPage').style.display='block';
+  }
+}
+</script>
+</body>
+</html>

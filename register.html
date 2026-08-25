@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>抽奖登记端</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0a0e27;color:#fff;min-height:100vh;user-select:none}
+input,button,select,textarea{font-family:inherit;outline:none;border:none}
+:root{--pri:#6c5ce7;--pri-l:#a29bfe;--acc:#fd79a8;--gold:#fdcb6e;--grn:#00b894;--red:#e17055;--card:#161b3c;--card2:#1e2550;--sub:#a0a8c8;--bd:rgba(255,255,255,.1)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--pri);border-radius:2px}
+.btn{padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.95em;transition:.2s;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn-pri{background:var(--pri);color:#fff}.btn-pri:active{background:#5a4bd1}
+.btn-out{background:transparent;border:1px solid var(--bd);color:var(--sub)}.btn-out:active{border-color:var(--pri);color:#fff}
+.btn-suc{background:var(--grn);color:#fff}.btn-dng{background:var(--red);color:#fff}
+.btn-gold{background:var(--gold);color:#333;font-weight:bold}
+.card{background:var(--card);border-radius:16px;padding:20px;margin-bottom:14px;border:1px solid var(--bd)}
+.f-grp{margin-bottom:12px}
+.f-grp label{display:block;font-size:.85em;color:var(--sub);margin-bottom:4px}
+.f-grp input,.f-grp select,.f-grp textarea{width:100%;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em}
+.f-grp input:focus{border-color:var(--pri)}
+.f-grp input::placeholder{color:#4a5070}
+textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em;resize:vertical}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.75em;font-weight:bold}
+.badge-act{background:rgba(0,184,148,.2);color:var(--grn)}
+.badge-void{background:rgba(225,112,85,.2);color:var(--red)}
+.badge-signed{background:rgba(108,92,231,.2);color:var(--pri-l)}
+.stat-box{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.stat-item{flex:1;min-width:80px;text-align:center;padding:12px;background:var(--card);border-radius:12px;border:1px solid var(--bd)}
+.stat-num{font-size:1.6em;font-weight:bold}
+.stat-label{font-size:.75em;color:var(--sub);margin-top:4px}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 登录页 -->
+  <div id="loginPage" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px">
+    <div class="card" style="width:100%;max-width:380px;text-align:center">
+      <h1 style="font-size:1.5em;margin-bottom:8px;background:linear-gradient(135deg,#6c5ce7,#fd79a8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">抽奖登记系统</h1>
+      <p style="color:var(--sub);font-size:.85em;margin-bottom:24px">销售人员请登录后登记参与者</p>
+      <div class="f-grp"><input id="loginUser" placeholder="账号" style="font-size:1em" onkeydown="if(event.key==='Enter')document.getElementById('loginPwd').focus()"></div>
+      <div class="f-grp"><input id="loginPwd" type="password" placeholder="密码" style="font-size:1em" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em" onclick="doLogin()">登 录</button>
+      <p style="color:var(--sub);font-size:.78em;margin-top:12px">账号由后台管理员统一配置</p>
+    </div>
+  </div>
+
+  <!-- 登记页 -->
+  <div id="regPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
+      <div style="font-weight:bold;font-size:1.1em">📝 登记参与者 <span id="regUser" style="color:var(--gold);font-size:.85em"></span></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showStats()">📊 统计</button>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showVoidPage()">🎫 作废</button>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showQRPage()">📱 二维码</button>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="doLogout()">退出</button>
+      </div>
+    </div>
+
+    <!-- 统计信息 -->
+    <div class="stat-box">
+      <div class="stat-item"><div class="stat-num" id="statTotal" style="color:var(--gold)">0</div><div class="stat-label">已登记</div></div>
+      <div class="stat-item"><div class="stat-num" id="statSigned" style="color:var(--grn)">0</div><div class="stat-label">已签到</div></div>
+      <div class="stat-item"><div class="stat-num" id="statMine" style="color:var(--pri-l)">0</div><div class="stat-label">我登记的</div></div>
+    </div>
+
+    <!-- 登记表单 -->
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:12px">➕ 新增登记</div>
+      <div id="regForm"></div>
+      <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em;margin-top:8px" onclick="submitRegister()">✅ 提交登记</button>
+      <button class="btn btn-out" style="width:100%;padding:10px;margin-top:8px" onclick="clearRegForm()">清空表单</button>
+    </div>
+
+    <!-- 最近登记 -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:bold">📋 最近登记</div>
+        <button class="btn btn-out" style="padding:4px 10px;font-size:.8em" onclick="exportMyRecords()">📥 导出</button>
+      </div>
+      <div id="regList" style="max-height:300px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- 统计页 -->
+  <div id="statsPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-weight:bold;font-size:1.1em">📊 登记统计</div>
+      <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button>
+    </div>
+    <div class="stat-box">
+      <div class="stat-item"><div class="stat-num" id="stTotal" style="color:var(--gold)">0</div><div class="stat-label">总登记</div></div>
+      <div class="stat-item"><div class="stat-num" id="stSigned" style="color:var(--grn)">0</div><div class="stat-label">已签到</div></div>
+      <div class="stat-item"><div class="stat-num" id="stUnsigned" style="color:var(--red)">0</div><div class="stat-label">未签到</div></div>
+      <div class="stat-item"><div class="stat-num" id="stVoided" style="color:var(--acc)">0</div><div class="stat-label">奖券作废</div></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:10px">📈 各登记人统计</div>
+      <div id="stByOperator"></div>
+    </div>
+  </div>
+
+  <!-- 作废页 -->
+  <div id="voidPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-weight:bold;font-size:1.1em">🎫 奖券作废</div>
+      <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button>
+    </div>
+    <div class="card">
+      <p style="color:var(--sub);font-size:.85em;margin-bottom:12px">输入要作废的抽奖券编码，作废后对应参与者将无法完成签到。</p>
+      <div class="f-grp"><input id="voidInput" placeholder="输入抽奖券编码" style="font-size:1em" onkeydown="if(event.key==='Enter')doVoidTicket()"></div>
+      <button class="btn btn-dng" style="width:100%;padding:14px" onclick="doVoidTicket()">🚫 作废奖券</button>
+    </div>
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:10px">📋 已作废奖券</div>
+      <div id="voidList" style="max-height:300px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- 二维码页 -->
+  <div id="qrPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh;text-align:center">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-weight:bold;font-size:1.1em">📱 二维码</div>
+      <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button>
+    </div>
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:14px">📲 签到端二维码</div>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:12px">参与者扫描此二维码即可打开签到页面</p>
+      <div id="qrSignin" style="display:inline-block;padding:16px;background:#fff;border-radius:12px"></div>
+      <p style="color:var(--pri-l);font-size:.82em;margin-top:12px;word-break:break-all" id="qrSigninUrl"></p>
+    </div>
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:14px">📲 大屏端二维码</div>
+      <div id="qrScreen" style="display:inline-block;padding:16px;background:#fff;border-radius:12px"></div>
+      <p style="color:var(--pri-l);font-size:.82em;margin-top:12px;word-break:break-all" id="qrScreenUrl"></p>
+    </div>
+  </div>
+</div>
+
+<div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+let S={mqtt:null,topic:'',room:'',currentUser:null,
+  fields:[],prizes:[],signin:{enable:true},drawCount:1,
+  _accounts:[],participants:[],tickets:[],voidedTickets:[],
+  regList:[],baseLink:'',allParticipants:[]
+};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
+function fmt(d){const dt=new Date(d);return(dt.getMonth()+1)+'/'+dt.getDate()+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}
+function maskPhone(p){if(!p)return'';return p.substr(0,3)+'****'+p.substr(-4)}
+
+// ========== 初始化 ==========
+(function init(){
+  const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
+  connectMQTT();
+})();
+
+// ========== MQTT ==========
+function connectMQTT(){
+  const cid='reg_'+uid();
+  try{
+    S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
+    S.mqtt.on('connect',()=>{
+      updateMqtt('online');
+      S.mqtt.subscribe(S.topic+'config');
+      S.mqtt.subscribe(S.topic+'lottery_result');
+      S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'register',time:Date.now()}));
+    });
+    S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
+    S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
+  }catch(e){updateMqtt('offline')}
+}
+function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
+function handleMsg(t,d){
+  if(t.endsWith('config')){
+    S._accounts=(d.accounts&&d.accounts.length)?d.accounts:[{user:'admin',pwd:'admin123',name:'管理员'}];
+    S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
+    S.tickets=d.tickets||[];S.voidedTickets=d.voidedTickets||[];S.baseLink=d.baseLink||'';
+    S.allParticipants=d.participants||[];
+    updateStats();
+    if(S.currentUser)renderRegForm();
+  }
+}
+
+// ========== 登录 ==========
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPwd').value.trim();
+  if(!u||!p){toast('请输入账号密码');return}
+  if(!S._accounts){toast('正在同步账号信息，请稍候...');setTimeout(doLogin,2000);return}
+  const acc=S._accounts.find(a=>a.user===u&&a.pwd===p);
+  if(!acc){toast('账号或密码错误');return}
+  S.currentUser=acc;
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('regPage').style.display='block';
+  document.getElementById('regUser').textContent='('+acc.name+')';
+  renderRegForm();updateStats();
+}
+function doLogout(){S.currentUser=null;location.reload()}
+
+// ========== 页面切换 ==========
+function showStats(){document.getElementById('regPage').style.display='none';document.getElementById('statsPage').style.display='block';updateStatsPage()}
+function showVoidPage(){document.getElementById('regPage').style.display='none';document.getElementById('voidPage').style.display='block';renderVoidList()}
+function showQRPage(){document.getElementById('regPage').style.display='none';document.getElementById('qrPage').style.display='block';generateQR()}
+function backToReg(){document.getElementById('statsPage').style.display='none';document.getElementById('voidPage').style.display='none';document.getElementById('qrPage').style.display='none';document.getElementById('regPage').style.display='block'}
+
+// ========== 登记表单 ==========
+function renderRegForm(){
+  const form=document.getElementById('regForm');
+  if(!S.fields.length){form.innerHTML='<p style="color:var(--sub);text-align:center;padding:16px">暂无字段配置</p>';return}
+  form.innerHTML=S.fields.map(f=>{
+    if(f.type==='select'){
+      const opts=(f.options||'').split(',').filter(Boolean);
+      return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><select id="reg_'+f.id+'" data-required="'+f.required+'"><option value="">请选择</option>'+opts.map(o=>'<option value="'+o.trim()+'">'+o.trim()+'</option>').join('')+'</select></div>';
+    }
+    if(f.type==='textarea')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><textarea id="reg_'+f.id+'" data-required="'+f.required+'" placeholder="'+(f.placeholder||'')+'" rows="3"></textarea></div>';
+    if(f.type==='avatar')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="url" placeholder="'+(f.placeholder||'微信头像URL')+'"></div>';
+    if(f.type==='phone')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="tel" placeholder="'+(f.placeholder||'')+'" maxlength="11"></div>';
+    if(f.type==='ticket')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="text" placeholder="'+(f.placeholder||'')+'"></div>';
+    if(f.type==='number')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="number" placeholder="'+(f.placeholder||'')+'"></div>';
+    return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="text" placeholder="'+(f.placeholder||'')+'"></div>';
+  }).join('');
+}
+
+function submitRegister(){
+  const data={};let valid=true;
+  S.fields.forEach(f=>{
+    const el=document.getElementById('reg_'+f.id);
+    if(!el)return;
+    const val=el.value.trim();
+    if(f.required&&!val){toast('请填写 '+f.name);valid=false;return}
+    data[f.id]=val;data[f.name]=val;
+    if(f.type==='avatar')data.avatar=val;
+    if(f.type==='text'&&!data.name)data.name=val;
+    if(f.type==='phone'&&!data.phone)data.phone=val;
+    if(f.type==='ticket'&&!data.ticket)data.ticket=val;
+  });
+  if(!valid)return;
+  // 检查奖券是否已作废
+  if(data.ticket&&S.voidedTickets&&S.voidedTickets.includes(data.ticket)){toast('该抽奖券编码已作废，无法登记');return}
+  // 检查奖券是否已登记过
+  if(data.ticket&&S.allParticipants){
+    const dup=S.allParticipants.find(p=>{
+      const pTicket=p.ticket||(p.fields&&p.fields.ticket)||'';
+      return pTicket===data.ticket;
+    });
+    if(dup){toast('该抽奖券编码已被登记');return}
+  }
+  const id=uid();
+  data.id=id;data.signed=false;data.registerTime=Date.now();data.operator=S.currentUser.name;data.operatorUser=S.currentUser.user;
+  S.mqtt.publish(S.topic+'register',JSON.stringify({type:'register',operator:S.currentUser.name,data:data,time:Date.now()}));
+  S.regList.unshift({id,name:data.name||'?',phone:data.phone||'',ticket:data.ticket||'',time:Date.now(),fields:data});
+  if(S.regList.length>100)S.regList.pop();
+  renderRegList();clearRegForm();updateStats();toast('登记成功：'+(data.name||'新参与者'));
+}
+
+function clearRegForm(){S.fields.forEach(f=>{const el=document.getElementById('reg_'+f.id);if(el)el.value=''})}
+function renderRegList(){
+  document.getElementById('regList').innerHTML=S.regList.map(r=>'<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((r.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+r.name+'</div><div style="font-size:.75em;color:var(--sub)">'+maskPhone(r.phone)+(r.ticket?' · '+r.ticket:'')+' · '+fmt(r.time)+'</div></div></div>').join('')||'<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无登记记录</div>';
+}
+
+// ========== 统计 ==========
+function updateStats(){
+  const total=S.allParticipants?S.allParticipants.length:0;
+  const signed=S.allParticipants?S.allParticipants.filter(p=>p.signed).length:0;
+  const mine=S.regList.length;
+  document.getElementById('statTotal').textContent=total;
+  document.getElementById('statSigned').textContent=signed;
+  document.getElementById('statMine').textContent=mine;
+}
+function updateStatsPage(){
+  const total=S.allParticipants?S.allParticipants.length:0;
+  const signed=S.allParticipants?S.allParticipants.filter(p=>p.signed).length:0;
+  document.getElementById('stTotal').textContent=total;
+  document.getElementById('stSigned').textContent=signed;
+  document.getElementById('stUnsigned').textContent=total-signed;
+  document.getElementById('stVoided').textContent=(S.voidedTickets||[]).length;
+  // 按操作人统计
+  const byOp={};
+  if(S.allParticipants){
+    S.allParticipants.forEach(p=>{
+      const op=p.operator||'未知';
+      if(!byOp[op])byOp[op]={total:0,signed:0};
+      byOp[op].total++;
+      if(p.signed)byOp[op].signed++;
+    });
+  }
+  const l=document.getElementById('stByOperator');
+  const ops=Object.keys(byOp);
+  if(!ops.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无数据</div>';return}
+  l.innerHTML=ops.map(op=>'<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((op||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+op+'</div><div style="font-size:.75em;color:var(--sub)">登记 '+byOp[op].total+' · 已签到 '+byOp[op].signed+'</div></div><div style="color:var(--gold);font-weight:bold">'+byOp[op].total+'</div></div>').join('');
+}
+
+// ========== 奖券作废 ==========
+function doVoidTicket(){
+  const code=document.getElementById('voidInput').value.trim();
+  if(!code){toast('请输入奖券编码');return}
+  if(S.voidedTickets&&S.voidedTickets.includes(code)){toast('该奖券已作废');return}
+  // 发送到后台处理
+  S.mqtt.publish(S.topic+'ticket_void',JSON.stringify({code,operator:S.currentUser?S.currentUser.name:'未知',time:Date.now()}));
+  document.getElementById('voidInput').value='';
+  toast('已提交作废: '+code);
+  // 本地更新
+  if(!S.voidedTickets)S.voidedTickets=[];
+  S.voidedTickets.push(code);
+  renderVoidList();
+}
+function renderVoidList(){
+  const l=document.getElementById('voidList');
+  if(!S.voidedTickets||!S.voidedTickets.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无作废奖券</div>';return}
+  l.innerHTML=S.voidedTickets.map(code=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card2);border-radius:8px;margin-bottom:4px"><div style="flex:1;font-family:monospace;font-size:.95em">'+code+'</div><span class="badge badge-void">已作废</span></div>').join('');
+}
+
+// ========== 导出 ==========
+function exportMyRecords(){
+  if(!S.regList.length){toast('暂无记录');return}
+  let csv='\uFEFF序号,姓名,手机号,抽奖券编码,登记时间\n';
+  S.regList.forEach((r,i)=>{csv+=(i+1)+','+(r.name||'')+','+(r.phone||'')+','+(r.ticket||'')+','+fmt(r.time)+'\n'});
+  const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download='我的登记记录_'+Date.now()+'.csv';l.click();URL.revokeObjectURL(l.href);
+  toast('已导出');
+}
+
+// ========== 二维码 ==========
+function generateQR(){
+  if(!S.baseLink){toast('请先在后台设置基础地址');return}
+  const signinUrl=S.baseLink+'/signin.html?room='+S.room;
+  const screenUrl=S.baseLink+'/screen.html?room='+S.room;
+  document.getElementById('qrSigninUrl').textContent=signinUrl;
+  document.getElementById('qrScreenUrl').textContent=screenUrl;
+  document.getElementById('qrSignin').innerHTML='';
+  document.getElementById('qrScreen').innerHTML='';
+  try{
+    new QRCode(document.getElementById('qrSignin'),{text:signinUrl,width:200,height:200});
+    new QRCode(document.getElementById('qrScreen'),{text:screenUrl,width:200,height:200});
+  }catch(e){toast('二维码生成失败，请检查网络')}
+}
+</script>
+</body>
+</html>

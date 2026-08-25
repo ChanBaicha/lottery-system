@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>抽奖大屏</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;overflow:hidden;background:#0a0e27;color:#fff;user-select:none}
+:root{--pri:#6c5ce7;--acc:#fd79a8;--gold:#fdcb6e;--grn:#00b894;--red:#e17055}
+::-webkit-scrollbar{display:none}
+#stage{position:fixed;top:0;left:0;width:100vw;height:100vh;overflow:hidden}
+#bgLayer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:0}
+#bgLayer img{width:100%;height:100%;object-fit:cover}
+#bgLayer::after{content:'';position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(10,14,39,.3)}
+
+/* 标题 */
+#titleBar{position:relative;z-index:10;text-align:center;padding:20px}
+#mainTitle{font-weight:bold;text-shadow:0 0 30px rgba(253,203,110,.3);transition:all .3s}
+#signedCounter{display:inline-block;margin-top:8px;padding:4px 18px;border-radius:20px;background:rgba(255,255,255,.1);font-size:.9em}
+
+/* 流动动画容器 */
+#flowContainer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:5;pointer-events:none}
+#flowCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
+
+/* 自定义元素 */
+.custom-el{position:absolute;z-index:8;cursor:move;border:2px dashed transparent;transition:border-color .2s}
+.custom-el:hover{border-color:rgba(108,92,231,.5)}
+.custom-el.selected{border-color:var(--pri)}
+.custom-el .el-text{white-space:nowrap}
+.custom-el .resize-handle{position:absolute;bottom:0;right:0;width:16px;height:16px;background:var(--pri);border-radius:50%;cursor:nwse-resize;display:none}
+.custom-el.selected .resize-handle{display:block}
+
+/* 弹幕层 */
+#danmakuLayer{position:fixed;top:0;left:0;width:100%;height:100%;z-index:50;pointer-events:none;overflow:hidden}
+.dm-item{position:absolute;white-space:nowrap;font-weight:bold;text-shadow:1px 1px 3px rgba(0,0,0,.8);animation:dmScroll linear forwards}
+@keyframes dmScroll{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+
+/* 控制栏 */
+#ctrlBar{position:fixed;bottom:0;left:0;width:100%;z-index:100;display:flex;justify-content:center;gap:12px;padding:14px;background:linear-gradient(transparent,rgba(10,14,39,.9))}
+.ctrl-btn{padding:12px 28px;border-radius:30px;cursor:pointer;font-size:1em;font-weight:bold;transition:.3s;display:flex;align-items:center;gap:8px}
+.ctrl-btn:hover{transform:translateY(-2px)}
+.btn-draw{background:linear-gradient(135deg,#fd79a8,#6c5ce7);color:#fff;box-shadow:0 4px 20px rgba(253,121,168,.4)}
+.btn-game{background:linear-gradient(135deg,#fdcb6e,#e17055);color:#333}
+.btn-flow{background:rgba(255,255,255,.12);color:#fff}
+.btn-draw:disabled{opacity:.5;cursor:not-allowed}
+
+/* 抽奖动画 */
+#drawOverlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.85)}
+#drawOverlay.show{display:flex}
+.draw-pool{width:80%;max-width:900px;text-align:center}
+.draw-names{font-size:3em;font-weight:bold;margin:20px 0;min-height:120px;display:flex;flex-wrap:wrap;gap:20px;justify-content:center}
+.draw-name-item{padding:10px 30px;border-radius:20px;background:rgba(108,92,231,.2);border:2px solid var(--pri);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.draw-result{display:none}
+.draw-result.show{display:block;animation:zoomIn .5s ease}
+@keyframes zoomIn{0%{transform:scale(.3);opacity:0}50%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+.winner-card{background:linear-gradient(135deg,rgba(253,203,110,.15),rgba(253,121,168,.15));border:2px solid var(--gold);border-radius:20px;padding:30px;margin:20px auto;max-width:600px}
+.winner-item{display:inline-flex;align-items:center;gap:10px;margin:10px 20px;padding:12px 24px;border-radius:16px;background:rgba(253,203,110,.1);border:1px solid rgba(253,203,110,.3)}
+.winner-avatar{width:50px;height:50px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-weight:bold;overflow:hidden}
+.winner-name{font-size:1.4em;font-weight:bold}
+.winner-prize{color:var(--gold);font-size:1.2em;margin-top:12px}
+
+/* 游戏覆盖层 */
+#gameOverlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:150;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.9)}
+#gameOverlay.show{display:flex}
+.game-header{position:absolute;top:30px;left:50%;transform:translateX(-50%);text-align:center;z-index:10}
+.game-title{font-size:2.5em;font-weight:bold;margin-bottom:10px}
+.game-desc{color:var(--gold);font-size:1.1em}
+.game-close{position:absolute;top:20px;right:20px;padding:10px 24px;border-radius:20px;background:var(--red);color:#fff;cursor:pointer;font-size:1em;z-index:20}
+#gameCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
+
+/* 游戏结果 */
+.game-result{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:30;display:none}
+.game-result.show{display:block}
+.game-result h2{font-size:3em;margin-bottom:20px}
+.game-result .rank{font-size:1.3em;margin:8px 0;padding:8px 24px;border-radius:12px}
+
+/* 撒花 */
+.confetti{position:fixed;width:10px;height:10px;top:-10px;z-index:9999;pointer-events:none;animation:cfall linear forwards}
+@keyframes cfall{to{top:110vh;transform:rotate(720deg)}}
+
+/* 流动元素样式 */
+.flow-item{position:absolute;display:flex;align-items:center;gap:8px;padding:6px 16px;border-radius:20px;background:rgba(255,255,255,.1);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.15);white-space:nowrap;will-change:transform}
+.flow-avatar{width:32px;height:32px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-weight:bold;overflow:hidden;flex-shrink:0}
+.flow-avatar img{width:100%;height:100%;object-fit:cover}
+.flow-name{font-size:.95em}
+
+/* MQTT 状态 */
+#mqttStatus{position:fixed;top:12px;right:12px;z-index:100;display:flex;align-items:center;gap:6px;font-size:.8em;padding:5px 14px;border-radius:20px;background:rgba(0,0,0,.4)}
+.mqtt-dot{width:8px;height:8px;border-radius:50%;background:#555;transition:.3s}
+.mqtt-dot.online{background:var(--grn);box-shadow:0 0 8px var(--grn)}
+.mqtt-dot.offline{background:var(--red)}
+.mqtt-dot.connecting{background:var(--gold);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* 编辑面板 */
+#editPanel{position:fixed;right:-300px;top:0;width:280px;height:100%;background:rgba(22,27,60,.95);z-index:300;transition:right .3s;padding:20px;overflow-y:auto;border-left:1px solid rgba(255,255,255,.1)}
+#editPanel.show{right:0}
+.edit-title{font-size:1.1em;font-weight:bold;margin-bottom:16px;color:var(--gold)}
+.edit-group{margin-bottom:16px}
+.edit-group label{display:block;font-size:.82em;color:#a0a8c8;margin-bottom:4px}
+.edit-group input,.edit-group select,.edit-group textarea{width:100%;padding:8px 10px;border-radius:8px;background:rgba(30,37,80,.8);border:1px solid rgba(255,255,255,.1);color:#fff;font-size:.9em}
+.edit-group input[type="range"]{padding:0}
+
+/* 头像缓存 */
+.avatar-cache{display:none}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bgLayer"></div>
+  <div id="titleBar">
+    <div id="mainTitle">🎉 幸运抽奖盛典</div>
+    <div id="signedCounter">已签到 <b style="color:var(--gold)" id="signedNum">0</b> 人</div>
+  </div>
+  <div id="flowContainer"><canvas id="flowCanvas"></canvas></div>
+  <div id="customElements"></div>
+  <div id="danmakuLayer"></div>
+  <div id="avatarCache" class="avatar-cache"></div>
+
+  <div id="mqttStatus"><div class="mqtt-dot connecting" id="mDot"></div><span id="mText">连接中...</span></div>
+
+  <!-- 控制栏 -->
+  <div id="ctrlBar">
+    <button class="ctrl-btn btn-flow" onclick="toggleFlow()">✨ 切换动画</button>
+    <button class="ctrl-btn btn-game" onclick="openGameMenu()">🎮 互动游戏</button>
+    <button class="ctrl-btn btn-draw" id="drawBtn" onclick="startDraw()">🎲 开始抽奖</button>
+  </div>
+
+  <!-- 抽奖覆盖层 -->
+  <div id="drawOverlay">
+    <div class="draw-pool">
+      <div id="drawRolling" class="draw-names"></div>
+      <div id="drawResult" class="draw-result"></div>
+    </div>
+  </div>
+
+  <!-- 游戏覆盖层 -->
+  <div id="gameOverlay">
+    <div class="game-header">
+      <div class="game-title" id="gameTitle"></div>
+      <div class="game-desc" id="gameDesc"></div>
+    </div>
+    <button class="game-close" onclick="closeGame()">✕ 退出游戏</button>
+    <canvas id="gameCanvas"></canvas>
+    <div class="game-result" id="gameResult"></div>
+  </div>
+</div>
+
+<!-- 编辑面板 -->
+<div id="editPanel">
+  <div class="edit-title">元素编辑</div>
+  <div class="edit-group"><label>文字内容</label><input id="epText" oninput="updateSelectedEl()"></div>
+  <div class="edit-group"><label>字体大小</label><input id="epSize" type="range" min="12" max="120" oninput="updateSelectedEl()"></div>
+  <div class="edit-group"><label>颜色</label><input id="epColor" type="color" oninput="updateSelectedEl()"></div>
+  <div class="edit-group"><label>图片URL</label><input id="epImgUrl" placeholder="图片地址" oninput="updateSelectedEl()"></div>
+  <div class="edit-group"><label>宽度</label><input id="epWidth" type="number" oninput="updateSelectedEl()"></div>
+  <div class="edit-group"><label>高度</label><input id="epHeight" type="number" oninput="updateSelectedEl()"></div>
+  <div class="edit-group"><label>粗体</label><input id="epBold" type="checkbox" oninput="updateSelectedEl()"></div>
+  <button class="ctrl-btn btn-flow" style="width:100%;justify-content:center;margin-top:10px" onclick="deleteSelectedEl()">🗑 删除元素</button>
+  <button class="ctrl-btn btn-flow" style="width:100%;justify-content:center;margin-top:6px" onclick="closeEditPanel()">完成编辑</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script>
+let S={mqtt:null,topic:'',room:'',prizes:[],fields:[],participants:[],screen:{title:'',titleSize:48,titleColor:'#fdcb6e',bgUrl:'',flowType:'meteor',elements:[]},signin:{},drawCount:1,noRepeat:true,flowType:'meteor',isDrawing:false,flowItems:[],gameRunning:false,
+  flowInterval:0,autoRotateTimer:null,
+  danmakuSettings:{enable:true,speed:8,fontSize:28},
+  avatarImages:{}
+};
+let canvas,ctx,gameCanvas,gameCtx,animId;
+let selectedEl=null;
+let flowParticles=[],flowStars=[],heartPhase=0,globeRot=0,cloudT=0;
+
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+
+// ========== 初始化 ==========
+(function init(){
+  const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
+  canvas=document.getElementById('flowCanvas');ctx=canvas.getContext('2d');
+  gameCanvas=document.getElementById('gameCanvas');gameCtx=gameCanvas.getContext('2d');
+  resizeCanvas();
+  window.addEventListener('resize',resizeCanvas);
+  connectMQTT();
+  try{const d=JSON.parse(localStorage.getItem('cj_screen_'+S.room));if(d){S.screen=d.screen||S.screen;S.prizes=d.prizes||[]}}catch(e){}
+  applyScreenConfig();startFlow();
+})();
+
+function resizeCanvas(){if(canvas){canvas.width=window.innerWidth;canvas.height=window.innerHeight}if(gameCanvas){gameCanvas.width=window.innerWidth;gameCanvas.height=window.innerHeight}}
+
+// ========== MQTT ==========
+function connectMQTT(){
+  const cid='screen_'+uid();
+  try{
+    S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
+    S.mqtt.on('connect',()=>{
+      updateMqtt('online');
+      S.mqtt.subscribe(S.topic+'config');
+      S.mqtt.subscribe(S.topic+'lottery_result');
+      S.mqtt.subscribe(S.topic+'draw_cmd');
+      S.mqtt.subscribe(S.topic+'game_cmd');
+      S.mqtt.subscribe(S.topic+'sign_in');
+      S.mqtt.subscribe(S.topic+'register');
+      S.mqtt.subscribe(S.topic+'shake_data');
+      S.mqtt.subscribe(S.topic+'reaction_click');
+      S.mqtt.subscribe(S.topic+'quiz_answer');
+      S.mqtt.subscribe(S.topic+'danmaku_show');
+      S.mqtt.subscribe(S.topic+'avatar_update');
+      S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'screen',time:Date.now()}));
+    });
+    S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
+    S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
+  }catch(e){updateMqtt('offline')}
+}
+function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');d.className='mqtt-dot '+s;t.textContent=s==='online'?'已连接':s==='offline'?'未连接':'连接中...'}
+function handleMsg(t,d){
+  if(t.endsWith('config')){
+    S.prizes=d.prizes||S.prizes;S.fields=d.fields||S.fields;S.screen=Object.assign(S.screen,d.screen||{});S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;S.noRepeat=d.noRepeat!==false;
+    S.flowInterval=d.flowInterval||0;
+    S.danmakuSettings=d.danmaku||{enable:true,speed:8,fontSize:28};
+    if(d.participants&&d.participants.length){
+      S.participants=d.participants.map(function(p){
+        const item=Object.assign({id:uid(),signed:true,won:false,prizeId:null},p);
+        if(p.avatar)item.avatar=p.avatar;
+        return item;
+      });
+    }
+    if(d.voidedTickets)S.voidedTickets=d.voidedTickets;
+    applyScreenConfig();updateFlowItems();setupAutoRotate();
+    try{localStorage.setItem('cj_screen_'+S.room,JSON.stringify({screen:S.screen,prizes:S.prizes}))}catch(e){}
+  }else if(t.endsWith('draw_cmd')){
+    if(d.action==='start')startDraw();else if(d.action==='game')openGame(d.game);
+  }else if(t.endsWith('lottery_result')){
+    showDrawResult(d.winners||[]);
+  }else if(t.endsWith('shake_data')){
+    shakePlayers[d.name]=(shakePlayers[d.name]||0)+(d.count||1);
+  }else if(t.endsWith('reaction_click')&&reactionState==='go'){
+    if(!reactionPlayers[d.name])reactionPlayers[d.name]=Date.now()-reactionTime;
+  }else if(t.endsWith('quiz_answer')){
+    if(!quizState.answers[d.name])quizState.answers[d.name]=d.answer;
+  }else if(t.endsWith('register')||t.endsWith('sign_in')){
+    const data=d.data||d;
+    if(data.name){
+      const exist=S.participants.find(p=>p.name===data.name);
+      if(exist){Object.assign(exist,data)}
+      else{S.participants.push(Object.assign({id:uid(),signed:true,won:false,prizeId:null},data))}
+      updateFlowItems();
+    }
+  }else if(t.endsWith('danmaku_show')){
+    showDanmaku(d.text,d.name);
+  }else if(t.endsWith('avatar_update')){
+    if(d.name&&d.avatar){
+      S.avatarImages[d.name]=d.avatar;
+      // 更新参与者头像
+      const p=S.participants.find(pp=>pp.name===d.name);
+      if(p)p.avatar=d.avatar;
+      updateFlowItems();
+    }
+  }
+}
+
+// ========== 大屏外观应用 ==========
+function applyScreenConfig(){
+  const sc=S.screen;
+  const t=document.getElementById('mainTitle');
+  t.textContent=sc.title||'🎉 幸运抽奖盛典';t.style.fontSize=(sc.titleSize||48)+'px';t.style.color=sc.titleColor||'#fdcb6e';
+  const bg=document.getElementById('bgLayer');
+  if(sc.bgUrl)bg.innerHTML='<img src="'+sc.bgUrl+'">';else bg.innerHTML='';
+  S.flowType=sc.flowType||'meteor';
+  renderCustomElements();
+}
+
+// ========== 自动轮播 ==========
+function setupAutoRotate(){
+  if(S.autoRotateTimer){clearInterval(S.autoRotateTimer);S.autoRotateTimer=null}
+  if(S.flowInterval&&S.flowInterval>0){
+    S.autoRotateTimer=setInterval(()=>{
+      if(!S.isDrawing&&!S.gameRunning){
+        toggleFlow();
+      }
+    },S.flowInterval*1000);
+  }
+}
+
+// ========== 弹幕显示 ==========
+function showDanmaku(text,name){
+  if(!S.danmakuSettings.enable)return;
+  const layer=document.getElementById('danmakuLayer');
+  const div=document.createElement('div');
+  div.className='dm-item';
+  const fontSize=S.danmakuSettings.fontSize||28;
+  const speed=S.danmakuSettings.speed||8;
+  const colors=['#fff','#fdcb6e','#fd79a8','#a29bfe','#00b894','#0984e3'];
+  div.style.fontSize=fontSize+'px';
+  div.style.color=colors[Math.floor(Math.random()*colors.length)];
+  div.style.top=(Math.random()*60+5)+'%';
+  div.style.animationDuration=speed+'s';
+  const display=name?name+': '+text:text;
+  div.textContent=display;
+  layer.appendChild(div);
+  setTimeout(()=>div.remove(),speed*1000+500);
+}
+
+// ========== 自定义元素 ==========
+function renderCustomElements(){
+  const c=document.getElementById('customElements');c.innerHTML='';
+  (S.screen.elements||[]).forEach(el=>{
+    const div=document.createElement('div');
+    div.className='custom-el';div.dataset.id=el.id;
+    div.style.left=el.x+'px';div.style.top=el.y+'px';
+    if(el.type==='text'){
+      div.innerHTML='<span class="el-text" style="font-size:'+el.size+'px;color:'+(el.color||'#fff')+';font-weight:'+(el.bold?'bold':'normal')+'">'+el.content+'</span>';
+    }else{
+      div.style.width=(el.width||200)+'px';div.style.height=(el.height||150)+'px';
+      div.innerHTML='<img src="'+(el.src||'')+'" style="width:100%;height:100%;object-fit:contain" onerror="this.style.display=\'none\'">';
+    }
+    div.innerHTML+='<div class="resize-handle"></div>';
+    div.onmousedown=e=>startDragEl(e,el,div);
+    div.ondblclick=()=>openEditPanel(el,div);
+    c.appendChild(div);
+  });
+}
+function startDragEl(e,el,div){
+  e.preventDefault();const sx=e.clientX-el.x,sy=e.clientY-el.y;
+  document.querySelectorAll('.custom-el').forEach(d=>d.classList.remove('selected'));
+  div.classList.add('selected');selectedEl=el;
+  const handle=e.target.classList.contains('resize-handle');
+  if(handle){startResize(e,el,div);return}
+  const move=ev=>{el.x=ev.clientX-sx;el.y=ev.clientY-sy;div.style.left=el.x+'px';div.style.top=el.y+'px'};
+  const up=()=>{document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up)};
+  document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+}
+function startResize(e,el,div){
+  e.preventDefault();const sw=el.width||200,sh=el.height||150,sx=e.clientX,sy=e.clientY;
+  const move=ev=>{el.width=Math.max(20,sw+ev.clientX-sx);el.height=Math.max(20,sh+ev.clientY-sy);div.style.width=el.width+'px';div.style.height=el.height+'px'};
+  const up=()=>{document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up)};
+  document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+}
+function openEditPanel(el,div){
+  document.querySelectorAll('.custom-el').forEach(d=>d.classList.remove('selected'));
+  div.classList.add('selected');selectedEl=el;
+  const p=document.getElementById('editPanel');p.classList.add('show');
+  document.getElementById('epText').value=el.content||'';document.getElementById('epSize').value=el.size||24;document.getElementById('epColor').value=el.color||'#fff';document.getElementById('epImgUrl').value=el.src||'';document.getElementById('epWidth').value=el.width||200;document.getElementById('epHeight').value=el.height||150;document.getElementById('epBold').checked=el.bold||false;
+}
+function updateSelectedEl(){
+  if(!selectedEl)return;
+  selectedEl.content=document.getElementById('epText').value;selectedEl.size=parseInt(document.getElementById('epSize').value)||24;selectedEl.color=document.getElementById('epColor').value;selectedEl.src=document.getElementById('epImgUrl').value;selectedEl.width=parseInt(document.getElementById('epWidth').value)||200;selectedEl.height=parseInt(document.getElementById('epHeight').value)||150;selectedEl.bold=document.getElementById('epBold').checked;
+  renderCustomElements();
+}
+function deleteSelectedEl(){if(selectedEl){S.screen.elements=S.screen.elements.filter(e=>e.id!==selectedEl.id);selectedEl=null;renderCustomElements();document.getElementById('editPanel').classList.remove('show')}}
+function closeEditPanel(){document.getElementById('editPanel').classList.remove('show');document.querySelectorAll('.custom-el').forEach(d=>d.classList.remove('selected'));selectedEl=null}
+
+// ========== 流动动画 ==========
+function updateFlowItems(){
+  const signed=S.participants.filter(p=>p.signed&&!p.won);
+  document.getElementById('signedNum').textContent=signed.length;
+  S.flowItems=signed.map(p=>{
+    const nameField=S.fields.find(f=>f.showFlow)||S.fields[0];
+    const avatarField=S.fields.find(f=>f.type==='avatar');
+    let avatar=p.avatar||(p.fields&&avatarField?p.fields[avatarField.id]:'')||S.avatarImages[p.name]||'';
+    return{name:p.name||'?',avatar:avatar,color:randomColor()};
+  });
+  if(S.flowItems.length===0&&signed.length===0){S.flowItems=[]}
+}
+
+const flowColors=['#6c5ce7','#fd79a8','#fdcb6e','#00b894','#0984e3','#e17055','#a29bfe','#fab1a0'];
+function randomColor(){return flowColors[Math.floor(Math.random()*flowColors.length)]}
+
+function toggleFlow(){
+  const types=['meteor','heart','globe','wordcloud'];
+  const idx=types.indexOf(S.flowType);S.flowType=types[(idx+1)%types.length];
+  S.screen.flowType=S.flowType;stopFlow();startFlow();
+  toast('切换至: '+{meteor:'流星特效',heart:'爱心组合',globe:'3D球形',wordcloud:'词云特效'}[S.flowType]);
+}
+
+// 变量已在顶部声明
+function startFlow(){
+  stopFlow();updateFlowItems();
+  const type=S.flowType;
+  if(type==='meteor')initMeteor();else if(type==='heart')initHeart();else if(type==='globe')initGlobe();else if(type==='wordcloud')initWordCloud();
+  animate();
+}
+function stopFlow(){cancelAnimationFrame(animId);flowParticles=[];flowStars=[];ctx.clearRect(0,0,canvas.width,canvas.height)}
+
+// --- 流星特效 ---
+function initMeteor(){
+  flowParticles=S.flowItems.map((item,i)=>{
+    const angle=Math.PI+Math.random()*Math.PI;
+    const speed=1+Math.random()*2;
+    return{...item,x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,size:8+Math.random()*8,trail:[],maxTrail:15,rot:Math.random()*Math.PI*2,vr:(Math.random()-.5)*0.05};
+  });
+  flowStars=Array.from({length:60},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*2,op:Math.random()*.5+.3}));
+}
+function drawMeteor(){
+  ctx.fillStyle='rgba(10,14,39,.15)';ctx.fillRect(0,0,canvas.width,canvas.height);
+  flowStars.forEach(s=>{ctx.fillStyle='rgba(255,255,255,'+s.op+')';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();s.x-=.3;if(s.x<0)s.x=canvas.width});
+  flowParticles.forEach(p=>{
+    p.trail.push({x:p.x,y:p.y});if(p.trail.length>p.maxTrail)p.trail.shift();
+    p.trail.forEach((t,i)=>{const op=i/p.maxTrail;ctx.fillStyle=p.color.replace(')',','+op+')').replace('rgb','rgba');ctx.beginPath();ctx.arc(t.x,t.y,p.size*op,0,Math.PI*2);ctx.fill()});
+    ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+    drawAvatar(ctx,0,0,p.size*2,p);
+    ctx.fillStyle='#fff';ctx.font='12px Microsoft YaHei';ctx.textAlign='center';ctx.fillText(p.name,0,p.size+14);
+    ctx.restore();
+    p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;
+    if(p.x<-50)p.x=canvas.width+50;if(p.x>canvas.width+50)p.x=-50;
+    if(p.y<-50)p.y=canvas.height+50;if(p.y>canvas.height+50)p.y=-50;
+  });
+}
+
+// --- 爱心组合 ---
+function initHeart(){
+  heartPhase=0;
+  flowParticles=S.flowItems.map((item,i)=>{
+    const t=i/Math.max(S.flowItems.length,1);
+    const a=t*Math.PI*2;
+    return{...item,t:t,angle:a,scale:1,baseScale:0.8+Math.random()*0.4,offset:Math.random()*Math.PI*2};
+  });
+}
+function heartPoint(t,scale,cx,cy){
+  const x=16*Math.pow(Math.sin(t),3);
+  const y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
+  return{x:cx+x*scale,y:cy+y*scale};
+}
+function drawHeart(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  heartPhase+=0.02;
+  const cx=canvas.width/2,cy=canvas.height/2;
+  const scale=Math.min(canvas.width,canvas.height)/50*(1+Math.sin(heartPhase)*0.1);
+  ctx.strokeStyle='rgba(253,121,168,'+(0.3+Math.sin(heartPhase)*0.1)+')';ctx.lineWidth=2;
+  ctx.beginPath();
+  for(let t=0;t<=Math.PI*2+0.1;t+=0.05){const p=heartPoint(t,scale*1.1,cx,cy);if(t===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y)}
+  ctx.stroke();
+  flowParticles.forEach((p,i)=>{
+    const t=p.t+heartPhase*0.3;
+    const pos=heartPoint(t,scale*p.baseScale,cx,cy);
+    const pulse=1+Math.sin(heartPhase*2+p.offset)*0.15;
+    ctx.save();ctx.translate(pos.x,pos.y);
+    drawAvatar(ctx,0,0,p.size*2*pulse,p);
+    ctx.fillStyle='#fff';ctx.font='10px Microsoft YaHei';ctx.textAlign='center';ctx.fillText(p.name,0,p.size*pulse+12);
+    ctx.restore();
+  });
+}
+
+// --- 3D 球形 ---
+function initGlobe(){
+  globeRot=0;
+  flowParticles=S.flowItems.map((item,i)=>{
+    const phi=Math.acos(-1+(2*i)/Math.max(S.flowItems.length,1));
+    const theta=Math.sqrt(S.flowItems.length*Math.PI)*phi;
+    return{...item,phi,theta,x:0,y:0,z:0,size:10+Math.random()*4};
+  });
+}
+function drawGlobe(){
+  ctx.fillStyle='rgba(10,14,39,.1)';ctx.fillRect(0,0,canvas.width,canvas.height);
+  globeRot+=0.008;
+  const cx=canvas.width/2,cy=canvas.height/2,R=Math.min(canvas.width,canvas.height)*0.32;
+  ctx.strokeStyle='rgba(108,92,231,.15)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.stroke();
+  flowParticles.forEach(p=>{
+    p.x=R*Math.cos(p.theta+globeRot)*Math.sin(p.phi);
+    p.y=R*Math.sin(p.theta+globeRot)*Math.sin(p.phi);
+    p.z=R*Math.cos(p.phi);
+    const scale=(p.z+R)/(2*R);
+    const px=cx+p.x,py=cy+p.y;
+    const size=p.size*(0.3+scale*0.7);
+    const alpha=0.2+scale*0.8;
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(px,py);
+    drawAvatar(ctx,0,0,size*2,p);
+    ctx.globalAlpha=alpha;ctx.fillStyle='#fff';ctx.font=(8+scale*6)+'px Microsoft YaHei';ctx.textAlign='center';ctx.fillText(p.name,0,size+10);
+    ctx.restore();
+  });
+}
+
+// --- 词云特效 ---
+function initWordCloud(){
+  cloudT=0;flowParticles=S.flowItems.map((item,i)=>{
+    const angle=Math.random()*Math.PI*2;const r=Math.random()*Math.min(canvas.width,canvas.height)*0.35;
+    return{...item,x:canvas.width/2+Math.cos(angle)*r,y:canvas.height/2+Math.sin(angle)*r,angle,r,speed:0.005+Math.random()*0.01,size:14+Math.random()*16,phase:Math.random()*Math.PI*2};
+  });
+}
+function drawWordCloud(){
+  ctx.fillStyle='rgba(10,14,39,.12)';ctx.fillRect(0,0,canvas.width,canvas.height);
+  cloudT+=0.01;
+  flowParticles.forEach(p=>{
+    p.angle+=p.speed;const pulse=1+Math.sin(cloudT*2+p.phase)*0.2;
+    const r=p.r*(1+Math.sin(cloudT+p.phase)*0.05);
+    p.x=canvas.width/2+Math.cos(p.angle)*r;p.y=canvas.height/2+Math.sin(p.angle)*r*0.7;
+    ctx.save();ctx.translate(p.x,p.y);
+    const grad=ctx.createRadialGradient(0,0,0,0,0,p.size*1.5*pulse);
+    grad.addColorStop(0,p.color);grad.addColorStop(1,'transparent');
+    ctx.fillStyle=grad;ctx.globalAlpha=0.3;ctx.beginPath();ctx.arc(0,0,p.size*1.5*pulse,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;
+    drawAvatar(ctx,0,0,p.size*pulse,p);
+    ctx.fillStyle=p.color;ctx.font='bold '+(p.size*pulse)+'px Microsoft YaHei';ctx.textAlign='center';
+    ctx.fillText(p.name,0,p.size*pulse+12);
+    ctx.restore();
+  });
+}
+
+// 绘制头像（有图片用图片，没有用首字母）
+const _avatarImgCache={};
+function drawAvatar(ctx,x,y,size,p){
+  size=Math.max(8,size);
+  ctx.beginPath();ctx.arc(x,y,size/2,0,Math.PI*2);
+  ctx.fillStyle=p.color||'#6c5ce7';ctx.fill();
+  if(p.avatar){
+    const key=p.avatar;
+    if(_avatarImgCache[key]&&_avatarImgCache[key].complete&&_avatarImgCache[key].naturalWidth>0){
+      ctx.save();ctx.beginPath();ctx.arc(x,y,size/2,0,Math.PI*2);ctx.clip();
+      ctx.drawImage(_avatarImgCache[key],x-size/2,y-size/2,size,size);
+      ctx.restore();
+    }else{
+      if(!_avatarImgCache[key]){
+        const img=new Image();
+        img.crossOrigin='anonymous';
+        img.onload=function(){_avatarImgCache[key]=img};
+        img.src=key;
+      }
+      // 没有图片就画首字母
+      ctx.fillStyle='#fff';ctx.font='bold '+(size*0.4)+'px Microsoft YaHei';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.name?p.name[0]:'?',x,y);ctx.textBaseline='alphabetic';
+    }
+  }else{
+    ctx.fillStyle='#fff';ctx.font='bold '+(size*0.4)+'px Microsoft YaHei';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(p.name?p.name[0]:'?',x,y);ctx.textBaseline='alphabetic';
+  }
+}
+
+function animate(){animId=requestAnimationFrame(animate);const t=S.flowType;if(t==='meteor')drawMeteor();else if(t==='heart')drawHeart();else if(t==='globe')drawGlobe();else if(t==='wordcloud')drawWordCloud()}
+
+function toast(m){const t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:20px;background:rgba(0,0,0,.8);z-index:999;font-size:.9em;transition:.3s';document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300)},2000)}
+
+// ========== 抽奖 ==========
+function startDraw(){
+  if(S.isDrawing)return;
+  const signed=S.participants.filter(p=>p.signed&&!(S.noRepeat&&p.won));
+  const available=S.prizes.filter(p=>p.won<p.count);
+  if(!signed.length){toast('没有可参与的已签到人员');return}
+  if(!available.length){toast('没有可抽的奖品');return}
+  S.isDrawing=true;document.getElementById('drawBtn').disabled=true;
+  const overlay=document.getElementById('drawOverlay');overlay.classList.add('show');
+  document.getElementById('drawRolling').style.display='flex';document.getElementById('drawResult').classList.remove('show');
+  const count=Math.min(S.drawCount,signed.length);
+  const rolling=document.getElementById('drawRolling');
+  let rollItems=[];
+  for(let i=0;i<count;i++){rollItems.push(document.createElement('div'));rollItems[i].className='draw-name-item';rolling.appendChild(rollItems[i])}
+  let scrollCount=0;
+  const interval=setInterval(()=>{
+    for(let i=0;i<count;i++){const r=signed[Math.floor(Math.random()*signed.length)];rollItems[i].textContent=r.name||'?'}
+    scrollCount++;
+  },80);
+  setTimeout(()=>{
+    clearInterval(interval);
+    const winners=[];
+    const pool=[...signed];
+    for(let i=0;i<count&&pool.length>0;i++){
+      const idx=Math.floor(Math.random()*pool.length);
+      const w=pool[idx];pool.splice(idx,1);
+      const prize=weightedPrize(available);
+      prize.won++;w.won=true;w.prizeId=prize.id;
+      winners.push({name:w.name,phone:w.phone,prize:prize.name,prizeColor:prize.color,avatar:w.avatar||S.avatarImages[w.name]||''});
+    }
+    broadcastLottery(winners);
+    showDrawResult(winners);
+    document.getElementById('drawBtn').disabled=false;S.isDrawing=false;
+    launchConfetti();
+  },2500);
+}
+function weightedPrize(prizes){const tw=prizes.reduce((s,p)=>s+p.weight,0);let r=Math.random()*tw;for(const p of prizes){r-=p.weight;if(r<=0)return p}return prizes[prizes.length-1]}
+function showDrawResult(winners){
+  document.getElementById('drawRolling').style.display='none';
+  const r=document.getElementById('drawResult');
+  r.innerHTML='<div class="winner-card">'+winners.map(w=>'<div class="winner-item"><div class="winner-avatar">'+(w.avatar?'<img src="'+w.avatar+'" style="width:100%;height:100%;object-fit:cover">':(w.name||'?')[0])+'</div><div class="winner-name">'+w.name+'</div></div>').join('')+'<div class="winner-prize">🎉 获得：'+winners[0].prize+'</div></div>';
+  r.classList.add('show');
+  setTimeout(()=>{document.getElementById('drawOverlay').classList.remove('show')},8000);
+}
+function broadcastLottery(winners){
+  if(!S.mqtt||!S.mqtt.connected)return;
+  S.mqtt.publish(S.topic+'lottery_result',JSON.stringify({winners:winners,time:Date.now()}));
+}
+
+// 撒花
+function launchConfetti(){
+  const colors=['#fd79a8','#fdcb6e','#6c5ce7','#00b894','#0984e3','#fab1a0','#a29bfe'];
+  for(let i=0;i<80;i++){const c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.animationDuration=(2+Math.random()*2)+'s';c.style.animationDelay=Math.random()*.5+'s';if(Math.random()>.5)c.style.borderRadius='50%';document.body.appendChild(c);setTimeout(()=>c.remove(),5000)}
+}
+
+// ========== 互动小游戏 ==========
+function openGameMenu(){
+  if(S.gameRunning)return;
+  const menu=document.createElement('div');
+  menu.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:250;background:rgba(22,27,60,.95);padding:30px;border-radius:20px;text-align:center;border:1px solid rgba(255,255,255,.1)';
+  menu.innerHTML='<h2 style="margin-bottom:20px">🎮 选择互动游戏</h2><div style="display:flex;gap:16px;flex-direction:column"></div>';
+  const games=[
+    {id:'shake',name:'摇一摇大赛',desc:'参与者手机摇一摇，比拼摇动次数',icon:'📱'},
+    {id:'reaction',name:'反应速度测试',desc:'屏幕变色后最快点击者获胜',icon:'⚡'},
+    {id:'quiz',name:'趣味抢答',desc:'屏幕出题，参与者手机抢答',icon:'🧠'}
+  ];
+  const container=menu.querySelector('div');
+  games.forEach(g=>{
+    const btn=document.createElement('button');
+    btn.className='ctrl-btn btn-game';btn.style.cssText='width:300px;justify-content:flex-start;padding:16px 20px';
+    btn.innerHTML='<span style="font-size:1.5em;margin-right:10px">'+g.icon+'</span><div style="text-align:left"><div style="font-weight:bold">'+g.name+'</div><div style="font-size:.8em;opacity:.7">'+g.desc+'</div></div>';
+    btn.onclick=()=>{menu.remove();openGame(g.id)};
+    container.appendChild(btn);
+  });
+  const cancel=document.createElement('button');cancel.className='ctrl-btn btn-flow';cancel.style.width='300px';cancel.textContent='取消';cancel.onclick=()=>menu.remove();container.appendChild(cancel);
+  document.body.appendChild(menu);
+}
+
+function openGame(id){
+  S.gameRunning=true;
+  const overlay=document.getElementById('gameOverlay');overlay.classList.add('show');
+  document.getElementById('gameResult').classList.remove('show');
+  const games={shake:{title:'📱 摇一摇大赛',desc:'参与者请打开手机端，疯狂摇动手机！5秒内摇动次数最多者获胜'},reaction:{title:'⚡ 反应速度测试',desc:'屏幕变绿后，最快在手机端点击的参与者获胜'},quiz:{title:'🧠 趣味抢答',desc:'屏幕出题，参与者手机抢答，最快正确回答者获胜'}};
+  const g=games[id]||games.shake;
+  document.getElementById('gameTitle').textContent=g.title;document.getElementById('gameDesc').textContent=g.desc;
+  if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'start',game:id,time:Date.now()}));
+  if(id==='shake')runShakeGame();else if(id==='reaction')runReactionGame();else if(id==='quiz')runQuizGame();
+}
+
+// --- 摇一摇游戏 ---
+let shakePlayers={},shakeTimer,shakeCountdown=5;
+function runShakeGame(){
+  shakePlayers={};shakeCountdown=5;
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+  if(S.mqtt){S.mqtt.subscribe(S.topic+'shake_data')}
+  let cd=5;
+  const cdInterval=setInterval(()=>{
+    gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+    gameCtx.fillStyle='#fff';gameCtx.font='bold 120px Microsoft YaHei';gameCtx.textAlign='center';gameCtx.textBaseline='middle';
+    gameCtx.fillText(cd,gameCanvas.width/2,gameCanvas.height/2);
+    document.getElementById('gameDesc').textContent='倒计时 '+cd+' 秒';
+    if(cd<=0){clearInterval(cdInterval);startShakeRound()}
+    cd--;
+  },1000);
+}
+function startShakeRound(){
+  document.getElementById('gameDesc').textContent='开始摇一摇！';
+  let timeLeft=5;
+  const roundInterval=setInterval(()=>{
+    gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+    const sorted=Object.entries(shakePlayers).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    gameCtx.fillStyle='#fff';gameCtx.font='bold 40px Microsoft YaHei';gameCtx.textAlign='center';
+    gameCtx.fillText('⏱️ '+timeLeft+' 秒',gameCanvas.width/2,60);
+    gameCtx.font='bold 28px Microsoft YaHei';
+    sorted.forEach((e,i)=>{const y=120+i*45;gameCtx.fillStyle=i===0?'#fdcb6e':i<3?'#fd79a8':'#fff';gameCtx.fillText((i+1)+'. '+e[0]+' - '+e[1]+'次',gameCanvas.width/2,y)});
+    if(timeLeft<=0){clearInterval(roundInterval);endShakeGame(sorted)}
+    timeLeft--;
+  },1000);
+}
+function endShakeGame(sorted){
+  document.getElementById('gameDesc').textContent='游戏结束！';
+  const result=document.getElementById('gameResult');
+  result.innerHTML='<h2>🏆 摇一摇大赛结果</h2>'+sorted.slice(0,3).map((e,i)=>'<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+' - '+e[1]+'次</div>').join('');
+  result.classList.add('show');
+  if(S.mqtt){S.mqtt.unsubscribe(S.topic+'shake_data');S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'end',game:'shake',rankings:sorted.slice(0,3).map((e,i)=>({name:e[0],score:e[1],rank:i+1}))}))}
+}
+
+// --- 反应速度游戏 ---
+let reactionState='waiting',reactionTime=0,reactionPlayers={};
+function runReactionGame(){
+  reactionState='waiting';reactionPlayers={};
+  gameCtx.fillStyle='#e17055';gameCtx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+  gameCtx.fillStyle='#fff';gameCtx.font='bold 48px Microsoft YaHei';gameCtx.textAlign='center';gameCtx.textBaseline='middle';
+  gameCtx.fillText('请准备...',gameCanvas.width/2,gameCanvas.height/2);
+  document.getElementById('gameDesc').textContent='等待屏幕变绿后，参与者请在手机端最快点击！';
+  if(S.mqtt){S.mqtt.subscribe(S.topic+'reaction_click')}
+  const waitTime=2000+Math.random()*4000;
+  setTimeout(()=>{
+    if(!S.gameRunning)return;
+    reactionState='go';reactionTime=Date.now();
+    gameCtx.fillStyle='#00b894';gameCtx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+    gameCtx.fillStyle='#fff';gameCtx.font='bold 80px Microsoft YaHei';
+    gameCtx.fillText('🟢 点击！',gameCanvas.width/2,gameCanvas.height/2);
+    document.getElementById('gameDesc').textContent='快点击手机端按钮！';
+    if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'go',game:'reaction',time:Date.now()}));
+    setTimeout(()=>{if(S.gameRunning&&reactionState==='go'){reactionState='done';endReactionGame()}},3000);
+  },waitTime);
+}
+function endReactionGame(){
+  const sorted=Object.entries(reactionPlayers).sort((a,b)=>a[1]-b[1]).slice(0,10);
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+  document.getElementById('gameDesc').textContent='游戏结束！';
+  const result=document.getElementById('gameResult');
+  result.innerHTML='<h2>⚡ 反应速度排名</h2>'+sorted.slice(0,3).map((e,i)=>'<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+' - '+(e[1]/1000).toFixed(3)+'秒</div>').join('');
+  result.classList.add('show');
+  if(S.mqtt){S.mqtt.unsubscribe(S.topic+'reaction_click');S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'end',game:'reaction',rankings:sorted.slice(0,3).map((e,i)=>({name:e[0],score:e[1],rank:i+1}))}))}
+}
+
+// --- 趣味抢答 ---
+let quizState={},quizzes=[
+  {q:'中国第一长河是？',a:'长江',options:['黄河','长江','珠江','黑龙江']},
+  {q:'一年有多少周？',a:'52',options:['50','51','52','53']},
+  {q:'太阳从哪个方向升起？',a:'东',options:['东','西','南','北']},
+  {q:'一分钟有多少秒？',a:'60',options:['30','60','90','120']}
+];
+function runQuizGame(){
+  quizState={current:0,answers:{}};
+  const q=quizzes[Math.floor(Math.random()*quizzes.length)];quizState.current=q;
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+  gameCtx.fillStyle='#fdcb6e';gameCtx.font='bold 36px Microsoft YaHei';gameCtx.textAlign='center';
+  gameCtx.fillText('🧠 趣味抢答',gameCanvas.width/2,80);
+  gameCtx.fillStyle='#fff';gameCtx.font='bold 40px Microsoft YaHei';
+  gameCtx.fillText(q.q,gameCanvas.width/2,200);
+  q.options.forEach((opt,i)=>{gameCtx.fillStyle=i===0?'#6c5ce7':i===1?'#fd79a8':i===2?'#00b894':'#0984e3';gameCtx.fillRect(gameCanvas.width/2-300,280+i*80,600,65);gameCtx.fillStyle='#fff';gameCtx.font='bold 28px Microsoft YaHei';gameCtx.fillText((['A','B','C','D'])[i]+'. '+opt,gameCanvas.width/2,320+i*80)});
+  document.getElementById('gameDesc').textContent='参与者请在手机端选择答案！';
+  if(S.mqtt){S.mqtt.subscribe(S.topic+'quiz_answer')}
+  // 通知手机端题目
+  if(S.mqtt&&S.mqtt.connected){
+    S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'start',game:'quiz',question:q.q,options:q.options,time:Date.now()}));
+  }
+  setTimeout(()=>{if(S.gameRunning)endQuizGame()},8000);
+}
+function endQuizGame(){
+  const q=quizState.current;const correct=Object.entries(quizState.answers).filter(e=>e[1]===q.a);
+  document.getElementById('gameDesc').textContent='正确答案：'+q.a;
+  const result=document.getElementById('gameResult');
+  result.innerHTML='<h2>🧠 抢答结果</h2><div class="rank" style="background:rgba(0,184,148,.2)">✅ 正确答案：'+q.a+'</div>'+correct.slice(0,3).map((e,i)=>'<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+'</div>').join('')||'<div class="rank" style="background:rgba(231,112,85,.2)">没有人答对</div>';
+  result.classList.add('show');
+  if(S.mqtt){S.mqtt.unsubscribe(S.topic+'quiz_answer');S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'end',game:'quiz',correct:q.a,rankings:correct.slice(0,3).map((e,i)=>({name:e[0],rank:i+1}))}))}
+}
+
+function closeGame(){
+  S.gameRunning=false;
+  document.getElementById('gameOverlay').classList.remove('show');
+  document.getElementById('gameResult').classList.remove('show');
+  if(S.mqtt){S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'close'}))}
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+}
+</script>
+</body>
+</html>
