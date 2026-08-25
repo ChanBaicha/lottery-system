@@ -145,8 +145,8 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 <script>
 let S={mqtt:null,topic:'',room:'',currentUser:null,
   fields:[],prizes:[],signin:{enable:true},drawCount:1,
-  _accounts:[],participants:[],tickets:[],voidedTickets:[],
-  regList:[],baseLink:'',allParticipants:[]
+  _accounts:null,participants:[],tickets:[],voidedTickets:[],
+  regList:[],baseLink:'',allParticipants:[],configReceived:false
 };
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
@@ -169,6 +169,15 @@ function connectMQTT(){
       S.mqtt.subscribe(S.topic+'config');
       S.mqtt.subscribe(S.topic+'lottery_result');
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'register',time:Date.now()}));
+      // 周期性重发配置请求，确保能同步到后台账号（防止初次请求丢失）
+      if(S._retryTimer)clearInterval(S._retryTimer);
+      S._retryTimer=setInterval(()=>{
+        if(S.mqtt&&S.mqtt.connected&&!S.configReceived){
+          S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'register',time:Date.now()}));
+        }else if(S.configReceived&&S._retryTimer){
+          clearInterval(S._retryTimer);S._retryTimer=null;
+        }
+      },5000);
     });
     S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
     S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
@@ -177,6 +186,7 @@ function connectMQTT(){
 function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
 function handleMsg(t,d){
   if(t.endsWith('config')){
+    S.configReceived=true;
     S._accounts=(d.accounts&&d.accounts.length)?d.accounts:[{user:'admin',pwd:'admin123',name:'管理员'}];
     S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
     S.tickets=d.tickets||[];S.voidedTickets=d.voidedTickets||[];S.baseLink=d.baseLink||'';
@@ -190,7 +200,16 @@ function handleMsg(t,d){
 function doLogin(){
   const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPwd').value.trim();
   if(!u||!p){toast('请输入账号密码');return}
-  if(!S._accounts){toast('正在同步账号信息，请稍候...');setTimeout(doLogin,2000);return}
+  if(!S._accounts||!S._accounts.length){
+    if(!S._syncWarned){
+      S._syncWarned=true;
+      setTimeout(()=>{if(!S._accounts||!S._accounts.length)toast('无法同步后台配置，请确认后台管理端已登录并在线',3000)},10000);
+    }
+    toast('正在同步账号信息，请稍候...');
+    // 强制重发请求，加速同步
+    if(S.mqtt&&S.mqtt.connected){S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'register',time:Date.now()}))}
+    setTimeout(doLogin,2000);return
+  }
   const acc=S._accounts.find(a=>a.user===u&&a.pwd===p);
   if(!acc){toast('账号或密码错误');return}
   S.currentUser=acc;
