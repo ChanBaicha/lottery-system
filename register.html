@@ -38,7 +38,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   <div id="loginPage" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px">
     <div class="card" style="width:100%;max-width:380px;text-align:center">
       <h1 style="font-size:1.5em;margin-bottom:8px;background:linear-gradient(135deg,#6c5ce7,#fd79a8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">抽奖登记系统</h1>
-      <p style="color:var(--sub);font-size:.85em;margin-bottom:24px">销售人员请登录后登记参与者</p>
+      <p style="color:var(--sub);font-size:.85em;margin-bottom:24px">请登录后使用（登录状态将自动保存）</p>
       <div class="f-grp"><input id="loginUser" placeholder="账号" style="font-size:1em" onkeydown="if(event.key==='Enter')document.getElementById('loginPwd').focus()"></div>
       <div class="f-grp"><input id="loginPwd" type="password" placeholder="密码" style="font-size:1em" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em" onclick="doLogin()">登 录</button>
@@ -53,8 +53,8 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div style="display:flex;gap:8px;align-items:center">
         <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" id="statsBtn" onclick="showStats()">📊 统计</button>
-        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showVoidPage()">🎫 作废</button>
-        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showQRPage()">📱 二维码</button>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" id="voidBtn" onclick="showVoidPage()">🎫 作废</button>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" id="qrBtn" onclick="showQRPage()">📱 二维码</button>
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="doLogout()">退出</button>
       </div>
     </div>
@@ -67,7 +67,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
     </div>
 
     <!-- 登记表单 -->
-    <div class="card">
+    <div class="card" id="regCard">
       <div style="font-weight:bold;margin-bottom:12px">➕ 新增登记</div>
       <div id="regForm"></div>
       <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em;margin-top:8px" onclick="submitRegister()">✅ 提交登记</button>
@@ -75,7 +75,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
     </div>
 
     <!-- 最近登记 -->
-    <div class="card">
+    <div class="card" id="recentCard">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="font-weight:bold">📋 最近登记</div>
         <button class="btn btn-out" style="padding:4px 10px;font-size:.8em" onclick="exportMyRecords()">📥 导出</button>
@@ -97,8 +97,11 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div class="stat-item"><div class="stat-num" id="stVoided" style="color:var(--acc)">0</div><div class="stat-label">奖券作废</div></div>
     </div>
     <div class="card">
-      <div style="font-weight:bold;margin-bottom:10px">📈 各登记人统计</div>
-      <div id="stByOperator"></div>
+      <div style="font-weight:bold;margin-bottom:10px">👥 全部登记信息</div>
+      <div class="f-grp">
+        <select id="stFilterOp" onchange="renderStats()"><option value="">全部登记人</option></select>
+      </div>
+      <div id="stList" style="max-height:360px;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -148,6 +151,14 @@ let S={mqtt:null,topic:'',room:'',currentUser:null,
   _accounts:null,participants:[],tickets:[],voidedTickets:[],
   regList:[],baseLink:'',allParticipants:[],configReceived:false
 };
+function roleOf(a){a=a||{};return(a.role||(a.user==='admin'?'super':'staff'))}
+function isStaff(){return roleOf(S.currentUser)==='staff'}
+function isViewer(){return roleOf(S.currentUser)==='viewer'}
+function isSuper(){return roleOf(S.currentUser)==='super'}
+function canViewStats(){return isSuper()||isViewer()}
+function canReg(){return isSuper()||isStaff()}
+function canVoid(){return isSuper()}
+function canQR(){return isSuper()}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
 function fmt(d){const dt=new Date(d);return(dt.getMonth()+1)+'/'+dt.getDate()+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}
@@ -193,10 +204,45 @@ function handleMsg(t,d){
     S.allParticipants=d.participants||[];
     updateStats();
     if(S.currentUser)renderRegForm();
+    if(!S.currentUser)tryAutoLogin();
   }
 }
 
 // ========== 登录 ==========
+function rememberLogin(acc){
+  try{localStorage.setItem('cj_reg_'+S.room,JSON.stringify({user:acc.user,pwd:acc.pwd,name:acc.name,role:acc.role,time:Date.now()}))}catch(e){}
+}
+function tryAutoLogin(){
+  try{
+    const d=JSON.parse(localStorage.getItem('cj_reg_'+S.room)||'null');
+    if(!d||!d.user||!d.pwd)return;
+    if(!S._accounts||!S._accounts.length)return; // 等待同步
+    const acc=S._accounts.find(a=>a.user===d.user&&a.pwd===d.pwd);
+    if(!acc)return;
+    enterSystem(acc);
+  }catch(e){}
+}
+function enterSystem(acc){
+  S.currentUser=acc;
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('regPage').style.display='block';
+  document.getElementById('regUser').textContent='('+acc.name+')';
+  // 按角色控制按钮显隐
+  const statsBtn=document.getElementById('statsBtn');
+  const voidBtn=document.getElementById('voidBtn');
+  const qrBtn=document.getElementById('qrBtn');
+  if(statsBtn)statsBtn.style.display=canViewStats()?'inline-flex':'none';
+  if(voidBtn)voidBtn.style.display=canVoid()?'inline-flex':'none';
+  if(qrBtn)qrBtn.style.display=canQR()?'inline-flex':'none';
+  // 按角色控制首页内容：登记者看登记表单；登记管理员/超管看统计
+  const regCard=document.getElementById('regCard');
+  const recentCard=document.getElementById('recentCard');
+  if(regCard)regCard.style.display=canReg()?'block':'none';
+  if(recentCard)recentCard.style.display=canReg()?'block':'none';
+  if(!canReg()&&canViewStats()){showStats()}
+  else{renderRegForm();updateStats()}
+  rememberLogin(acc);
+}
 function doLogin(){
   const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPwd').value.trim();
   if(!u||!p){toast('请输入账号密码');return}
@@ -212,20 +258,14 @@ function doLogin(){
   }
   const acc=S._accounts.find(a=>a.user===u&&a.pwd===p);
   if(!acc){toast('账号或密码错误');return}
-  S.currentUser=acc;
-  document.getElementById('loginPage').style.display='none';
-  document.getElementById('regPage').style.display='block';
-  document.getElementById('regUser').textContent='('+acc.name+')';
-  // 仅管理员可见统计按钮
-  var statsBtn=document.getElementById('statsBtn');
-  if(statsBtn){statsBtn.style.display=(acc.user==='admin')?'inline-flex':'none'}
-  renderRegForm();updateStats();
+  enterSystem(acc);
 }
-function doLogout(){S.currentUser=null;location.reload()}
+function doLogout(){S.currentUser=null;try{localStorage.removeItem('cj_reg_'+S.room)}catch(e){}location.reload()}
 
 // ========== 页面切换 ==========
 function showStats(){document.getElementById('regPage').style.display='none';document.getElementById('statsPage').style.display='block';updateStatsPage()}
 function showVoidPage(){document.getElementById('regPage').style.display='none';document.getElementById('voidPage').style.display='block';renderVoidList()}
+function showQRPage(){document.getElementById('regPage').style.display='none';document.getElementById('qrPage').style.display='block';generateQR()}
 function showQRPage(){document.getElementById('regPage').style.display='none';document.getElementById('qrPage').style.display='block';generateQR()}
 function backToReg(){document.getElementById('statsPage').style.display='none';document.getElementById('voidPage').style.display='none';document.getElementById('qrPage').style.display='none';document.getElementById('regPage').style.display='block'}
 
@@ -310,20 +350,32 @@ function updateStatsPage(){
   document.getElementById('stSigned').textContent=signed;
   document.getElementById('stUnsigned').textContent=total-signed;
   document.getElementById('stVoided').textContent=(S.voidedTickets||[]).length;
-  // 按操作人统计
-  const byOp={};
-  if(S.allParticipants){
-    S.allParticipants.forEach(p=>{
-      const op=p.operator||'未知';
-      if(!byOp[op])byOp[op]={total:0,signed:0};
-      byOp[op].total++;
-      if(p.signed)byOp[op].signed++;
-    });
-  }
-  const l=document.getElementById('stByOperator');
-  const ops=Object.keys(byOp);
-  if(!ops.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无数据</div>';return}
-  l.innerHTML=ops.map(op=>'<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((op||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+op+'</div><div style="font-size:.75em;color:var(--sub)">登记 '+byOp[op].total+' · 已签到 '+byOp[op].signed+'</div></div><div style="color:var(--gold);font-weight:bold">'+byOp[op].total+'</div></div>').join('');
+  // 登记人筛选下拉
+  const ops={};
+  if(S.allParticipants){S.allParticipants.forEach(p=>{const op=p.operator||'未知';ops[op]=true})}
+  const sel=document.getElementById('stFilterOp');
+  const cur=sel.value;
+  const opKeys=Object.keys(ops);
+  sel.innerHTML='<option value="">全部登记人</option>'+opKeys.map(op=>'<option value="'+op+'">'+op+'</option>').join('');
+  if(cur)sel.value=cur;
+  renderStats();
+}
+function renderStats(){
+  const sel=document.getElementById('stFilterOp');
+  const filterOp=sel?sel.value:'';
+  const list=(S.allParticipants||[]).filter(p=>!filterOp||(p.operator||'未知')===filterOp);
+  // 汇总统计
+  document.getElementById('stTotal').textContent=list.length;
+  document.getElementById('stSigned').textContent=list.filter(p=>p.signed).length;
+  document.getElementById('stUnsigned').textContent=list.length-list.filter(p=>p.signed).length;
+  const l=document.getElementById('stList');
+  if(!list.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无数据</div>';return}
+  l.innerHTML=list.map(p=>{
+    const st=p.signed?'<span class="badge badge-signed">已签到</span>':'<span class="badge badge-void">未签到</span>';
+    const t=p.ticket||(p.fields&&p.fields.ticket)||'';
+    const regTime=p.registerTime?fmt(p.registerTime):'';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((p.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+p.name+' '+st+'</div><div style="font-size:.75em;color:var(--sub)">手机号:'+maskPhone(p.phone)+' · 奖券:'+(t||'-')+'</div><div style="font-size:.72em;color:var(--sub)">登记人:'+(p.operator||'未知')+' · '+regTime+'</div></div></div>';
+  }).join('');
 }
 
 // ========== 奖券作废 ==========

@@ -94,16 +94,20 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
         <div class="f-grp"><label>用户名</label><input id="acUser" placeholder="如：sale01"></div>
         <div class="f-grp"><label>密码</label><input id="acPwd" placeholder="设置密码"></div>
         <div class="f-grp"><label>姓名/备注</label><input id="acName" placeholder="如：张三-华东区"></div>
+        <div class="f-grp"><label>级别</label><select id="acRole"><option value="staff">登记者（可登记）</option><option value="viewer">登记管理员（仅统计）</option><option value="super">超级管理员</option></select></div>
         <div style="padding-bottom:0"><button class="btn btn-pri" onclick="addAccount()">+ 添加账号</button></div>
       </div>
     </div>
     <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:10px">📋 批量导入账号</h3>
-      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">每行一个账号，格式：<b>用户名,密码,姓名</b>（逗号分隔，姓名可省略）。可直接从Excel粘贴。</p>
-      <textarea id="acBatch" rows="6" placeholder="sale01,123456,张三&#10;sale02,123456,李四&#10;sale03,123456,王五"></textarea>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">每行一个账号，格式：<b>用户名,密码,姓名,级别</b>（逗号分隔，姓名和级别可省略，默认级别=登记者）。级别可用：<b>super</b>（超级管理员）、<b>viewer</b>（登记管理员）、<b>staff</b>（登记者）。可直接从Excel粘贴。</p>
+      <textarea id="acBatch" rows="6" placeholder="sale01,123456,张三,staff&#10;sale02,123456,李四,viewer&#10;sale03,123456,王五"></textarea>
       <div style="display:flex;gap:10px;margin-top:10px">
         <button class="btn btn-suc" onclick="batchImportAccounts()">📥 批量导入</button>
+        <button class="btn btn-out" onclick="downloadAcTemplate()">📄 下载Excel模板</button>
         <button class="btn btn-out" onclick="document.getElementById('acBatch').value=''">清空</button>
+        <input type="file" id="acFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importAcExcel(this)">
+        <button class="btn btn-out" onclick="document.getElementById('acFile').click()">📂 导入Excel</button>
       </div>
     </div>
     <div id="acList"></div>
@@ -356,9 +360,10 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
 
 <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
-  prizes:[],accounts:[{user:'admin',pwd:'admin123',name:'管理员'}],
+  prizes:[],accounts:[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}],
   fields:[{id:'f1',name:'姓名',type:'text',placeholder:'请输入姓名',required:true,showFlow:true},{id:'f2',name:'手机号',type:'phone',placeholder:'请输入手机号',required:true,showFlow:false},{id:'f3',name:'抽奖券编码',type:'ticket',placeholder:'请输入抽奖券编码',required:true,showFlow:false}],
   drawCount:1,noRepeat:true,drawMode:'random',
   screen:{title:'🎉 幸运抽奖盛典',titleSize:48,titleColor:'#fdcb6e',bgUrl:'',flowType:'meteor',elements:[]},
@@ -517,32 +522,81 @@ function renderPrizes(){
 
 // ========== 账号 ==========
 function addAccount(){
-  const u=document.getElementById('acUser').value.trim(),p=document.getElementById('acPwd').value.trim(),n=document.getElementById('acName').value.trim();
+  const u=document.getElementById('acUser').value.trim(),p=document.getElementById('acPwd').value.trim(),n=document.getElementById('acName').value.trim(),r=document.getElementById('acRole').value;
   if(!u||!p){toast('请输入用户名和密码');return}
   if(S.accounts.find(a=>a.user===u)){toast('用户名已存在');return}
-  S.accounts.push({user:u,pwd:p,name:n||u});
+  S.accounts.push({user:u,pwd:p,name:n||u,role:r||'staff'});
   document.getElementById('acUser').value='';document.getElementById('acPwd').value='';document.getElementById('acName').value='';
   saveLocal();renderAccounts();broadcastConfig();toast('账号已添加')
+}
+function changeAccountRole(u,val){
+  const a=S.accounts.find(a=>a.user===u);
+  if(!a)return;
+  a.role=val;
+  saveLocal();renderAccounts();broadcastConfig();toast('级别已更新')
+}
+function normalizeRole(r){r=(r||'').toString().toLowerCase();if(r==='super'||r==='admin'||r==='超级管理员')return'super';if(r==='viewer'||r==='查看'||r==='登记管理员'||r==='stats')return'viewer';return'staff'}
+function parseAccount(parts){const u=(parts[0]||'').trim(),p=(parts[1]||'').trim(),n=(parts[2]||'').trim()||u,r=normalizeRole(parts[3]);if(!u||!p)return null;return{user:u,pwd:p,name:n,role:r}}
+function pushAccounts(list){
+  let count=0;
+  list.forEach(a=>{
+    if(!a||!a.user||!a.pwd)return;
+    if(S.accounts.find(x=>x.user===a.user))return;
+    S.accounts.push(a);count++;
+  });
+  return count;
 }
 function batchImportAccounts(){
   const text=document.getElementById('acBatch').value.trim();
   if(!text){toast('请输入账号数据');return}
-  let count=0;
+  const list=[];
   text.split('\n').forEach(line=>{
     line=line.trim();if(!line)return;
-    const parts=line.split(',').map(s=>s.trim());
-    const u=parts[0],p=parts[1],n=parts[2]||parts[0];
-    if(!u||!p)return;
-    if(S.accounts.find(a=>a.user===u))return;
-    S.accounts.push({user:u,pwd:p,name:n});
-    count++;
+    const a=parseAccount(line.split(/[,，\t]/));
+    if(a)list.push(a);
   });
+  const count=pushAccounts(list);
   document.getElementById('acBatch').value='';
   saveLocal();renderAccounts();broadcastConfig();toast('已导入 '+count+' 个账号')
 }
+function downloadAcTemplate(){
+  if(typeof XLSX==='undefined'){toast('Excel库加载中，请稍后重试');return}
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([['用户名','密码','姓名','级别'],['sale01','123456','张三-华东区','staff'],['sale02','123456','李四-华南区','viewer'],['sale03','123456','王五','super']]);
+  ws['!cols']=[{wch:12},{wch:12},{wch:20},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'账号模板');
+  XLSX.writeFile(wb,'登记账号导入模板.xlsx');
+  toast('模板已下载')
+}
+function importAcExcel(input){
+  const file=input.files[0];
+  if(!file)return;
+  if(typeof XLSX==='undefined'){toast('Excel库加载中，请稍后重试');input.value='';return}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const list=[];
+      rows.forEach((row,i)=>{if(i===0)return;const a=parseAccount(row);if(a)list.push(a)});
+      const count=pushAccounts(list);
+      input.value='';
+      saveLocal();renderAccounts();broadcastConfig();toast('Excel已导入 '+count+' 个账号');
+    }catch(err){toast('Excel解析失败：'+err.message);input.value=''}
+  };
+  reader.readAsArrayBuffer(file);
+}
 function delAccount(u){if(u==='admin'){toast('不能删除管理员账号');return}S.accounts=S.accounts.filter(a=>a.user!==u);saveLocal();renderAccounts();broadcastConfig();toast('已删除')}
+function roleLabel(r){r=r||'staff';if(r==='super')return'超级管理员';if(r==='viewer')return'登记管理员';return'登记者'}
+function roleBadge(r){r=r||'staff';if(r==='super')return'<span class="badge" style="background:rgba(253,203,110,.2);color:var(--gold)">超管</span>';if(r==='viewer')return'<span class="badge" style="background:rgba(108,92,231,.2);color:var(--pri-l)">登记管理员</span>';return'<span class="badge" style="background:rgba(0,184,148,.2);color:var(--grn)">登记者</span>'}
 function renderAccounts(){
-  document.getElementById('acList').innerHTML=S.accounts.map(a=>'<div class="section" style="display:flex;align-items:center;gap:12px;padding:12px 16px"><div style="width:36px;height:36px;border-radius:50%;background:'+(a.user==='admin'?'var(--gold)':'var(--pri)')+';display:flex;align-items:center;justify-content:center;font-weight:bold">'+(a.name?Array.from(a.name)[0]:'👤')+'</div><div style="flex:1"><div style="font-weight:bold">'+(a.name||a.user)+(a.user==='admin'?' (管理员)':'')+'</div><div style="font-size:.82em;color:var(--sub)">账号:'+a.user+'</div></div>'+(a.user!=='admin'?'<button class="btn btn-dng btn-sm" onclick="delAccount(\''+a.user+'\')">🗑</button>':'')+'</div>').join('')
+  document.getElementById('acList').innerHTML=S.accounts.map(a=>{
+    const role=a.role||(a.user==='admin'?'super':'staff');
+    const sel='<select style="background:var(--card2);border:1px solid var(--bd);color:#fff;border-radius:8px;padding:4px 6px;font-size:.8em" onchange="changeAccountRole(\''+a.user+'\',this.value)"><option value="staff"'+(role==='staff'?' selected':'')+'>登记者</option><option value="viewer"'+(role==='viewer'?' selected':'')+'>登记管理员</option><option value="super"'+(role==='super'?' selected':'')+'>超管</option></select>';
+    const delBtn=a.user==='admin'?'':'<button class="btn btn-dng btn-sm" onclick="delAccount(\''+a.user+'\')">🗑</button>';
+    return '<div class="section" style="display:flex;align-items:center;gap:12px;padding:12px 16px"><div style="width:36px;height:36px;border-radius:50%;background:'+(role==='super'?'var(--gold)':role==='viewer'?'var(--pri)':'var(--grn)')+';display:flex;align-items:center;justify-content:center;font-weight:bold">'+(a.name?Array.from(a.name)[0]:'👤')+'</div><div style="flex:1"><div style="font-weight:bold">'+(a.name||a.user)+(a.user==='admin'?' (管理员)':'')+' '+roleBadge(role)+'</div><div style="font-size:.82em;color:var(--sub)">账号:'+a.user+' · 密码:'+a.pwd+'</div></div>'+sel+' '+delBtn+'</div>';
+  }).join('')
 }
 
 // ========== 字段 ==========
@@ -768,7 +822,7 @@ function copyAllLinks(){
 
 // ========== 存储渲染 ==========
 function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku}))}catch(e){}}
-function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d)}}catch(e){}}
+function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
 function renderAll(){
   renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderDanmakuHistory();renderDanmakuReview();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
