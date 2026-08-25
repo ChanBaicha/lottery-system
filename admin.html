@@ -281,10 +281,15 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <h2 style="font-size:1.3em;margin-bottom:6px">👥 参与者管理</h2>
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
       <div style="padding:8px 16px;background:var(--card);border-radius:20px;font-size:.9em">已登记 <b id="totalCnt" style="color:var(--gold)">0</b> · 已签到 <b id="signedCnt" style="color:var(--grn)">0</b></div>
+      <select id="ptOpFilter" onchange="filterParticipants(this.value)" style="padding:8px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em"><option value="">全部来源</option></select>
       <button class="btn btn-out" onclick="exportParticipants()">📋 导出名单</button>
       <button class="btn btn-dng" onclick="clearParticipants()">🗑️ 清空全部</button>
     </div>
-    <div id="ptList" style="max-height:500px;overflow-y:auto"></div>
+    <div class="section" style="margin-bottom:12px">
+      <div style="font-weight:bold;margin-bottom:8px;font-size:.95em">📊 各来源账号实时登记数量</div>
+      <div id="ptOpStats"></div>
+    </div>
+    <div id="ptList" style="max-height:400px;overflow-y:auto"></div>
   </div>
 
   <!-- 中奖记录 -->
@@ -471,7 +476,7 @@ function broadcastConfig(){
   S.mqtt.publish(S.topic+'config',JSON.stringify({
     prizes:S.prizes,fields:S.fields,screen:S.screen,signin:S.signin,drawCount:S.drawCount,
     accounts:S.accounts,baseLink:S.baseLink,participantCount:S.participants.length,
-    participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won}}),
+    participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,ticket:p.ticket||'',operator:p.operator||'',registerTime:p.registerTime||null}}),
     tickets:S.tickets,voidedTickets:S.voidedTickets,
     signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,
     danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous},
@@ -688,14 +693,27 @@ function renderDanmakuHistory(){
 }
 
 // ========== 参与者 ==========
+function filterParticipants(op){S._ptFilter=op;renderParticipants()}
 function renderParticipants(){
   const l=document.getElementById('ptList');
   const signed=S.participants.filter(p=>p.signed);
   document.getElementById('totalCnt').textContent=S.participants.length;
   document.getElementById('signedCnt').textContent=signed.length;
-  if(!S.participants.length){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px">暂无参与者</div>';return}
+  // 按来源账号统计
+  var byOp={};
+  S.participants.forEach(function(p){var op=p.operator||'未知';if(!byOp[op])byOp[op]={total:0,signed:0};byOp[op].total++;if(p.signed)byOp[op].signed++});
+  // 渲染来源账号统计
+  var opStats=document.getElementById('ptOpStats');
+  if(opStats){var ops=Object.keys(byOp);if(!ops.length){opStats.innerHTML='<div style="color:var(--sub);text-align:center;padding:8px;font-size:.85em">暂无数据</div>'}else{opStats.innerHTML=ops.map(function(op){return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card2);border-radius:8px;margin-bottom:4px"><div style="flex:1;font-size:.9em;font-weight:bold">👤 '+op+'</div><div style="font-size:.82em;color:var(--sub)">登记 <b style="color:var(--gold)">'+byOp[op].total+'</b> · 已签到 <b style="color:var(--grn)">'+byOp[op].signed+'</b></div></div>'}).join('')}}
+  // 更新筛选下拉
+  var filterSel=document.getElementById('ptOpFilter');
+  if(filterSel){var currentVal=filterSel.value;var opsList=[''].concat(Object.keys(byOp));filterSel.innerHTML=opsList.map(function(op){return '<option value="'+op+'">'+(op||'全部来源')+'</option>'}).join('');if(opsList.indexOf(currentVal)>=0)filterSel.value=currentVal}
+  // 筛选
+  var filterOp=S._ptFilter||'';var list=S.participants;
+  if(filterOp)list=list.filter(function(p){return(p.operator||'未知')===filterOp});
+  if(!list.length){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px">'+(filterOp?'该来源账号暂无参与者':'暂无参与者')+'</div>';return}
   const colors=['#6c5ce7','#fd79a8','#fdcb6e','#00b894','#0984e3','#e17055'];
-  l.innerHTML=S.participants.map((p,i)=>'<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(p.won?'opacity:.5':'')+'"><div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;background:'+colors[i%colors.length]+';flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+(p.name||'未知')+(p.won?' <span style="color:var(--gold);font-size:.8em">已中奖</span>':'')+'</div><div style="font-size:.8em;color:var(--sub)">'+(p.phone||'')+(p.signed?' · 已签到':'')+(p.signTime?' · '+fmt(p.signTime):'')+'</div></div><button class="btn btn-dng btn-sm" onclick="delParticipant(\''+p.id+'\')">✕</button></div>').join('')
+  l.innerHTML=list.map(function(p,i){return '<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(p.won?'opacity:.5':'')+'"><div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;background:'+colors[i%colors.length]+';flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+(p.name||'未知')+(p.won?' <span style="color:var(--gold);font-size:.8em">已中奖</span>':'')+'</div><div style="font-size:.8em;color:var(--sub)">'+(p.phone||'')+(p.ticket?' · 🎫'+p.ticket:'')+(p.operator?' · 👤'+p.operator:'')+(p.registerTime?' · 登记'+fmt(p.registerTime):'')+(p.signed?' · ✅已签到':'')+(p.signTime?' · 签到'+fmt(p.signTime):'')+'</div></div><button class="btn btn-dng btn-sm" onclick="delParticipant(\''+p.id+'\')">✕</button></div>'}).join('')
 }
 function delParticipant(id){S.participants=S.participants.filter(p=>p.id!==id);saveLocal();renderParticipants();broadcastConfig();toast('已删除')}
 function clearParticipants(){if(!S.participants.length){toast('暂无参与者');return}if(confirm('确定清空所有参与者？')){S.participants=[];saveLocal();renderParticipants();broadcastConfig();toast('已清空')}}

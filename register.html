@@ -52,7 +52,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div style="font-weight:bold;font-size:1.1em">📝 登记参与者 <span id="regUser" style="color:var(--gold);font-size:.85em"></span></div>
       <div style="display:flex;gap:8px;align-items:center">
         <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
-        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showStats()">📊 统计</button>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" id="statsBtn" onclick="showStats()">📊 统计</button>
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showVoidPage()">🎫 作废</button>
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showQRPage()">📱 二维码</button>
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="doLogout()">退出</button>
@@ -216,6 +216,9 @@ function doLogin(){
   document.getElementById('loginPage').style.display='none';
   document.getElementById('regPage').style.display='block';
   document.getElementById('regUser').textContent='('+acc.name+')';
+  // 仅管理员可见统计按钮
+  var statsBtn=document.getElementById('statsBtn');
+  if(statsBtn){statsBtn.style.display=(acc.user==='admin')?'inline-flex':'none'}
   renderRegForm();updateStats();
 }
 function doLogout(){S.currentUser=null;location.reload()}
@@ -237,7 +240,7 @@ function renderRegForm(){
     }
     if(f.type==='textarea')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><textarea id="reg_'+f.id+'" data-required="'+f.required+'" placeholder="'+(f.placeholder||'')+'" rows="3"></textarea></div>';
     if(f.type==='avatar')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="url" placeholder="'+(f.placeholder||'微信头像URL')+'"></div>';
-    if(f.type==='phone')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="tel" placeholder="'+(f.placeholder||'')+'" maxlength="11"></div>';
+    if(f.type==='phone')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><div style="display:flex;align-items:center;gap:6px"><input id="reg_'+f.id+'_pre" data-required="'+f.required+'" data-field-type="phone" type="tel" placeholder="前3位" maxlength="3" style="width:80px;padding:12px 10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em;text-align:center"><span style="color:var(--sub);font-weight:bold;font-size:1.1em">XXXX</span><input id="reg_'+f.id+'_suf" data-required="'+f.required+'" data-field-type="phone" type="tel" placeholder="后4位" maxlength="4" style="width:90px;padding:12px 10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em;text-align:center"><input id="reg_'+f.id+'" type="hidden" data-required="'+f.required+'" data-field-type="phone" data-name="'+f.name+'"></div></div>';
     if(f.type==='ticket')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="text" placeholder="'+(f.placeholder||'')+'"></div>';
     if(f.type==='number')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="number" placeholder="'+(f.placeholder||'')+'"></div>';
     return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="reg_'+f.id+'" data-required="'+f.required+'" type="text" placeholder="'+(f.placeholder||'')+'"></div>';
@@ -249,13 +252,23 @@ function submitRegister(){
   S.fields.forEach(f=>{
     const el=document.getElementById('reg_'+f.id);
     if(!el)return;
-    const val=el.value.trim();
+    var val=el.value.trim();
+    // 手机号分段输入特殊处理
+    if(f.type==='phone'){
+      var pre=document.getElementById('reg_'+f.id+'_pre');
+      var suf=document.getElementById('reg_'+f.id+'_suf');
+      var preVal=pre?pre.value.trim():'';
+      var sufVal=suf?suf.value.trim():'';
+      if(f.required&&(!preVal||!sufVal)){toast('请完整填写 '+f.name+'（前3位和后4位）');valid=false;return}
+      val=preVal+'XXXX'+sufVal; // 拼接为完整格式（前3+XXXX+后4）
+      el.value=val; // 同步hidden字段
+    }
     if(f.required&&!val){toast('请填写 '+f.name);valid=false;return}
     data[f.id]=val;data[f.name]=val;
     if(f.type==='avatar')data.avatar=val;
-    if(f.type==='text'&&!data.name)data.name=val;
-    if(f.type==='phone'&&!data.phone)data.phone=val;
-    if(f.type==='ticket'&&!data.ticket)data.ticket=val;
+    if(f.type==='text')data.name=val;
+    if(f.type==='phone')data.phone=val;
+    if(f.type==='ticket')data.ticket=val;
   });
   if(!valid)return;
   // 检查奖券是否已作废
@@ -271,12 +284,12 @@ function submitRegister(){
   const id=uid();
   data.id=id;data.signed=false;data.registerTime=Date.now();data.operator=S.currentUser.name;data.operatorUser=S.currentUser.user;
   S.mqtt.publish(S.topic+'register',JSON.stringify({type:'register',operator:S.currentUser.name,data:data,time:Date.now()}));
-  S.regList.unshift({id,name:data.name||'?',phone:data.phone||'',ticket:data.ticket||'',time:Date.now(),fields:data});
+  S.regList.unshift({id,name:data.name||'?',phone:data.phone||'',ticket:data.ticket||'',time:Date.now(),fields:data,operator:S.currentUser.name});
   if(S.regList.length>100)S.regList.pop();
   renderRegList();clearRegForm();updateStats();toast('登记成功：'+(data.name||'新参与者'));
 }
 
-function clearRegForm(){S.fields.forEach(f=>{const el=document.getElementById('reg_'+f.id);if(el)el.value=''})}
+function clearRegForm(){S.fields.forEach(f=>{const el=document.getElementById('reg_'+f.id);if(el)el.value='';var pre=document.getElementById('reg_'+f.id+'_pre');var suf=document.getElementById('reg_'+f.id+'_suf');if(pre)pre.value='';if(suf)suf.value=''})}}
 function renderRegList(){
   document.getElementById('regList').innerHTML=S.regList.map(r=>'<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((r.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+r.name+'</div><div style="font-size:.75em;color:var(--sub)">'+maskPhone(r.phone)+(r.ticket?' · '+r.ticket:'')+' · '+fmt(r.time)+'</div></div></div>').join('')||'<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无登记记录</div>';
 }

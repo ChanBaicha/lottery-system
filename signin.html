@@ -32,14 +32,40 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 </head>
 <body>
 <div id="app">
-  <!-- 签到页 -->
+  // 签到页 - 三板块布局 -->
   <div id="signPage" style="padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
     <div style="text-align:center;padding:20px 0">
       <h1 style="font-size:1.6em;background:linear-gradient(135deg,#fd79a8,#fdcb6e);-webkit-background-clip:text;-webkit-text-fill-color:transparent">🎉 幸运抽奖签到</h1>
       <p style="color:var(--sub);font-size:.85em;margin-top:4px">填写信息完成签到参与抽奖</p>
     </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05);width:fit-content;margin:0 auto 16px"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
-    <!-- 签到表单 -->
+
+    <!-- 板块一：微信头像与昵称 -->
+    <div class="card" style="text-align:center">
+      <div style="font-weight:bold;margin-bottom:12px;text-align:left">📱 微信头像与昵称</div>
+      <div id="wxAvatarArea" style="display:flex;flex-direction:column;align-items:center;gap:12px">
+        <div id="wxAvatarPreview" style="width:80px;height:80px;border-radius:50%;background:var(--card2);border:2px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:2em;color:var(--sub)">👤</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+          <button class="btn btn-pri" style="padding:8px 16px;font-size:.88em" onclick="getWxAvatar()">📷 拍照获取头像</button>
+        </div>
+        <div class="f-grp" style="width:100%;max-width:300px">
+          <label>微信昵称（可修改）</label>
+          <input id="wxNickname" type="text" placeholder="输入你的昵称" style="text-align:center">
+        </div>
+      </div>
+    </div>
+
+    <!-- 板块二：弹幕发送 -->
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:12px">💬 弹幕互动</div>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">发送弹幕消息，实时显示在大屏上</p>
+      <div style="display:flex;gap:8px">
+        <input id="dmQuickInput" type="text" placeholder="输入弹幕内容..." maxlength="50" style="flex:1;padding:10px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.92em" onkeydown="if(event.key==='Enter')sendQuickDanmaku()">
+        <button class="btn btn-pri" style="padding:10px 16px;font-size:.88em" onclick="sendQuickDanmaku()">发送</button>
+      </div>
+    </div>
+
+    <!-- 板块三：签到 + 互动游戏 -->
     <div class="card">
       <div style="font-weight:bold;margin-bottom:12px">📝 签到信息</div>
       <div id="signForm"></div>
@@ -49,12 +75,13 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       </div>
       <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em" onclick="doSignin()">✅ 签 到</button>
     </div>
-    <!-- 定位签到 -->
     <div class="card" id="signLocCard" style="display:none">
       <div style="font-weight:bold;margin-bottom:10px">📍 定位验证</div>
       <p style="font-size:.82em;color:var(--sub);margin-bottom:12px" id="signLocDesc">需要获取您的定位信息进行签到验证</p>
       <div id="signLocStatus" style="text-align:center;padding:12px;border-radius:10px;background:var(--card2);font-size:.88em;color:var(--sub);margin-bottom:12px">签到时自动获取定位</div>
     </div>
+    <!-- 互动游戏入口 -->
+    <button class="btn btn-gold" style="width:100%;padding:14px;font-size:1em;margin-top:4px" onclick="showGameModal()">🎮 互动游戏</button>
   </div>
 
   <!-- 签到成功等待页 -->
@@ -260,17 +287,17 @@ function doSignin(){
     if(f.type==='phone'&&!sPhone)sPhone=data[f.name]||'';
     if(f.type==='ticket'&&!sTicket)sTicket=data[f.name]||'';
   });
-  // 验证三项匹配
+  // 验证三项匹配 - 三项必须全部存在且完全一致
   if(S.allParticipants&&S.allParticipants.length){
+    if(!sName||!sPhone||!sTicket){
+      showFailModal('请完整填写姓名、手机号和抽奖券编码');
+      return;
+    }
     const matched=S.allParticipants.find(p=>{
       const pName=p.name||'';
       const pPhone=p.phone||'';
       const pTicket=p.ticket||(p.fields&&p.fields.ticket)||'';
-      let match=true;
-      if(sName&&pName&&sName!==pName)match=false;
-      if(sPhone&&pPhone&&sPhone!==pPhone)match=false;
-      if(sTicket&&pTicket&&sTicket!==pTicket)match=false;
-      return match;
+      return pName===sName&&pPhone===sPhone&&pTicket===sTicket;
     });
     if(!matched){
       // 签到失败
@@ -311,7 +338,7 @@ function doSignin(){
 function submitSignin(data){
   // 从字段数据中提取姓名和电话
   S.fields.forEach(f=>{if(f.type==='text'&&!data.name)data.name=data[f.name]||data[f.id]||'';if(f.type==='phone'&&!data.phone)data.phone=data[f.name]||data[f.id]||''});
-  S.signedIn=true;S.myName=data.name||'';S.myData=data;
+  S.signedIn=true;S.myName=(document.getElementById('wxNickname')&&document.getElementById('wxNickname').value.trim())||data.name||'';S.myData=data;
   const id=data.id||uid();data.id=id;data.signed=true;data.signTime=Date.now();
   S.mqtt.publish(S.topic+'sign_in',JSON.stringify({id:id,name:data.name||'',phone:data.phone||'',lat:data.lat,lng:data.lng,distance:data.distance,signTime:data.signTime,fields:data}));
   // 切换到等待页
@@ -371,6 +398,33 @@ function sendDanmaku(){
   toast('弹幕已发送');
 }
 
+// ========== 微信头像与昵称 ==========
+function getWxAvatar(){
+  document.getElementById('avatarModal').classList.add('show');
+  document.getElementById('avatarBtns').style.display='flex';
+  document.getElementById('avatarConfirm').style.display='none';
+  document.getElementById('avatarHint').textContent='点击拍照后将获取摄像头画面作为头像';
+  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+    navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:320,height:320}}).then(stream=>{
+      S._cameraStream=stream;
+      document.getElementById('avatarVideo').srcObject=stream;
+    }).catch(err=>{
+      document.getElementById('avatarHint').textContent='摄像头获取失败：'+err.message+'，请检查权限';
+    });
+  }else{
+    document.getElementById('avatarHint').textContent='当前环境不支持摄像头，请使用微信打开';
+  }
+}
+function sendQuickDanmaku(){
+  const text=document.getElementById('dmQuickInput').value.trim();
+  if(!text){toast('请输入弹幕内容');return}
+  if(text.length>50){toast('弹幕最多50字');return}
+  var nick=document.getElementById('wxNickname')?document.getElementById('wxNickname').value.trim():'';
+  S.mqtt.publish(S.topic+'danmaku',JSON.stringify({text,name:nick||'匿名',time:Date.now()}));
+  document.getElementById('dmQuickInput').value='';
+  toast('弹幕已发送');
+}
+
 // ========== 拍照头像 ==========
 function showAvatarModal(){
   document.getElementById('avatarModal').classList.add('show');
@@ -403,6 +457,9 @@ function captureAvatar(){
 function confirmAvatar(){
   S.avatarData=S._avatarTmp;
   closeAvatarModal();
+  // 更新头像预览
+  var prev=document.getElementById('wxAvatarPreview');
+  if(prev){prev.innerHTML='<img src="'+S.avatarData+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover">'}
   // 发送到大屏
   if(S.mqtt&&S.mqtt.connected){
     S.mqtt.publish(S.topic+'avatar_update',JSON.stringify({name:S.myName||'',avatar:S.avatarData,time:Date.now()}));
