@@ -60,6 +60,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="accounts" onclick="switchTab('accounts')">👤 登记账号管理</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="fields" onclick="switchTab('fields')">📝 签到字段配置</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="lottery" onclick="switchTab('lottery')">🎲 抽奖设置</div>
+    <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="games" onclick="switchTab('games')">🎮 互动游戏</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="screen" onclick="switchTab('screen')">🖥️ 大屏外观</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="tickets" onclick="switchTab('tickets')">🎫 奖券管理</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="danmaku" onclick="switchTab('danmaku')">💬 弹幕管理</div>
@@ -177,6 +178,53 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     </div>
   </div>
 
+  <!-- 互动游戏设置 -->
+  <div class="panel" id="panel-games">
+    <h2 style="font-size:1.3em;margin-bottom:6px">🎮 互动游戏设置</h2>
+    <p style="color:var(--sub);font-size:.85em;margin-bottom:16px">设置三款互动游戏的参数。大屏端可选择游戏后自动开启，参与人数达标可自动开始。</p>
+
+    <!-- 摇一摇大赛设置 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">📱 摇一摇大赛</h3>
+      <div class="f-row">
+        <div class="f-grp" style="max-width:150px"><label>游戏时长（秒）</label><input id="gmShakeDuration" type="number" min="3" max="60" value="10"></div>
+      </div>
+    </div>
+
+    <!-- 反应速度测试设置 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">⚡ 反应速度测试</h3>
+      <div class="f-row">
+        <div class="f-grp" style="max-width:150px"><label>游戏时长（秒）</label><input id="gmReactionDuration" type="number" min="5" max="60" value="15"></div>
+        <div class="f-grp" style="max-width:200px"><label>亮点间隔类型</label><select id="gmReactionIntervalType"><option value="random">随机间隔</option><option value="fixed">固定间隔</option></select></div>
+        <div class="f-grp" style="max-width:150px"><label>固定间隔（秒）</label><input id="gmReactionFixedInterval" type="number" min="1" max="10" value="2" step="0.5"></div>
+        <div class="f-grp" style="max-width:150px"><label>最小随机间隔（秒）</label><input id="gmReactionMinInterval" type="number" min="0.5" max="5" value="1" step="0.5"></div>
+        <div class="f-grp" style="max-width:150px"><label>最大随机间隔（秒）</label><input id="gmReactionMaxInterval" type="number" min="1" max="10" value="3" step="0.5"></div>
+      </div>
+      <p style="color:var(--sub);font-size:.8em;margin-top:6px">反应游戏将在屏幕范围内随机亮起多个绿点，参与者依次点击，按总点击时间最短排名</p>
+    </div>
+
+    <!-- 趣味抢答设置 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">🧠 趣味抢答</h3>
+      <div class="f-row">
+        <div class="f-grp" style="max-width:150px"><label>游戏轮数</label><input id="gmQuizRounds" type="number" min="1" max="10" value="3"></div>
+        <div class="f-grp" style="max-width:150px"><label>轮间间隔（秒）</label><input id="gmQuizInterval" type="number" min="3" max="30" value="5"></div>
+      </div>
+      <p style="color:var(--sub);font-size:.8em;margin-top:6px">抢答按抢答快慢进行排名，多轮抢答按总时长最短进行排名</p>
+    </div>
+
+    <!-- 游戏开始阈值 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">👤 游戏开始设置</h3>
+      <div class="f-row">
+        <div class="f-grp" style="max-width:200px"><label>自动开始人数阈值</label><input id="gmAutoStartThreshold" type="number" min="0" max="100" value="0"><p style="color:var(--sub);font-size:.78em;margin-top:4px">参与人数达到此值后自动开始游戏（设为0则始终由主持人手动开始）</p></div>
+      </div>
+    </div>
+
+    <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em;justify-content:center" onclick="saveGameConfig()">💾 保存游戏设置</button>
+  </div>
+
   <!-- 大屏外观 -->
   <div class="panel" id="panel-screen">
     <h2 style="font-size:1.3em;margin-bottom:6px">🖥️ 大屏外观自定义</h2>
@@ -244,7 +292,11 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <button class="btn btn-out" onclick="exportTickets()">📋 导出奖券清单</button>
       <button class="btn btn-dng" onclick="clearTickets()">🗑️ 清空全部奖券</button>
     </div>
-    <div id="tkList" style="max-height:500px;overflow-y:auto"></div>
+    <div id="tkList" style="max-height:400px;overflow-y:auto"></div>
+    <div class="section" style="margin-top:16px">
+      <h3 style="font-size:1.05em;margin-bottom:10px">📜 奖券作废日志</h3>
+      <div id="voidLogList" style="max-height:200px;overflow-y:auto"></div>
+    </div>
   </div>
 
   <!-- 弹幕管理 -->
@@ -288,6 +340,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <select id="ptOpFilter" onchange="filterParticipants(this.value)" style="padding:8px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em"><option value="">全部来源</option></select>
       <button class="btn btn-out" onclick="exportParticipants()">📋 导出名单</button>
       <button class="btn btn-dng" onclick="clearParticipants()">🗑️ 清空全部</button>
+      <button class="btn btn-gold" onclick="voidTodaySigned()">🚫 一键作废当日已签到</button>
     </div>
     <div class="section" style="margin-bottom:12px">
       <div style="font-weight:bold;margin-bottom:8px;font-size:.95em">📊 各来源账号实时登记数量</div>
@@ -369,8 +422,9 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   screen:{title:'🎉 幸运抽奖盛典',titleSize:48,titleColor:'#fdcb6e',bgUrl:'',flowType:'meteor',elements:[]},
   signin:{lat:null,lng:null,radius:500,startTime:null,endTime:null,enable:true},
   participants:[],records:[],baseLink:'',
-  tickets:[],voidedTickets:[],signFailMsg:'签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。',
+  tickets:[],voidedTickets:[],voidLogs:[],signFailMsg:'签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。',
   flowInterval:0,
+  gameConfig:{shakeDuration:10,reactionDuration:15,reactionIntervalType:'random',reactionFixedInterval:2,reactionMinInterval:1,reactionMaxInterval:3,quizRounds:3,quizInterval:5,autoStartThreshold:0},
   danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,history:[]}
 };
 let currentTab='prizes';
@@ -473,8 +527,14 @@ function handleTicketVoid(d){
   // 更新奖券状态
   const tk=S.tickets.find(t=>t.code===d.code);
   if(tk)tk.voided=true;
-  saveLocal();renderTickets();broadcastConfig();
-  toast('🚫 奖券已作废: '+d.code);
+  // 记录作废日志
+  if(!S.voidLogs)S.voidLogs=[];
+  // 避免重复记录同一奖券
+  if(!S.voidLogs.find(l=>l.code===d.code)){
+    S.voidLogs.unshift({code:d.code,reason:d.reason||'未注明',operator:d.operator||'未知',time:d.time||Date.now()});
+  }
+  saveLocal();renderTickets();renderVoidLogs();broadcastConfig();
+  toast('🚫 奖券已作废: '+d.code+(d.reason?('（'+d.reason+'）'):''));
 }
 function broadcastConfig(){
   if(!S.mqtt||!S.mqtt.connected)return;
@@ -482,8 +542,9 @@ function broadcastConfig(){
     prizes:S.prizes,fields:S.fields,screen:S.screen,signin:S.signin,drawCount:S.drawCount,
     accounts:S.accounts,baseLink:S.baseLink,participantCount:S.participants.length,
     participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,ticket:p.ticket||'',operator:p.operator||'',registerTime:p.registerTime||null}}),
-    tickets:S.tickets,voidedTickets:S.voidedTickets,
+    tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,
     signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,
+    gameConfig:S.gameConfig,
     danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous},
     time:Date.now()
   }))
@@ -621,6 +682,21 @@ function saveDrawCount(){S.drawCount=parseInt(document.getElementById('ltDrawCou
 function saveNoRepeat(){S.noRepeat=document.getElementById('ltNoRepeat').checked;saveLocal();broadcastConfig();toast('防重复设置已保存')}
 function saveSignFailMsg(){S.signFailMsg=document.getElementById('ltSignFailMsg').value.trim()||'签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。';saveLocal();broadcastConfig();toast('签到失败提示语已保存')}
 function saveFlowInterval(){S.flowInterval=parseInt(document.getElementById('ltFlowInterval').value)||0;saveLocal();broadcastConfig();toast('动画轮播间隔已保存：'+(S.flowInterval>0?S.flowInterval+'秒':'不轮播'))}
+// ========== 游戏设置 ==========
+function saveGameConfig(){
+  S.gameConfig={
+    shakeDuration:parseInt(document.getElementById('gmShakeDuration').value)||10,
+    reactionDuration:parseInt(document.getElementById('gmReactionDuration').value)||15,
+    reactionIntervalType:document.getElementById('gmReactionIntervalType').value||'random',
+    reactionFixedInterval:parseFloat(document.getElementById('gmReactionFixedInterval').value)||2,
+    reactionMinInterval:parseFloat(document.getElementById('gmReactionMinInterval').value)||1,
+    reactionMaxInterval:parseFloat(document.getElementById('gmReactionMaxInterval').value)||3,
+    quizRounds:parseInt(document.getElementById('gmQuizRounds').value)||3,
+    quizInterval:parseInt(document.getElementById('gmQuizInterval').value)||5,
+    autoStartThreshold:parseInt(document.getElementById('gmAutoStartThreshold').value)||0
+  };
+  saveLocal();broadcastConfig();toast('游戏设置已保存并同步');
+}
 
 // ========== 大屏外观 ==========
 function selectFlow(t){S.screen.flowType=t;document.querySelectorAll('[onclick^="selectFlow"]').forEach(e=>{e.style.borderColor=e.querySelector('input').checked?'var(--pri)':'var(--bd)'})}
@@ -698,7 +774,14 @@ function exportTickets(){
   S.tickets.forEach((t,i)=>{csv+=(i+1)+','+t.code+','+(t.voided?'已作废':'有效')+'\n'});
   downloadCSV(csv,'奖券清单_'+Date.now()+'.csv');toast('已导出')
 }
-function clearTickets(){if(!S.tickets.length){toast('暂无奖券');return}if(confirm('确定清空全部奖券？')){S.tickets=[];S.voidedTickets=[];saveLocal();renderTickets();broadcastConfig();toast('已清空')}}
+function clearTickets(){if(!S.tickets.length){toast('暂无奖券');return}if(confirm('确定清空全部奖券？')){S.tickets=[];S.voidedTickets=[];S.voidLogs=[];saveLocal();renderTickets();renderVoidLogs();broadcastConfig();toast('已清空')}}
+function renderVoidLogs(){
+  var l=document.getElementById('voidLogList');if(!l)return;
+  if(!S.voidLogs||!S.voidLogs.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无作废日志</div>';return}
+  l.innerHTML=S.voidLogs.map(function(log){
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card2);border-radius:8px;margin-bottom:4px"><div style="flex:1"><div style="font-family:monospace;font-size:.9em">🎫 '+log.code+'</div><div style="font-size:.75em;color:var(--sub);margin-top:2px">原因: '+log.reason+' · 操作人: '+log.operator+' · '+fmt(log.time)+'</div></div><span class="badge badge-void">已作废</span></div>';
+  }).join('');
+}
 
 // ========== 弹幕管理 ==========
 function saveBadWords(){
@@ -771,6 +854,28 @@ function renderParticipants(){
 }
 function delParticipant(id){S.participants=S.participants.filter(p=>p.id!==id);saveLocal();renderParticipants();broadcastConfig();toast('已删除')}
 function clearParticipants(){if(!S.participants.length){toast('暂无参与者');return}if(confirm('确定清空所有参与者？')){S.participants=[];saveLocal();renderParticipants();broadcastConfig();toast('已清空')}}
+function voidTodaySigned(){
+  if(!S.participants.length){toast('暂无参与者');return}
+  // 筛选当日已签到的参与者
+  var today=new Date();var tStart=new Date(today.getFullYear(),today.getMonth(),today.getDate(),0,0,0).getTime();
+  var todaySigned=S.participants.filter(function(p){return p.signed&&p.signTime&&p.signTime>=tStart});
+  if(!todaySigned.length){toast('今日无已签到的参与者');return}
+  if(!confirm('确定将今日已签到的 '+todaySigned.length+' 人全部作废并备注为「已参与抽奖」？\n此操作不可撤销！'))return;
+  todaySigned.forEach(function(p){
+    p.signed=false;
+    p.voided=true;
+    p.voidReason='已参与抽奖';
+    p.voidTime=Date.now();
+    // 如果有抽奖券编码，也同步加入作废列表
+    var ticket=p.ticket||(p.fields&&p.fields.ticket)||'';
+    if(ticket&&!S.voidedTickets.includes(ticket)){S.voidedTickets.push(ticket);
+      if(!S.voidLogs)S.voidLogs=[];
+      if(!S.voidLogs.find(l=>l.code===ticket)){S.voidLogs.unshift({code:ticket,reason:'已参与抽奖',operator:'系统一键作废',time:Date.now()})}
+    }
+  });
+  saveLocal();renderParticipants();renderTickets();renderVoidLogs();broadcastConfig();
+  toast('已作废 '+todaySigned.length+' 人，备注为「已参与抽奖」');
+}
 function exportParticipants(){
   if(!S.participants.length){toast('暂无参与者');return}
   const headers=S.fields.map(f=>f.name);let csv='\uFEFF序号,'+headers.join(',')+',签到状态,签到时间,是否中奖,中奖奖品\n';
@@ -821,13 +926,24 @@ function copyAllLinks(){
 }
 
 // ========== 存储渲染 ==========
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku}))}catch(e){}}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,signFailMsg:S.signFailMsg,      flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig}))}catch(e){}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
 function renderAll(){
-  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderDanmakuHistory();renderDanmakuReview();
+  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderVoidLogs();renderDanmakuHistory();renderDanmakuReview();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
   document.getElementById('ltSignFailMsg').value=S.signFailMsg||'';document.getElementById('ltFlowInterval').value=S.flowInterval||0;
   document.getElementById('scTitle').value=S.screen.title;document.getElementById('scTitleSize').value=S.screen.titleSize;document.getElementById('scTitleColor').value=S.screen.titleColor;document.getElementById('scBgUrl').value=S.screen.bgUrl||'';
+  // 游戏设置
+  var gc=S.gameConfig||{};
+  document.getElementById('gmShakeDuration').value=gc.shakeDuration||10;
+  document.getElementById('gmReactionDuration').value=gc.reactionDuration||15;
+  document.getElementById('gmReactionIntervalType').value=gc.reactionIntervalType||'random';
+  document.getElementById('gmReactionFixedInterval').value=gc.reactionFixedInterval||2;
+  document.getElementById('gmReactionMinInterval').value=gc.reactionMinInterval||1;
+  document.getElementById('gmReactionMaxInterval').value=gc.reactionMaxInterval||3;
+  document.getElementById('gmQuizRounds').value=gc.quizRounds||3;
+  document.getElementById('gmQuizInterval').value=gc.quizInterval||5;
+  document.getElementById('gmAutoStartThreshold').value=gc.autoStartThreshold||0;
   document.getElementById('dmBadWords').value=(S.danmaku.badWords||[]).join('\n');document.getElementById('dmEnable').checked=S.danmaku.enable!==false;document.getElementById('dmNeedReview').checked=S.danmaku.needReview;document.getElementById('dmAnonymous').checked=S.danmaku.anonymous!==false;document.getElementById('dmSpeed').value=S.danmaku.speed||8;document.getElementById('dmFontSize').value=S.danmaku.fontSize||28;
   document.getElementById('dmReviewSection').style.display=S.danmaku.needReview?'block':'none';
   if(S.signin.lat){document.getElementById('sgLat').value=S.signin.lat;document.getElementById('sgLng').value=S.signin.lng;document.getElementById('sgRadius').value=S.signin.radius;document.getElementById('sgEnable').checked=S.signin.enable;if(S.signin.startTime)document.getElementById('sgStart').value=S.signin.startTime;if(S.signin.endTime)document.getElementById('sgEnd').value=S.signin.endTime}

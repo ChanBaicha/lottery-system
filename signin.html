@@ -221,6 +221,7 @@ let S={mqtt:null,topic:'',room:'',
   signedIn:false,myName:'',myData:{},avatarData:'',
   danmakuSettings:{enable:true,anonymous:true},
   gameType:null,shakeCount:0,shakeListening:false,reactionReady:false,reactionPenaltyUntil:0,quizAnswer:null,
+  shakeBatchTimer:null,shakePending:0,
   _avatarTmp:''
 };
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
@@ -300,7 +301,7 @@ function renderSignForm(){
     if(f.type==='select'){const opts=(f.options||'').split(',').filter(Boolean);return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><select id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'"><option value="">请选择</option>'+opts.map(o=>'<option value="'+o.trim()+'">'+o.trim()+'</option>').join('')+'</select></div>'}
     if(f.type==='textarea')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><textarea id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" placeholder="'+(f.placeholder||'')+'" rows="3"></textarea></div>';
     if(f.type==='phone')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><div style="display:flex;align-items:center;gap:6px"><input id="sign_'+f.id+'_pre" data-required="'+f.required+'" data-name="'+f.name+'" data-field-type="phone" type="tel" placeholder="前3位" maxlength="3" style="width:80px;padding:12px 10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em;text-align:center"><span style="color:var(--sub);font-weight:bold;font-size:1.1em">XXXX</span><input id="sign_'+f.id+'_suf" data-required="'+f.required+'" data-name="'+f.name+'" data-field-type="phone" type="tel" maxlength="4" style="width:90px;padding:12px 10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em;text-align:center"><input id="sign_'+f.id+'" type="hidden" data-required="'+f.required+'" data-name="'+f.name+'" data-field-type="phone"></div></div>';
-    if(f.type==='ticket')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" type="text" placeholder="'+(f.placeholder||'')+'"></div>';
+    if(f.type==='ticket')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+' <span style="color:var(--gold);font-size:.75em">（5位数字）</span></label><input id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" data-field-type="ticket" type="text" maxlength="5" placeholder="'+(f.placeholder||'请输入5位数字编码')+'" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" style="letter-spacing:2px;font-family:monospace"></div>';
     if(f.type==='avatar')return '';
     return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" type="'+(f.type==='number'?'number':'text')+'" placeholder="'+(f.placeholder||'')+'"></div>';
   }).join('');
@@ -331,6 +332,7 @@ function doSignin(){
       val=preVal+'XXXX'+sufVal; // 拼接为完整格式（前3+XXXX+后4）
       el.value=val; // 同步hidden字段
     }
+    if(f.type==='ticket'&&val&&!/^\d{5}$/.test(val)){toast(f.name+'必须为5位数字编码');valid=false;return}
     if(f.required&&!val){toast('请填写 '+f.name);valid=false;return}
     data[f.id]=val;data[f.name]=val;
     if(f.type==='text')data.name=val;
@@ -540,6 +542,7 @@ function handleGameCmd(d){
   }else if(d.action==='go'&&d.game==='reaction'){
     reactionGo();
   }else if(d.action==='end'){
+    if(d.game==='shake')stopShakeBatch();
     showGameResult(d);
   }else if(d.action==='close'){
     exitGame();
@@ -552,8 +555,17 @@ function initShakeGame(){
   document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><p style="color:var(--sub);line-height:2">大屏开始后<br>请疯狂摇动手机<br>摇动次数越多排名越高！</p></div>';
 }
 function startShakeRound(){
-  S.shakeCount=0;document.getElementById('gameDesc').textContent='开始摇一摇！';
+  S.shakeCount=0;S.shakePending=0;
+  if(S.shakeBatchTimer){clearInterval(S.shakeBatchTimer);S.shakeBatchTimer=null}
+  document.getElementById('gameDesc').textContent='开始摇一摇！';
   document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><div style="font-size:3em;margin:20px 0">📳</div><div style="font-size:2em;font-weight:bold;color:var(--gold)" id="shakeNum">0</div><p style="color:var(--sub);margin-top:8px">摇动次数</p><p style="color:var(--gold);font-size:.85em;margin-top:12px">疯狂摇动手机！</p></div>';
+  // 批量上报：每1秒发送累计摇动次数，减少90%消息量
+  S.shakeBatchTimer=setInterval(function(){
+    if(S.shakePending>0&&S.mqtt&&S.mqtt.connected){
+      S.mqtt.publish(S.topic+'shake_data',JSON.stringify({name:S.myName||'匿名',count:S.shakePending}));
+      S.shakePending=0;
+    }
+  },1000);
   if(window.DeviceMotionEvent){
     shakeListening=true;
     let lastAccel=0,lastTime=0;
@@ -565,15 +577,21 @@ function startShakeRound(){
       const diff=Math.abs(mag-lastAccel);lastAccel=mag;
       const now=Date.now();
       if(diff>15&&now-lastTime>100){
-        S.shakeCount++;lastTime=now;
+        S.shakeCount++;S.shakePending++;lastTime=now;
         const el=document.getElementById('shakeNum');if(el)el.textContent=S.shakeCount;
-        if(S.mqtt&&S.mqtt.connected){S.mqtt.publish(S.topic+'shake_data',JSON.stringify({name:S.myName||'匿名',count:1}))}
         if(navigator.vibrate)navigator.vibrate(30);
       }
     });
   }else{
     document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><div style="font-size:3em;margin:20px 0">📳</div><div style="font-size:2em;font-weight:bold;color:var(--gold)" id="shakeNum">0</div><p style="color:var(--sub);margin-top:8px">点击次数</p><button class="btn btn-pri" style="width:100%;padding:30px;margin-top:16px;font-size:1.2em" id="shakeBtn">👆 点击摇一摇</button></div>';
-    document.getElementById('shakeBtn').onclick=()=>{S.shakeCount++;document.getElementById('shakeNum').textContent=S.shakeCount;if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'shake_data',JSON.stringify({name:S.myName||'匿名',count:1}))};
+    document.getElementById('shakeBtn').onclick=()=>{S.shakeCount++;S.shakePending++;document.getElementById('shakeNum').textContent=S.shakeCount};
+  }
+}
+function stopShakeBatch(){
+  if(S.shakeBatchTimer){clearInterval(S.shakeBatchTimer);S.shakeBatchTimer=null}
+  if(S.shakePending>0&&S.mqtt&&S.mqtt.connected){
+    S.mqtt.publish(S.topic+'shake_data',JSON.stringify({name:S.myName||'匿名',count:S.shakePending}));
+    S.shakePending=0;
   }
 }
 // 反应速度
@@ -652,18 +670,39 @@ function quizSelect(btn,answer){
 }
 function showGameResult(d){
   const r=document.getElementById('gameResult');r.style.display='block';
+  var gameNames={shake:'摇一摇',reaction:'反应速度',quiz:'趣味抢答'};
+  var gameName=gameNames[d.game]||'互动游戏';
+  var myName=S.myName||'';
+  // 查找当前用户的排名
+  var myRank=null;
+  if(d.rankings&&d.rankings.length&&myName){
+    myRank=d.rankings.find(function(p){return p.name===myName});
+  }
+  var html='';
+  // 个人排名凭证卡片（高亮显示）
+  if(myRank){
+    var medal=['🥇','🥈','🥉'][myRank.rank-1]||'🎉 第'+myRank.rank+'名';
+    var scoreText='';
+    if(myRank.score){scoreText=d.game==='reaction'?(myRank.score/1000).toFixed(3)+'秒':myRank.score+'次'}
+    html+='<div class="card" style="border:3px solid var(--gold);text-align:center;background:linear-gradient(135deg,rgba(253,203,110,.15),rgba(253,203,110,.05))"><div style="font-size:.85em;color:var(--gold);margin-bottom:6px">🎁 礼品派发凭证</div><div style="font-size:2.5em;margin:8px 0">'+medal+'</div><div style="font-size:1.1em;font-weight:bold;margin-bottom:4px">'+myRank.name+'</div><div style="font-size:.85em;color:var(--sub);margin-bottom:8px">'+gameName+(scoreText?' · '+scoreText:'')+'</div><div style="font-size:.75em;color:var(--sub);border-top:1px solid var(--bd);padding-top:8px">请截图此页面作为领奖凭证</div></div>';
+  }
+  // 完整排名列表
   if(d.rankings&&d.rankings.length){
-    r.innerHTML='<div class="card" style="border:2px solid var(--gold);text-align:center"><div style="font-size:1.2em;font-weight:bold;color:var(--gold);margin-bottom:12px">🏆 排名结果</div>'+d.rankings.map(function(p){return '<div style="padding:8px 16px;border-radius:10px;margin-bottom:6px;background:rgba(253,203,110,.1);font-size:.95em">'+(['🥇','🥈','🥉'][p.rank-1]||'🎉')+' '+p.name+(p.score?' - '+(d.game==='reaction'?(p.score/1000).toFixed(3)+'秒':p.score+'次'):'')+'</div>'}).join('')+'</div>';
+    html+='<div class="card" style="border:2px solid var(--gold);text-align:center"><div style="font-size:1.1em;font-weight:bold;color:var(--gold);margin-bottom:12px">🏆 完整排名</div>'+d.rankings.map(function(p){
+      var isMe=p.name===myName;
+      var medal=['🥇','🥈','🥉'][p.rank-1]||'🎉';
+      var scoreText=p.score?(d.game==='reaction'?(p.score/1000).toFixed(3)+'秒':p.score+'次'):'';
+      return '<div style="padding:8px 16px;border-radius:10px;margin-bottom:6px;'+(isMe?'background:rgba(253,203,110,.25);border:1px solid var(--gold)':'background:rgba(253,203,110,.1)')+';font-size:.95em;'+(isMe?'font-weight:bold':'')+'">'+medal+' '+p.name+(scoreText?' - '+scoreText:'')+(isMe?' <span style="color:var(--gold);font-size:.8em">（我）</span>':'')+'</div>';
+    }).join('')+'</div>';
   }
   if(d.correct){
-    var h='<div class="card" style="border:2px solid var(--grn);text-align:center;margin-top:12px"><div style="color:var(--grn);font-weight:bold">✅ 正确答案：'+d.correct+'</div>';
-    if(!(d.rankings&&d.rankings.length)){h+='<div style="margin-top:8px;color:var(--sub)">没有人答对</div>'}
-    h+='</div>';
-    r.innerHTML=h+r.innerHTML;
+    html='<div class="card" style="border:2px solid var(--grn);text-align:center;margin-bottom:12px"><div style="color:var(--grn);font-weight:bold">✅ 正确答案：'+d.correct+'</div>'+( !(d.rankings&&d.rankings.length)?'<div style="margin-top:8px;color:var(--sub)">没有人答对</div>':'')+'</div>'+html;
   }
+  r.innerHTML=html;
 }
 function exitGame(){
   S.gameType=null;shakeListening=false;S.quizAnswer=null;S.reactionReady=false;S.reactionPenaltyUntil=0;
+  stopShakeBatch();
   backToHome();
 }
 </script>
