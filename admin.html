@@ -80,6 +80,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
         <div class="f-grp" style="max-width:90px"><label>数量</label><input id="pzCnt" type="number" min="1" value="1"></div>
         <div class="f-grp" style="max-width:90px"><label>权重</label><input id="pzWt" type="number" min="1" value="1"></div>
         <div class="f-grp" style="max-width:90px"><label>颜色</label><input id="pzColor" type="color" value="#fdcb6e" style="height:38px;padding:2px"></div>
+        <div class="f-grp" style="max-width:140px"><label>奖品图片</label><div style="display:flex;gap:6px;align-items:center"><input type="file" id="pzImgUpload" accept="image/*" style="display:none" onchange="uploadPrizeImg(event)"><button class="btn btn-out btn-sm" onclick="document.getElementById('pzImgUpload').click()">📁 上传</button><img id="pzImgPreview" style="width:38px;height:38px;border-radius:8px;object-fit:cover;display:none"></div></div>
         <div style="padding-bottom:0"><button class="btn btn-pri" onclick="addPrize()">+ 添加</button></div>
       </div>
     </div>
@@ -246,6 +247,15 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <p style="color:var(--sub);font-size:.8em;margin-top:6px">支持上传本地图片作为背景，或填写网络图片地址</p>
     </div>
     <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">🎵 背景音乐</h3>
+      <div class="f-row">
+        <div class="f-grp" style="max-width:200px"><label>预设音乐</label><select id="scMusicPreset" onchange="onMusicPresetChange()"><option value="">不播放</option><option value="bg1">欢乐庆典</option><option value="bg2">轻快节奏</option><option value="bg3">紧张悬疑</option><option value="bg4">温馨抒情</option><option value="custom">自定义上传</option></select></div>
+        <div class="f-grp" style="max-width:150px"><label>音量（0-1）</label><input id="scMusicVolume" type="number" min="0" max="1" step="0.1" value="0.5"></div>
+        <div class="f-grp" style="max-width:200px" id="scMusicUploadGrp" style="display:none"><label>上传音乐文件</label><div style="display:flex;gap:6px;align-items:center"><input type="file" id="scMusicUpload" accept="audio/*" style="display:none" onchange="uploadMusic(event)"><button class="btn btn-out btn-sm" onclick="document.getElementById('scMusicUpload').click()">📁 选择音乐</button></div></div>
+      </div>
+      <p style="color:var(--sub);font-size:.8em;margin-top:6px" id="scMusicName">未设置背景音乐</p>
+    </div>
+    <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:10px">✨ 流动动画效果</h3>
       <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">选择大屏上已签到人员信息的流动展示方式：</p>
       <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -307,7 +317,10 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <h3 style="font-size:1.05em;margin-bottom:10px">🚫 敏感词管理</h3>
       <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">每行一个敏感词，包含敏感词的弹幕将被自动拦截，不会显示在大屏上。</p>
       <textarea id="dmBadWords" rows="8" placeholder="每行一个敏感词，如：&#10;广告&#10;谩骂&#10;涉政"></textarea>
-      <button class="btn btn-pri" style="margin-top:10px" onclick="saveBadWords()">💾 保存敏感词</button>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-pri" onclick="saveBadWords()">💾 保存敏感词</button>
+        <button class="btn btn-out" onclick="loadDefaultBadWords()">📋 一键载入默认违禁词库</button>
+      </div>
     </div>
     <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:10px">⚙️ 弹幕设置</h3>
@@ -341,6 +354,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <button class="btn btn-out" onclick="exportParticipants()">📋 导出名单</button>
       <button class="btn btn-dng" onclick="clearParticipants()">🗑️ 清空全部</button>
       <button class="btn btn-gold" onclick="voidTodaySigned()">🚫 一键作废当日已签到</button>
+      <button class="btn btn-suc" onclick="showVoidedWinners()">🔄 恢复被删除中奖人</button>
     </div>
     <div class="section" style="margin-bottom:12px">
       <div style="font-weight:bold;margin-bottom:8px;font-size:.95em">📊 各来源账号实时登记数量</div>
@@ -425,7 +439,9 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   tickets:[],voidedTickets:[],voidLogs:[],signFailMsg:'签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。',
   flowInterval:0,
   gameConfig:{shakeDuration:10,reactionDuration:15,reactionIntervalType:'random',reactionFixedInterval:2,reactionMinInterval:1,reactionMaxInterval:3,quizRounds:3,quizInterval:5,autoStartThreshold:0},
-  danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,history:[]}
+  danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,history:[]},
+  music:{enable:false,preset:'',url:'',name:'',volume:0.5},
+  voidedWinners:[]
 };
 let currentTab='prizes';
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
@@ -459,7 +475,7 @@ function connectMQTT(){
   const cid='admin_'+uid();
   try{
     S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
-    S.mqtt.on('connect',()=>{updateConn('online');S.mqtt.subscribe(S.topic+'sign_in');S.mqtt.subscribe(S.topic+'register');S.mqtt.subscribe(S.topic+'game_cmd');S.mqtt.subscribe(S.topic+'request_config');S.mqtt.subscribe(S.topic+'danmaku');S.mqtt.subscribe(S.topic+'ticket_void');S.mqtt.subscribe(S.topic+'lottery_result');broadcastConfig()});
+    S.mqtt.on('connect',()=>{updateConn('online');S.mqtt.subscribe(S.topic+'sign_in');S.mqtt.subscribe(S.topic+'register');S.mqtt.subscribe(S.topic+'game_cmd');S.mqtt.subscribe(S.topic+'request_config');S.mqtt.subscribe(S.topic+'danmaku');S.mqtt.subscribe(S.topic+'ticket_void');S.mqtt.subscribe(S.topic+'lottery_result');S.mqtt.subscribe(S.topic+'winner_void');broadcastConfig()});
     S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
     S.mqtt.on('error',()=>updateConn('offline'));S.mqtt.on('reconnect',()=>updateConn('connecting'));S.mqtt.on('close',()=>updateConn('offline'));
   }catch(e){updateConn('offline')}
@@ -473,6 +489,7 @@ function handleMsg(t,d){
   else if(t.endsWith('ticket_void')){handleTicketVoid(d)}
   else if(t.endsWith('game_cmd')){/* 游戏指令转发 */}
   else if(t.endsWith('lottery_result')){handleLotteryResult(d)}
+  else if(t.endsWith('winner_void')){handleWinnerVoid(d)}
 }
 function handleLotteryResult(d){
   if(!d.winners||!d.winners.length)return;
@@ -480,11 +497,48 @@ function handleLotteryResult(d){
   if(S.records.length>0){const last=S.records[S.records.length-1];if(last.time===d.time)return}
   S.records.push({winners:d.winners,time:d.time||Date.now()});
   // 更新参与者中奖状态
-  d.winners.forEach(w=>{const p=S.participants.find(p=>p.name===w.name);if(p){p.won=true;p.prizeId=w.prize}});
+  d.winners.forEach(w=>{const p=S.participants.find(p=>p.name===w.name);if(p){p.won=true;p.prizeId=w.prize;p.prizeName=w.prize}});
   // 更新奖品中奖计数
   d.winners.forEach(w=>{const pr=S.prizes.find(p=>p.name===w.prize);if(pr)pr.won++});
   saveLocal();renderRecords();renderParticipants();renderPrizes();
   toast('🎉 抽奖完成：'+d.winners.map(w=>w.name).join('、'))
+}
+function handleWinnerVoid(d){
+  if(!d.name)return;
+  const p=S.participants.find(pp=>pp.name===d.name);
+  if(p){p.won=false;p.voided=true;p.prizeId=null}
+  const pr=S.prizes.find(pp=>pp.name===d.prize);
+  if(pr&&pr.won>0)pr.won--;
+  if(!S.voidedWinners)S.voidedWinners=[];
+  if(!S.voidedWinners.find(v=>v.name===d.name&&v.prize===d.prize&&v.time===d.time)){
+    S.voidedWinners.unshift({name:d.name,prize:d.prize,time:d.time||Date.now()});
+  }
+  saveLocal();renderParticipants();renderPrizes();broadcastConfig();
+  toast('⚠️ 中奖人已删除：'+d.name+'（奖品：'+d.prize+'）')
+}
+function showVoidedWinners(){
+  if(!S.voidedWinners||!S.voidedWinners.length){toast('没有被删除的中奖人');return}
+  var modal=document.createElement('div');
+  modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML='<div style="background:var(--card);border-radius:20px;padding:30px;max-width:500px;width:100%;border:1px solid var(--bd)"><h3 style="font-size:1.2em;margin-bottom:16px">🔄 被删除的中奖人</h3><div id="voidedList" style="max-height:400px;overflow-y:auto;margin-bottom:16px"></div><button class="btn btn-out" id="voidCloseBtn" style="width:100%;padding:12px;justify-content:center">关闭</button></div>';
+  var list=modal.querySelector('#voidedList');
+  list.innerHTML=S.voidedWinners.map(function(v,i){return '<div class="section" id="voidRow_'+i+'" style="display:flex;align-items:center;gap:10px;padding:10px 14px"><div style="flex:1"><div style="font-weight:bold">'+v.name+'</div><div style="font-size:.82em;color:var(--sub)">奖品: '+v.prize+' · '+fmt(v.time)+'</div></div><button class="btn btn-suc btn-sm" onclick="restoreVoidedWinner('+i+')">🔄 恢复</button></div>'}).join('');
+  document.body.appendChild(modal);
+  modal.querySelector('#voidCloseBtn').onclick=function(){modal.remove()};
+}
+function restoreVoidedWinner(idx){
+  if(!S.voidedWinners||!S.voidedWinners.length)return;
+  var v=S.voidedWinners[idx];if(!v)return;
+  var p=S.participants.find(pp=>pp.name===v.name);
+  if(p){p.won=true;p.voided=false;p.prizeId=v.prize}
+  var pr=S.prizes.find(pp=>pp.name===v.prize);
+  if(pr)pr.won++;
+  S.voidedWinners.splice(idx,1);
+  saveLocal();renderParticipants();renderPrizes();broadcastConfig();
+  var row=document.getElementById('voidRow_'+idx);
+  if(row)row.remove();
+  if(!S.voidedWinners.length){var btn=document.getElementById('voidCloseBtn');if(btn)btn.click()}
+  toast('已恢复：'+v.name);
 }
 function handleRegister(d){
   if(!d.data)return;
@@ -541,11 +595,12 @@ function broadcastConfig(){
   S.mqtt.publish(S.topic+'config',JSON.stringify({
     prizes:S.prizes,fields:S.fields,screen:S.screen,signin:S.signin,drawCount:S.drawCount,
     accounts:S.accounts,baseLink:S.baseLink,participantCount:S.participants.length,
-    participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,ticket:p.ticket||'',operator:p.operator||'',registerTime:p.registerTime||null}}),
+    participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,ticket:p.ticket||'',operator:p.operator||'',registerTime:p.registerTime||null,voided:p.voided||false}}),
     tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,
     signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,
     gameConfig:S.gameConfig,
-    danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous},
+    danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview},
+    music:S.music,
     time:Date.now()
   }))
 }
@@ -568,17 +623,21 @@ function switchTab(name){
 }
 
 // ========== 奖品 ==========
+let _pzImg='';
 function addPrize(){
   const n=document.getElementById('pzName').value.trim(),c=parseInt(document.getElementById('pzCnt').value)||1,w=parseInt(document.getElementById('pzWt').value)||1,cl=document.getElementById('pzColor').value||'#fdcb6e';
   if(!n){toast('请输入奖品名称');return}
-  S.prizes.push({id:uid(),name:n,count:c,weight:w,color:cl,won:0});
-  document.getElementById('pzName').value='';saveLocal();renderPrizes();broadcastConfig();toast('奖品已添加')
+  S.prizes.push({id:uid(),name:n,count:c,weight:w,color:cl,won:0,img:_pzImg});
+  _pzImg='';document.getElementById('pzName').value='';var pv=document.getElementById('pzImgPreview');if(pv)pv.style.display='none';saveLocal();renderPrizes();broadcastConfig();toast('奖品已添加')
+}
+function uploadPrizeImg(e){
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas');const maxW=200;const sc=Math.min(1,maxW/img.width);cv.width=img.width*sc;cv.height=img.height*sc;cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);_pzImg=cv.toDataURL('image/jpeg',0.7);const pv=document.getElementById('pzImgPreview');pv.src=_pzImg;pv.style.display='block';toast('奖品图片已上传')};img.src=r.result};r.readAsDataURL(f);e.target.value=''
 }
 function delPrize(id){S.prizes=S.prizes.filter(p=>p.id!==id);saveLocal();renderPrizes();broadcastConfig();toast('已删除')}
 function renderPrizes(){
   const l=document.getElementById('pzList');
   if(!S.prizes.length){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px">暂无奖品</div>';return}
-  l.innerHTML=S.prizes.map(p=>'<div class="section" style="display:flex;align-items:center;gap:12px;padding:12px 16px"><div style="width:32px;height:32px;border-radius:50%;background:'+p.color+';flex-shrink:0"></div><div style="flex:1"><div style="font-weight:bold">'+p.name+'</div><div style="font-size:.82em;color:var(--sub)">数量:'+p.count+' · 权重:'+p.weight+' · 已抽:'+p.won+'/'+p.count+'</div></div><button class="btn btn-dng btn-sm" onclick="delPrize(\''+p.id+'\')">🗑</button></div>').join('')
+  l.innerHTML=S.prizes.map(p=>'<div class="section" style="display:flex;align-items:center;gap:12px;padding:12px 16px">'+(p.img?'<img src="'+p.img+'" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0">':'<div style="width:32px;height:32px;border-radius:50%;background:'+p.color+';flex-shrink:0"></div>')+'<div style="flex:1"><div style="font-weight:bold">'+p.name+'</div><div style="font-size:.82em;color:var(--sub)">数量:'+p.count+' · 权重:'+p.weight+' · 已抽:'+p.won+'/'+p.count+'</div></div><button class="btn btn-dng btn-sm" onclick="delPrize(\''+p.id+'\')">🗑</button></div>').join('')
 }
 
 // ========== 账号 ==========
@@ -718,7 +777,22 @@ function saveScreenConfig(){
   S.screen.titleSize=parseInt(document.getElementById('scTitleSize').value)||48;
   S.screen.titleColor=document.getElementById('scTitleColor').value||'#fdcb6e';
   S.screen.bgUrl=document.getElementById('scBgUrl').value==='（已上传图片）'?S.screen.bgUrl:document.getElementById('scBgUrl').value;
+  S.music.volume=parseFloat(document.getElementById('scMusicVolume').value)||0.5;
+  S.music.enable=!!document.getElementById('scMusicPreset').value;
+  S.music.preset=document.getElementById('scMusicPreset').value;
   saveLocal();broadcastConfig();toast('大屏外观设置已保存并同步')
+}
+function onMusicPresetChange(){
+  const v=document.getElementById('scMusicPreset').value;
+  const grp=document.getElementById('scMusicUploadGrp');
+  if(grp)grp.style.display=v==='custom'?'block':'none';
+  if(v&&v!=='custom'){S.music.preset=v;S.music.url='';S.music.name={bg1:'欢乐庆典',bg2:'轻快节奏',bg3:'紧张悬疑',bg4:'温馨抒情'}[v]||'';document.getElementById('scMusicName').textContent='当前: '+S.music.name}
+  else if(v==='custom'){}else{S.music.preset='';S.music.url='';S.music.name='';document.getElementById('scMusicName').textContent='未设置背景音乐'}
+}
+function uploadMusic(e){
+  const f=e.target.files[0];if(!f)return;
+  if(f.size>5*1024*1024){toast('音乐文件不能超过5MB');return}
+  const r=new FileReader();r.onload=()=>{S.music.url=r.result;S.music.preset='custom';S.music.name=f.name;S.music.enable=true;document.getElementById('scMusicName').textContent='当前: '+f.name;saveLocal();toast('音乐文件已上传（'+(f.size/1024/1024).toFixed(1)+'MB）')};r.readAsDataURL(f);e.target.value=''
 }
 
 // ========== 奖券管理 ==========
@@ -784,6 +858,27 @@ function renderVoidLogs(){
 }
 
 // ========== 弹幕管理 ==========
+const DEFAULT_BAD_WORDS=[
+'色情','卖淫','嫖娼','裸体','裸聊','黄片','做爱','性交','口交','肛交','乱伦','强奸','猥亵','一夜情','找小姐','包夜','援交','裸照','私拍','福利姬','磕炮','文爱','裸贷','买春','卖身','鸡巴','屄','奶子','足交','群P','性奴','裸舞','脱衣','走光','偷拍','换妻','绿帽','性虐','潮吹','自慰','充气娃娃','跳蛋','裸奔','胸推','臀推','推油','特殊服务','上门服务','外围','约炮','同城约',
+'暴力','杀人','砍人','捅人','恐怖','炸弹','袭击','爆炸','枪击','纵火','投毒','绑架','劫持','人质','斩首','处决','屠杀','灭族','种族灭绝','恐怖组织','恐怖分子','极端组织','ISIS','塔利班','基地组织','圣战','自杀','自残','割腕','跳楼','上吊','安眠药','服毒',
+'赌博','博彩','赌场','押注','下注','庄家','赔率','外围盘','赌球','赌马','六合彩','时时彩','pk10','北京赛车','分分彩','三分彩','五分彩','九州彩票','亚博体育','彩票代理','开户','注册送','首存','反水','返水','导师','带赚','计划群','跟单','下注群','赌资','筹码','包赢','稳赚','日赚','月入','躺赚',
+'诈骗','骗钱','骗子','刷单','兼职刷单','打字员','快递录入','网赚','赚钱','日结','佣金','押金','会费','入会','传销','庞氏','资金盘','杀猪盘','裸聊敲诈','冒充公检法','冒充客服','退款诈骗','中奖诈骗','贷款诈骗','信用卡套现','套现','养卡','代还','消除征信','恢复征信','办理证件','假证','办证','刻章',
+'毒品','大麻','海洛因','冰毒','摇头丸','K粉','麻古','鸦片','吗啡','可卡因','麻黄素','罂粟','制毒','贩毒','吸毒','注射毒品','嗑药','溜冰','管制刀具','枪支','弹药','仿真枪','气枪',
+'傻逼','SB','草泥马','操你妈','废物','垃圾','人渣','败类','畜生','狗东西','去死','死全家','断子绝孙','不得好死','下地狱','贱人','婊子','淫妇','荡妇','破鞋','小三','狐狸精','绿茶婊','键盘侠','喷子','杠精','脑残','智障','弱智','白痴','低能',
+'加微信','加Q','加群','进群','扫码','二维码','免费送','0元购','秒杀','代购','代理','招商','加盟','批发','厂家直销','一手货源','诚招','月入过万','日入千元','躺赚','稳赚不赔','保证赚钱','零风险','零投入','无门槛','点击链接','复制链接','下载APP','注册即送','限时免费','最后一天','仅此一次',
+'违禁','非法','地下','黑市','走私','偷渡','偷窃','盗窃','抢劫','抢夺','敲诈','勒索','洗钱','逃税','漏税','行贿','受贿','腐败','贪官','开后门','走关系','办假证','假发票','虚开',
+'邪教','法轮功','全能神','门徒会','实际神','呼喊派','统一教','观音法门','血水圣灵','华藏宗门','圆顿',
+'台独','藏独','疆独','港独','蒙独','独立','分裂','分裂国家','颠覆','颠覆政权','推翻','暴动','暴乱','骚乱','起义','政变','军变','戒严','宵禁',
+'六四','64','天安门','学潮','动乱','维稳','截访','黑监狱','上访','信访','冤案',
+'翻墙','VPN','vpn','代理上网','科学上网','SSR','v2ray','Shadowsocks','shadowsocks','Tor','洋葱路由','GFW','防火墙','网络封锁','网络审查','网络管控','言论审查','删帖','封号','封禁'
+];
+function loadDefaultBadWords(){
+  const existing=(S.danmaku.badWords||[]).slice();
+  const merged=[...new Set([...existing,...DEFAULT_BAD_WORDS])];
+  S.danmaku.badWords=merged;
+  document.getElementById('dmBadWords').value=merged.join('\n');
+  saveLocal();broadcastConfig();toast('已载入默认违禁词库（共'+merged.length+'个）')
+}
 function saveBadWords(){
   const text=document.getElementById('dmBadWords').value.trim();
   S.danmaku.badWords=text?text.split('\n').map(s=>s.trim()).filter(Boolean):[];
@@ -926,7 +1021,7 @@ function copyAllLinks(){
 }
 
 // ========== 存储渲染 ==========
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,signFailMsg:S.signFailMsg,      flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig}))}catch(e){}}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[]}))}catch(e){}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
 function renderAll(){
   renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderVoidLogs();renderDanmakuHistory();renderDanmakuReview();
@@ -948,6 +1043,11 @@ function renderAll(){
   document.getElementById('dmReviewSection').style.display=S.danmaku.needReview?'block':'none';
   if(S.signin.lat){document.getElementById('sgLat').value=S.signin.lat;document.getElementById('sgLng').value=S.signin.lng;document.getElementById('sgRadius').value=S.signin.radius;document.getElementById('sgEnable').checked=S.signin.enable;if(S.signin.startTime)document.getElementById('sgStart').value=S.signin.startTime;if(S.signin.endTime)document.getElementById('sgEnd').value=S.signin.endTime}
   if(S.baseLink)document.getElementById('linkBase').value=S.baseLink;
+  var mc=S.music||{enable:false,preset:'',url:'',name:'',volume:0.5};
+  var mPreset=document.getElementById('scMusicPreset');if(mPreset)mPreset.value=mc.preset||'';
+  var mVol=document.getElementById('scMusicVolume');if(mVol)mVol.value=mc.volume||0.5;
+  var mGrp=document.getElementById('scMusicUploadGrp');if(mGrp)mGrp.style.display=mc.preset==='custom'?'block':'none';
+  var mName=document.getElementById('scMusicName');if(mName)mName.textContent=mc.name?'当前: '+mc.name:'未设置背景音乐';
   updateLinks();selectFlow(S.screen.flowType||'meteor')
 }
 // URL room

@@ -190,7 +190,10 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   </div>
 </div>
 
-<!-- 签到失败弹窗 -->
+  <!-- 背景音乐 -->
+  <audio id="bgMusic" loop></audio>
+
+  <!-- 签到失败弹窗 -->
 <div class="modal-bg" id="failModal">
   <div class="modal-card">
     <div style="font-size:2.5em;margin-bottom:10px">❌</div>
@@ -220,6 +223,7 @@ let S={mqtt:null,topic:'',room:'',
   voidedTickets:[],allParticipants:[],
   signedIn:false,myName:'',myData:{},avatarData:'',
   danmakuSettings:{enable:true,anonymous:true},
+  music:{enable:false,preset:'',url:'',name:'',volume:0.5},
   gameType:null,shakeCount:0,shakeListening:false,reactionReady:false,reactionPenaltyUntil:0,quizAnswer:null,
   shakeBatchTimer:null,shakePending:0,
   _avatarTmp:''
@@ -262,6 +266,7 @@ function handleMsg(t,d){
     S.signFailMsg=d.signFailMsg||S.signFailMsg;
     S.voidedTickets=d.voidedTickets||[];S.allParticipants=d.participants||[];
     S.danmakuSettings=d.danmaku||{enable:true,anonymous:true};
+    if(d.music)S.music=d.music;applyMusic();
     if(!S.signedIn)renderSignForm();
     if(S.signedIn){
       document.getElementById('waitCount').textContent=d.participantCount||0;renderSignPrizes();
@@ -439,6 +444,27 @@ function handleLotteryResult(winners){
   }
 }
 function calcDist(la1,lo1,la2,lo2){const R=6371000,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)*Math.sin(dLo/2);return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
+
+// ========== 背景音乐 ==========
+function applyMusic(){
+  var audio=document.getElementById('bgMusic');
+  if(!audio)return;
+  if(!S.music||!S.music.enable){audio.pause();return}
+  audio.volume=S.music.volume||0.5;
+  if(S.music.url){
+    if(audio.src!==S.music.url)audio.src=S.music.url;
+    audio.play().catch(function(){});
+  }else if(S.music.preset&&S.music.preset!=='custom'){
+    var presets={
+      bg1:'https://cdn.pixabay.com/download/audio/2022/10/30/audio_347111d50c.mp3',
+      bg2:'https://cdn.pixabay.com/download/audio/2022/03/24/audio_4c0c1c40c4.mp3',
+      bg3:'https://cdn.pixabay.com/download/audio/2022/08/04/audio_1c0c1c40c4.mp3',
+      bg4:'https://cdn.pixabay.com/download/audio/2022/11/22/audio_4f7c0c1c40.mp3'
+    };
+    var url=presets[S.music.preset];
+    if(url){if(audio.src!==url)audio.src=url;audio.play().catch(function(){})}
+  }
+}
 
 // ========== 头像与昵称（文件选择器方式） ==========
 function processAvatarFile(file){
