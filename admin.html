@@ -329,6 +329,10 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="dmNeedReview" onchange="saveDanmakuSettings()"> <span>弹幕需审核后显示（开启后弹幕先到后台，审核通过才上大屏）</span></label>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="dmAnonymous" checked onchange="saveDanmakuSettings()"> <span>允许匿名弹幕（不显示发送者姓名）</span></label>
         <div class="f-row">
+          <div class="f-grp" style="max-width:160px"><label>弹幕显示模式</label><select id="dmMode" onchange="saveDanmakuSettings()"><option value="scroll">滚动弹幕</option><option value="top">顶部固定</option><option value="bottom">底部固定</option></select></div>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;align-self:flex-end;padding-bottom:8px"><input type="checkbox" id="dmColorful" checked onchange="saveDanmakuSettings()"> <span>彩色弹幕</span></label>
+        </div>
+        <div class="f-row">
           <div class="f-grp" style="max-width:120px"><label>弹幕速度（秒）</label><input id="dmSpeed" type="number" min="3" max="30" value="8"></div>
           <div class="f-grp" style="max-width:120px"><label>弹幕字号</label><input id="dmFontSize" type="number" min="12" max="60" value="28"></div>
         </div>
@@ -439,7 +443,7 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   tickets:[],voidedTickets:[],voidLogs:[],signFailMsg:'签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。',
   flowInterval:0,
   gameConfig:{shakeDuration:10,reactionDuration:15,reactionIntervalType:'random',reactionFixedInterval:2,reactionMinInterval:1,reactionMaxInterval:3,quizRounds:3,quizInterval:5,autoStartThreshold:0},
-  danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,history:[]},
+  danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,mode:'scroll',colorful:true,history:[]},
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
   voidedWinners:[]
 };
@@ -562,7 +566,7 @@ function handleDanmaku(d){
   for(const w of bad){if(d.text.includes(w)){blocked=true;break}}
   if(blocked){toast('🚫 弹幕被敏感词拦截: '+d.text);return}
   // 记录历史
-  S.danmaku.history.unshift({text:d.text,name:d.name||'匿名',time:Date.now(),status:S.danmaku.needReview?'pending':'approved'});
+  S.danmaku.history.unshift({text:d.text,name:d.name||'匿名',time:Date.now(),status:S.danmaku.needReview?'pending':'approved',avatar:d.avatar||'',color:d.color||''});
   if(S.danmaku.history.length>100)S.danmaku.history.pop();
   saveLocal();renderDanmakuHistory();
   if(S.danmaku.needReview){
@@ -571,7 +575,10 @@ function handleDanmaku(d){
   }else{
     // 直接转发到大屏
     if(S.mqtt&&S.mqtt.connected){
-      S.mqtt.publish(S.topic+'danmaku_show',JSON.stringify({text:d.text,name:S.danmaku.anonymous?'':d.name,time:Date.now()}));
+      var fwd={text:d.text,name:S.danmaku.anonymous?'':d.name,time:Date.now()};
+      if(d.avatar)fwd.avatar=d.avatar;
+      if(d.color)fwd.color=d.color;
+      S.mqtt.publish(S.topic+'danmaku_show',JSON.stringify(fwd));
     }
   }
 }
@@ -599,7 +606,7 @@ function broadcastConfig(){
     tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,
     signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,
     gameConfig:S.gameConfig,
-    danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview},
+    danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview,mode:S.danmaku.mode||'scroll',colorful:S.danmaku.colorful!==false},
     music:S.music,
     time:Date.now()
   }))
@@ -890,6 +897,8 @@ function saveDanmakuSettings(){
   S.danmaku.anonymous=document.getElementById('dmAnonymous').checked;
   S.danmaku.speed=parseInt(document.getElementById('dmSpeed').value)||8;
   S.danmaku.fontSize=parseInt(document.getElementById('dmFontSize').value)||28;
+  S.danmaku.mode=document.getElementById('dmMode').value||'scroll';
+  S.danmaku.colorful=document.getElementById('dmColorful').checked;
   document.getElementById('dmReviewSection').style.display=S.danmaku.needReview?'block':'none';
   saveLocal();broadcastConfig();toast('弹幕设置已保存')
 }
@@ -904,7 +913,10 @@ function approveDanmaku(idx){
   const d=pending[idx];if(!d)return;
   d.status='approved';
   if(S.mqtt&&S.mqtt.connected){
-    S.mqtt.publish(S.topic+'danmaku_show',JSON.stringify({text:d.text,name:S.danmaku.anonymous?'':d.name,time:Date.now()}));
+    var fwd={text:d.text,name:S.danmaku.anonymous?'':d.name,time:Date.now()};
+    if(d.avatar)fwd.avatar=d.avatar;
+    if(d.color)fwd.color=d.color;
+    S.mqtt.publish(S.topic+'danmaku_show',JSON.stringify(fwd));
   }
   saveLocal();renderDanmakuReview();renderDanmakuHistory();toast('弹幕已通过')
 }
@@ -1039,7 +1051,7 @@ function renderAll(){
   document.getElementById('gmQuizRounds').value=gc.quizRounds||3;
   document.getElementById('gmQuizInterval').value=gc.quizInterval||5;
   document.getElementById('gmAutoStartThreshold').value=gc.autoStartThreshold||0;
-  document.getElementById('dmBadWords').value=(S.danmaku.badWords||[]).join('\n');document.getElementById('dmEnable').checked=S.danmaku.enable!==false;document.getElementById('dmNeedReview').checked=S.danmaku.needReview;document.getElementById('dmAnonymous').checked=S.danmaku.anonymous!==false;document.getElementById('dmSpeed').value=S.danmaku.speed||8;document.getElementById('dmFontSize').value=S.danmaku.fontSize||28;
+  document.getElementById('dmBadWords').value=(S.danmaku.badWords||[]).join('\n');document.getElementById('dmEnable').checked=S.danmaku.enable!==false;document.getElementById('dmNeedReview').checked=S.danmaku.needReview;document.getElementById('dmAnonymous').checked=S.danmaku.anonymous!==false;document.getElementById('dmSpeed').value=S.danmaku.speed||8;document.getElementById('dmFontSize').value=S.danmaku.fontSize||28;document.getElementById('dmMode').value=S.danmaku.mode||'scroll';document.getElementById('dmColorful').checked=S.danmaku.colorful!==false;
   document.getElementById('dmReviewSection').style.display=S.danmaku.needReview?'block':'none';
   if(S.signin.lat){document.getElementById('sgLat').value=S.signin.lat;document.getElementById('sgLng').value=S.signin.lng;document.getElementById('sgRadius').value=S.signin.radius;document.getElementById('sgEnable').checked=S.signin.enable;if(S.signin.startTime)document.getElementById('sgStart').value=S.signin.startTime;if(S.signin.endTime)document.getElementById('sgEnd').value=S.signin.endTime}
   if(S.baseLink)document.getElementById('linkBase').value=S.baseLink;

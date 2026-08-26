@@ -84,12 +84,17 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
     </div>
     <div class="card" style="text-align:center">
       <div id="avatarPagePreview" style="width:100px;height:100px;border-radius:50%;background:var(--card2);border:3px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:3em;color:var(--sub);margin:0 auto 16px">👤</div>
+      <p style="color:var(--sub);font-size:.8em;margin-bottom:10px">🎨 选择一个预设头像</p>
+      <div id="presetAvatarGrid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px"></div>
       <input type="file" id="avatarFileInput" accept="image/*" style="display:none" onchange="processAvatarFile(this.files[0])">
-      <button class="btn btn-pri" style="width:100%;padding:14px;margin-bottom:10px" onclick="document.getElementById('avatarFileInput').click()">📷 选择头像</button>
-      <p style="color:var(--sub);font-size:.78em;margin-bottom:16px">可从相册选择或拍照</p>
+      <button class="btn btn-pri" style="width:100%;padding:14px;margin-bottom:10px" onclick="document.getElementById('avatarFileInput').click()">📷 上传自定义头像</button>
+      <p style="color:var(--sub);font-size:.78em;margin-bottom:16px">点击上方图标即可快速选择，也可从相册上传</p>
       <div class="f-grp">
         <label>昵称（可自行修改）</label>
-        <input id="wxNickname" type="text" placeholder="输入你的昵称" style="text-align:center">
+        <div style="display:flex;gap:6px">
+          <input id="wxNickname" type="text" placeholder="输入你的昵称" style="text-align:center;flex:1">
+          <button class="btn btn-out" style="white-space:nowrap;flex-shrink:0" onclick="randomNick()">🎲 随机</button>
+        </div>
       </div>
       <button class="btn btn-suc" style="width:100%;padding:14px" onclick="saveAvatarNick()">✓ 保存</button>
     </div>
@@ -103,6 +108,10 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
     </div>
     <div class="card">
       <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">发送弹幕消息，实时显示在大屏上</p>
+      <div class="f-grp">
+        <label>弹幕颜色</label>
+        <div id="dmColorRow" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+      </div>
       <div class="f-grp">
         <textarea id="dmPageInput" rows="3" placeholder="输入弹幕内容..." maxlength="50"></textarea>
       </div>
@@ -226,8 +235,17 @@ let S={mqtt:null,topic:'',room:'',
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
   gameType:null,shakeCount:0,shakeListening:false,reactionReady:false,reactionPenaltyUntil:0,quizAnswer:null,
   shakeBatchTimer:null,shakePending:0,
+  dmColor:'#fff',
   _avatarTmp:''
 };
+// 预设头像（emoji 头像，无需图片文件）
+const PRESET_AVATARS=['🐱','🐶','🐼','🦊','🐸','🐯','🦁','🐮','🐷','🐰','🐨','🐻','🐧','🦄','🐬','🐳','🦉','🐙','🦖','🐺','🦅','🦈','🐊','🐡','🐟','🦀','🐌','🦋','🐝','🐞','🦇','🐲','🤖','👾','👻','🎃','🐹','🐰'];
+// 搞怪昵称前缀（安全、无冒犯）
+const NICK_PRE=['摸鱼的','干饭','熬夜的','摆烂的','社恐的','打盹的','发呆的','划水的','遛弯的','嗑瓜子的','喝奶茶的','蹭饭的','躺平的','加班的','疯狂的','快乐的','佛系的','暴躁的','呆萌的','迷糊的','机智的','贪吃的','爱笑的','偷懒的','勤奋的','修仙的','背锅的','干架的','摸鱼的','潜水','摆拍','摸机','自由','无忧无虑','傻乎乎','圆滚滚','胖嘟嘟','冒泡泡','亮晶晶','叮叮当','咩咩叫','汪汪队','喵喵','咕咕','打呼','梦游','早起','熬夜冠军','修电脑的','断网的','没电的','延迟的','疯狂的','蹦迪','灌篮','泡面','外卖','烧烤','火锅','奶茶','冰块','空调','风扇','冰箱','衣柜','沙发','枕头','被子','闹钟','遥控器'];
+// 搞怪昵称后缀（无冒犯）
+const NICK_SUF=['小猫咪','干饭魂','打工人','夜猫子','小胖虎','奶茶精','小笼包','汉堡包','锅包肉','饭团','布丁','显眼包','养生菌','团子','咸鱼','星球','柠檬精','卷王','快乐星球','小迷糊','快乐星球','干饭','沙雕小恐龙','土豆泥','烤地瓜','糖葫芦','麻辣烫','螺蛳粉','火锅侠','凉皮','肉夹馍','蛋挞精','关东煮','泡面君','香菜精','葱姜蒜','老干妈','酱油君','盐巴','白糖','味精','大鹅','大白鹅','柯基','法斗','哈士奇','蓝猫','橘猫','暹罗','布偶','银渐层','缅因','英短','狸花','三花','奶牛猫','虎斑','加菲','折耳','萨摩耶','金毛','拉布拉多','边牧','雪纳瑞','德牧','博美','吉娃娃','比熊','泰迪','贵宾','腊肠','柴犬','秋田','二哈','拉面','饺子','包子','馒头','油条','豆浆','煎饼','鸡蛋','炒饭','蛋炒饭','盖饭','卤肉饭','鸡腿饭','猪脚饭','煲仔饭','竹筒饭','粽子','月饼','汤圆','元宵','年糕','糍粑','麻薯','糯米','珍珠','椰奶','抹茶','巧克力','芝士','奶油','冰淇淋','蛋挞','泡芙','马卡龙','曲奇','面包','吐司','贝果','可颂','法棍','司康','华夫饼','舒芙蕾','提拉米苏','布丁','布哥','奶糖','棒棒糖','跳跳糖','麦芽糖','棉花糖','爆米花','薯片','可乐','雪碧','芬达','美年达','七喜','气泡水','苏打水','柠檬水','果茶','花茶','茉莉花茶','奶茶三分糖','全糖去冰','半糖少冰','少糖多冰','无糖','原味','香草','薄荷','蜜桃','葡萄','苹果','芒果','荔枝','龙眼','柚子','石榴','西瓜','哈密瓜','榴莲','菠萝','柠檬','橙子','柑橘','草莓','蓝莓','黑莓','樱桃','桑葚','杨梅','杨桃','莲雾','山竹','火龙果','百香果','木瓜','橄榄','椰子','枇杷','枣','柿','桑椹','香蕉','梨','桃','杏','李','梅','橘','橙','柚','枸','小糖果'];
+// 弹幕可选颜色
+const DM_COLORS=['#ffffff','#fdcb6e','#fd79a8','#a29bfe','#00b894','#0984e3','#e17055','#55efc4','#ff6b81','#74b9ff'];
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
 function fmt(d){const dt=new Date(d);return(dt.getMonth()+1)+'/'+dt.getDate()+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}
@@ -287,8 +305,47 @@ function handleMsg(t,d){
 function hideAllPages(){
   ['signPage','avatarPage','danmakuPage','signinFormPage','signWaiting','signWon','gamePage'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
 }
-function showAvatarPage(){hideAllPages();document.getElementById('avatarPage').style.display='block';updateAvatarPagePreview()}
-function showDanmakuPage(){hideAllPages();document.getElementById('danmakuPage').style.display='block';document.getElementById('dmPageInput').focus()}
+function showAvatarPage(){hideAllPages();document.getElementById('avatarPage').style.display='block';updateAvatarPagePreview();renderPresetAvatars()}
+function renderPresetAvatars(){
+  var grid=document.getElementById('presetAvatarGrid');
+  if(!grid)return;
+  grid.innerHTML=PRESET_AVATARS.map(function(a){
+    return '<div onclick="selectPresetAvatar(\''+a+'\')" style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:1.6em;background:var(--card2);border-radius:12px;cursor:pointer;border:2px solid var(--bd);transition:.2s" onmouseover="this.style.borderColor=\'var(--pri)\'">'+a+'</div>';
+  }).join('');
+}
+function selectPresetAvatar(emoji){
+  S.avatarData='emoji:'+emoji;
+  S._avatarTmp='';
+  var prev=document.getElementById('avatarPagePreview');
+  if(prev)prev.innerHTML='<span style="font-size:3.5em;line-height:1">'+emoji+'</span>';
+  toast('已选择预设头像');
+}
+function randomNick(silent){
+  var pre=NICK_PRE[Math.floor(Math.random()*NICK_PRE.length)];
+  var suf=NICK_SUF[Math.floor(Math.random()*NICK_SUF.length)];
+  var nick=pre+suf;
+  var el=document.getElementById('wxNickname');
+  if(el)el.value=nick;
+  if(!silent)toast('已随机生成昵称');
+  return nick;
+}
+function showDanmakuPage(){hideAllPages();document.getElementById('danmakuPage').style.display='block';renderDmColorRow();document.getElementById('dmPageInput').focus()}
+function renderDmColorRow(){
+  var row=document.getElementById('dmColorRow');
+  if(!row)return;
+  var colors=['#fff','#fdcb6e','#fd79a8','#a29bfe','#00b894','#0984e3','#e17055','#55efc4','#ff6b81','#74b9ff'];
+  var html=colors.map(function(c){
+    var sel=c===S.dmColor?'2px solid var(--pri)':'2px solid transparent';
+    return '<div onclick="selectDmColor(\''+c+'\')" style="width:34px;height:34px;border-radius:50%;background:'+c+';cursor:pointer;border:'+sel+';transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>';
+  }).join('');
+  html+='<div onclick="selectDmColor(\'random\')" style="font-size:.75em;padding:6px 10px;border-radius:16px;cursor:pointer;border:2px solid '+(S.dmColor==='random'?'var(--pri)':'var(--bd)')+';color:var(--sub)">🌈 随机</div>';
+  row.innerHTML=html;
+}
+function selectDmColor(c){
+  S.dmColor=c;
+  renderDmColorRow();
+  toast(c==='random'?'已选择随机彩色弹幕':'已选择弹幕颜色');
+}
 function showSigninFormPage(){hideAllPages();document.getElementById('signinFormPage').style.display='block';renderSignForm()}
 function backToHome(){
   if(S.gameType){S.gameType=null;shakeListening=false}
@@ -407,7 +464,23 @@ function submitSignin(data){
   document.getElementById('signWaiting').style.display='block';
   if(S.avatarData){
     document.getElementById('avatarPreview').style.display='block';
-    document.getElementById('avatarImg').src=S.avatarData;
+    var imgEl=document.getElementById('avatarImg');
+    if(S.avatarData.indexOf('emoji:')===0){
+      imgEl.style.display='none';
+      var esp=document.getElementById('avatarPreviewEmoji');
+      if(!esp){
+        esp=document.createElement('div');
+        esp.id='avatarPreviewEmoji';
+        esp.style.cssText='font-size:3em;line-height:1;text-align:center';
+        imgEl.parentNode.insertBefore(esp,imgEl);
+      }
+      esp.textContent=S.avatarData.substr(6);
+    }else{
+      var esp=document.getElementById('avatarPreviewEmoji');
+      if(esp)esp.remove();
+      imgEl.style.display='';
+      imgEl.src=S.avatarData;
+    }
   }
   toast('签到成功！');
 }
@@ -470,6 +543,7 @@ function applyMusic(){
 function processAvatarFile(file){
   if(!file){return}
   if(!file.type.startsWith('image/')){toast('请选择图片');return}
+  if(S.avatarData&&S.avatarData.indexOf('emoji:')===0){S.avatarData='';}
   var reader=new FileReader();
   reader.onload=function(e){
     var img=new Image();
@@ -494,8 +568,14 @@ function processAvatarFile(file){
 }
 function saveAvatarNick(){
   var nick=document.getElementById('wxNickname').value.trim();
+  if(!nick){nick=randomNick(true);}
+  var nickEl=document.getElementById('wxNickname');
+  if(nickEl)nickEl.value=nick;
   if(S._avatarTmp){
     S.avatarData=S._avatarTmp;
+    S._avatarTmp='';
+  }
+  if(S.avatarData){
     // 发送到大屏
     if(S.mqtt&&S.mqtt.connected){
       S.mqtt.publish(S.topic+'avatar_update',JSON.stringify({name:nick||S.myName||'',avatar:S.avatarData,time:Date.now()}));
@@ -506,17 +586,40 @@ function saveAvatarNick(){
 }
 function updateAvatarPagePreview(){
   var prev=document.getElementById('avatarPagePreview');
+  if(!prev)return;
   if(S.avatarData){
-    prev.innerHTML='<img src="'+S.avatarData+'" style="width:100px;height:100px;border-radius:50%;object-fit:cover">';
+    if(S.avatarData.indexOf('emoji:')===0){
+      prev.innerHTML='<span style="font-size:3.5em;line-height:1">'+S.avatarData.substr(6)+'</span>';
+    }else{
+      prev.innerHTML='<img src="'+S.avatarData+'" style="width:100px;height:100px;border-radius:50%;object-fit:cover">';
+    }
   }
 }
 function updateHomeAvatarBar(){
   var bar=document.getElementById('homeAvatarBar');
+  if(!bar)return;
   if(S.avatarData){
     bar.style.display='block';
-    document.getElementById('homeAvatarImg').src=S.avatarData;
     var nick=document.getElementById('wxNickname');
-    document.getElementById('homeNickLabel').textContent=nick?nick.value.trim()||'':'';
+    var label=document.getElementById('homeNickLabel');
+    var img=document.getElementById('homeAvatarImg');
+    if(S.avatarData.indexOf('emoji:')===0){
+      img.style.display='none';
+      var span=document.getElementById('homeAvatarEmoji');
+      if(!span){
+        span=document.createElement('span');
+        span.id='homeAvatarEmoji';
+        span.style.cssText='font-size:2.6em;line-height:1;vertical-align:middle;margin-right:4px';
+        img.parentNode.insertBefore(span,img);
+      }
+      span.textContent=S.avatarData.substr(6);
+    }else{
+      var span=document.getElementById('homeAvatarEmoji');
+      if(span)span.remove();
+      img.style.display='';
+      img.src=S.avatarData;
+    }
+    if(label)label.textContent=nick?nick.value.trim()||'':'';
   }else{
     bar.style.display='none';
   }
@@ -528,7 +631,10 @@ function sendPageDanmaku(){
   if(!text){toast('请输入弹幕内容');return}
   if(text.length>50){toast('弹幕最多50字');return}
   var nick=document.getElementById('wxNickname')?document.getElementById('wxNickname').value.trim():'';
-  S.mqtt.publish(S.topic+'danmaku',JSON.stringify({text,name:nick||S.myName||'匿名',time:Date.now()}));
+  var msg={text:text,name:nick||S.myName||'匿名',time:Date.now()};
+  if(S.avatarData)msg.avatar=S.avatarData;
+  if(S.dmColor)msg.color=S.dmColor;
+  S.mqtt.publish(S.topic+'danmaku',JSON.stringify(msg));
   document.getElementById('dmPageInput').value='';
   toast('弹幕已发送');
   backToHome();
