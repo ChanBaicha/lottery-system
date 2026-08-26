@@ -197,14 +197,14 @@ body{font-family:'Microsoft YaHei',sans-serif;overflow:hidden;background:#0a0e27
 
 <!-- 编辑面板 -->
 <div id="editPanel">
-  <div class="edit-title">元素编辑</div>
-  <div class="edit-group"><label>文字内容</label><input id="epText" oninput="updateSelectedEl()"></div>
-  <div class="edit-group"><label>字体大小</label><input id="epSize" type="range" min="12" max="120" oninput="updateSelectedEl()"></div>
-  <div class="edit-group"><label>颜色</label><input id="epColor" type="color" oninput="updateSelectedEl()"></div>
-  <div class="edit-group"><label>图片URL</label><input id="epImgUrl" placeholder="图片地址" oninput="updateSelectedEl()"></div>
-  <div class="edit-group"><label>宽度</label><input id="epWidth" type="number" oninput="updateSelectedEl()"></div>
-  <div class="edit-group"><label>高度</label><input id="epHeight" type="number" oninput="updateSelectedEl()"></div>
-  <div class="edit-group"><label>粗体</label><input id="epBold" type="checkbox" oninput="updateSelectedEl()"></div>
+  <div class="edit-title" id="epTitle">元素编辑</div>
+  <div class="edit-group" id="epTextGrp"><label>文字内容</label><input id="epText" oninput="updateSelectedEl()"></div>
+  <div class="edit-group" id="epSizeGrp"><label>字体大小</label><input id="epSize" type="range" min="12" max="120" oninput="updateSelectedEl()"></div>
+  <div class="edit-group" id="epColorGrp"><label>颜色</label><input id="epColor" type="color" oninput="updateSelectedEl()"></div>
+  <div class="edit-group" id="epWidthGrp"><label>宽度</label><input id="epWidth" type="number" oninput="updateSelectedEl()"></div>
+  <div class="edit-group" id="epHeightGrp"><label>高度</label><input id="epHeight" type="number" oninput="updateSelectedEl()"></div>
+  <div class="edit-group" id="epBoldGrp"><label>粗体</label><input id="epBold" type="checkbox" oninput="updateSelectedEl()"></div>
+  <div class="edit-group" id="epImgInfo" style="display:none"><p style="font-size:.82em;color:var(--sub)">🖼️ 图片内容请在后台管理端上传设置。</p></div>
   <button class="ctrl-btn btn-flow" style="width:100%;justify-content:center;margin-top:10px" onclick="deleteSelectedEl()">🗑 删除元素</button>
   <button class="ctrl-btn btn-flow" style="width:100%;justify-content:center;margin-top:6px" onclick="closeEditPanel()">完成编辑</button>
 </div>
@@ -483,12 +483,46 @@ function openEditPanel(el,div){
   document.querySelectorAll('.custom-el').forEach(d=>d.classList.remove('selected'));
   div.classList.add('selected');selectedEl=el;
   const p=document.getElementById('editPanel');p.classList.add('show');
-  document.getElementById('epText').value=el.content||'';document.getElementById('epSize').value=el.size||24;document.getElementById('epColor').value=el.color||'#fff';document.getElementById('epImgUrl').value=el.src||'';document.getElementById('epWidth').value=el.width||200;document.getElementById('epHeight').value=el.height||150;document.getElementById('epBold').checked=el.bold||false;
+  const isText=el.type==='text';
+  document.getElementById('epTitle').textContent=isText?'📝 文字元素编辑':'🖼️ 图片元素编辑';
+  document.getElementById('epTextGrp').style.display=isText?'block':'none';
+  document.getElementById('epSizeGrp').style.display=isText?'block':'none';
+  document.getElementById('epColorGrp').style.display=isText?'block':'none';
+  document.getElementById('epBoldGrp').style.display=isText?'block':'none';
+  document.getElementById('epWidthGrp').style.display=isText?'none':'block';
+  document.getElementById('epHeightGrp').style.display=isText?'none':'block';
+  document.getElementById('epImgInfo').style.display=isText?'none':'block';
+  document.getElementById('epText').value=el.content||'';
+  document.getElementById('epSize').value=el.size||24;
+  document.getElementById('epColor').value=el.color||'#fff';
+  document.getElementById('epWidth').value=el.width||200;
+  document.getElementById('epHeight').value=el.height||150;
+  document.getElementById('epBold').checked=el.bold||false;
 }
 function updateSelectedEl(){
   if(!selectedEl)return;
-  selectedEl.content=document.getElementById('epText').value;selectedEl.size=parseInt(document.getElementById('epSize').value)||24;selectedEl.color=document.getElementById('epColor').value;selectedEl.src=document.getElementById('epImgUrl').value;selectedEl.width=parseInt(document.getElementById('epWidth').value)||200;selectedEl.height=parseInt(document.getElementById('epHeight').value)||150;selectedEl.bold=document.getElementById('epBold').checked;
-  renderCustomElements();
+  const isText=selectedEl.type==='text';
+  if(isText){
+    selectedEl.content=document.getElementById('epText').value;
+    selectedEl.size=parseInt(document.getElementById('epSize').value)||24;
+    selectedEl.color=document.getElementById('epColor').value;
+    selectedEl.bold=document.getElementById('epBold').checked;
+  }else{
+    selectedEl.width=parseInt(document.getElementById('epWidth').value)||200;
+    selectedEl.height=parseInt(document.getElementById('epHeight').value)||150;
+  }
+  // 只更新当前元素的 DOM，不重建整个列表（避免输入框失焦）
+  const c=document.getElementById('customElements');
+  const cur=Array.prototype.find.call(c.children,d=>d.dataset.id===selectedEl.id);
+  if(cur){
+    if(isText){
+      cur.innerHTML='<span class="el-text" style="font-size:'+selectedEl.size+'px;color:'+(selectedEl.color||'#fff')+';font-weight:'+(selectedEl.bold?'bold':'normal')+'">'+selectedEl.content+'</span>';
+      cur.style.width='auto';cur.style.height='auto';
+    }else{
+      cur.style.width=selectedEl.width+'px';cur.style.height=selectedEl.height+'px';
+    }
+    cur.innerHTML+='<div class="resize-handle"></div>';
+  }
 }
 function deleteSelectedEl(){if(selectedEl){S.screen.elements=S.screen.elements.filter(e=>e.id!==selectedEl.id);selectedEl=null;renderCustomElements();document.getElementById('editPanel').classList.remove('show')}}
 function closeEditPanel(){document.getElementById('editPanel').classList.remove('show');document.querySelectorAll('.custom-el').forEach(d=>d.classList.remove('selected'));selectedEl=null}

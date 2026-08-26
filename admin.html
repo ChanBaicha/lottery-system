@@ -267,7 +267,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     </div>
     <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:10px">🎨 自定义元素</h3>
-      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">在大屏上添加文字或图片元素，可自由调整大小和位置（大屏端拖拽调整）。</p>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">在大屏上添加文字或图片元素，文字内容、图片文件均在后台设置，大屏端只负责展示和拖拽调整位置大小。</p>
       <div style="display:flex;gap:8px;margin-bottom:12px">
         <button class="btn btn-pri btn-sm" onclick="addElement('text')">+ 添加文字</button>
         <button class="btn btn-pri btn-sm" onclick="addElement('image')">+ 添加图片</button>
@@ -358,7 +358,6 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <button class="btn btn-out" onclick="exportParticipants()">📋 导出名单</button>
       <button class="btn btn-dng" onclick="clearParticipants()">🗑️ 清空全部</button>
       <button class="btn btn-gold" onclick="voidTodaySigned()">🚫 一键作废当日已签到</button>
-      <button class="btn btn-suc" onclick="showVoidedWinners()">🔄 恢复被删除中奖人</button>
     </div>
     <div class="section" style="margin-bottom:12px">
       <div style="font-weight:bold;margin-bottom:8px;font-size:.95em">📊 各来源账号实时登记数量</div>
@@ -376,6 +375,11 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <button class="btn btn-dng" onclick="clearRecords()">🗑️ 清空记录</button>
     </div>
     <div id="recList" style="max-height:500px;overflow-y:auto"></div>
+    <div class="section" style="margin-top:16px">
+      <h3 style="font-size:1.05em;margin-bottom:10px">🗑️ 被删除的中奖人</h3>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">大屏端删除的中奖人将出现在这里，可单条恢复其获奖资格（恢复后奖券回到获奖状态，奖品计数恢复）。</p>
+      <div id="voidedWinnerList" style="max-height:250px;overflow-y:auto"></div>
+    </div>
   </div>
 
   <!-- 签到配置 -->
@@ -517,18 +521,14 @@ function handleWinnerVoid(d){
   if(!S.voidedWinners.find(v=>v.name===d.name&&v.prize===d.prize&&v.time===d.time)){
     S.voidedWinners.unshift({name:d.name,prize:d.prize,time:d.time||Date.now()});
   }
-  saveLocal();renderParticipants();renderPrizes();broadcastConfig();
+  saveLocal();renderVoidedWinners();renderParticipants();renderPrizes();broadcastConfig();
   toast('⚠️ 中奖人已删除：'+d.name+'（奖品：'+d.prize+'）')
 }
-function showVoidedWinners(){
-  if(!S.voidedWinners||!S.voidedWinners.length){toast('没有被删除的中奖人');return}
-  var modal=document.createElement('div');
-  modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px';
-  modal.innerHTML='<div style="background:var(--card);border-radius:20px;padding:30px;max-width:500px;width:100%;border:1px solid var(--bd)"><h3 style="font-size:1.2em;margin-bottom:16px">🔄 被删除的中奖人</h3><div id="voidedList" style="max-height:400px;overflow-y:auto;margin-bottom:16px"></div><button class="btn btn-out" id="voidCloseBtn" style="width:100%;padding:12px;justify-content:center">关闭</button></div>';
-  var list=modal.querySelector('#voidedList');
-  list.innerHTML=S.voidedWinners.map(function(v,i){return '<div class="section" id="voidRow_'+i+'" style="display:flex;align-items:center;gap:10px;padding:10px 14px"><div style="flex:1"><div style="font-weight:bold">'+v.name+'</div><div style="font-size:.82em;color:var(--sub)">奖品: '+v.prize+' · '+fmt(v.time)+'</div></div><button class="btn btn-suc btn-sm" onclick="restoreVoidedWinner('+i+')">🔄 恢复</button></div>'}).join('');
-  document.body.appendChild(modal);
-  modal.querySelector('#voidCloseBtn').onclick=function(){modal.remove()};
+function renderVoidedWinners(){
+  const l=document.getElementById('voidedWinnerList');
+  if(!l)return;
+  if(!S.voidedWinners||!S.voidedWinners.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无被删除的中奖人</div>';return}
+  l.innerHTML=S.voidedWinners.map(function(v,i){return '<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px"><div style="flex:1"><div style="font-weight:bold">'+v.name+'</div><div style="font-size:.82em;color:var(--sub)">🎁 '+v.prize+' · '+fmt(v.time)+'</div></div><button class="btn btn-suc btn-sm" onclick="restoreVoidedWinner('+i+')">🔄 恢复</button></div>'}).join('');
 }
 function restoreVoidedWinner(idx){
   if(!S.voidedWinners||!S.voidedWinners.length)return;
@@ -538,10 +538,7 @@ function restoreVoidedWinner(idx){
   var pr=S.prizes.find(pp=>pp.name===v.prize);
   if(pr)pr.won++;
   S.voidedWinners.splice(idx,1);
-  saveLocal();renderParticipants();renderPrizes();broadcastConfig();
-  var row=document.getElementById('voidRow_'+idx);
-  if(row)row.remove();
-  if(!S.voidedWinners.length){var btn=document.getElementById('voidCloseBtn');if(btn)btn.click()}
+  saveLocal();renderVoidedWinners();renderParticipants();renderPrizes();renderRecords();broadcastConfig();
   toast('已恢复：'+v.name);
 }
 function handleRegister(d){
@@ -774,7 +771,48 @@ function addElement(type){
 }
 function delElement(id){S.screen.elements=S.screen.elements.filter(e=>e.id!==id);renderElements();saveLocal()}
 function renderElements(){
-  document.getElementById('elList').innerHTML=S.screen.elements.map(e=>'<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px">'+(e.type==='text'?'📝':'🖼️')+'<div style="flex:1;font-size:.9em">'+(e.type==='text'?e.content:'图片元素')+'</div><button class="btn btn-dng btn-sm" onclick="delElement(\''+e.id+'\')">🗑</button></div>').join('')||'<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无自定义元素</div>'
+  document.getElementById('elList').innerHTML=S.screen.elements.map(e=>{
+    if(e.type==='text'){
+      return '<div class="section" style="padding:10px 14px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">📝<div style="flex:1;font-size:.9em;font-weight:bold">文字元素</div><button class="btn btn-dng btn-sm" onclick="delElement(\''+e.id+'\')">🗑</button></div>'+
+        '<div class="f-grp" style="margin-bottom:6px"><label>文字内容</label><input id="elTxt_'+e.id+'" value="'+(e.content||'').replace(/"/g,'&quot;')+'" placeholder="请输入文字内容" onchange="saveElText(\''+e.id+'\')"></div>'+
+        '<div class="f-row"><div class="f-grp" style="max-width:110px"><label>字号</label><input id="elSize_'+e.id+'" type="number" min="12" max="120" value="'+(e.size||24)+'" onchange="saveElText(\''+e.id+'\')"></div>'+
+        '<div class="f-grp" style="max-width:110px"><label>颜色</label><input id="elColor_'+e.id+'" type="color" value="'+(e.color||'#ffffff')+'" onchange="saveElText(\''+e.id+'\')"></div>'+
+        '<label style="display:flex;align-items:center;gap:6px;padding-bottom:10px"><input type="checkbox" id="elBold_'+e.id+'" '+(e.bold?'checked':'')+' onchange="saveElText(\''+e.id+'\')"> <span style="font-size:.85em">粗体</span></label></div></div>';
+    }else{
+      const hasImg=e.src&&e.src.indexOf('data:image')===0;
+      return '<div class="sk" style="padding:10px 14px;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">🖼️<div style="flex:1;font-size:.9em;font-weight:bold">图片元素</div><button type="button" class="btn btn-dng btn-sm" onclick="delElement(\''+e.id+'\')">🗑</button></div>'+
+        (hasImg?'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><img src="'+e.src+'" style="width:60px;height:60px;border-radius:8px;object-fit:cover;border:1px solid var(--bd)"><span style="font-size:.8em;color:var(--grn)">✓ 已上传图片</span><button type="button" class="btn btn-out btn-sm" onclick="elImageInput(\''+e.id+'\').click()">🔄 更换</button></div>':'<div style="color:var(--sub);font-size:.82em;margin-bottom:8px">未上传图片</div>')+
+        '<div class="f-row"><div class="f-grp" style="max-width:110px"><label>宽度</label><input id="elW_'+e.id+'" type="number" min="20" value="'+(e.width||200)+'" onchange="saveElImg(\''+e.id+'\')"></div>'+
+        '<div class="f-grp" style="max-width:110px"><label>高度</label><input id="elH_'+e.id+'" type="number" min="20" value="'+(e.height||150)+'" onchange="saveElImg(\''+e.id+'\')"></div>'+
+        '<div style="padding-bottom:0"><button type="button" class="btn btn-pri btn-sm" onclick="elImageInput(\''+e.id+'\').click()">📁 上传图片</button><input type="file" id="elImgFile_'+e.id+'" accept="image/*" style="display:none" onchange="uploadElImage(\''+e.id+'\',this.files[0])"></div></div></div>';
+    }
+  }).join('')||'<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无自定义元素</div>'
+}
+function saveElText(id){const e=S.screen.elements.find(x=>x.id===id);if(!e)return;e.content=document.getElementById('elTxt_'+id).value;e.size=parseInt(document.getElementById('elSize_'+id).value)||24;e.color=document.getElementById('elColor_'+id).value;e.bold=document.getElementById('elBold_'+id).checked;saveLocal()}
+function saveElImg(id){const e=S.screen.elements.find(x=>x.id===id);if(!e)return;e.width=parseInt(document.getElementById('elW_'+id).value)||200;e.height=parseInt(document.getElementById('elH_'+id).value)||150;saveLocal()}
+function elImageInput(id){return document.getElementById('elImgFile_'+id)}
+function uploadElImage(id,file){
+  if(!file){return}
+  if(!file.type.startsWith('image/')){toast('请选择图片文件');return}
+  if(file.size>2*1024*1024){toast('图片不能超过2MB');return}
+  const r=new FileReader();
+  r.onload=function(){
+    const e=S.screen.elements.find(x=>x.id===id);
+    if(!e){return}
+    // 压缩到 800px 以内
+    const img=new Image();
+    img.onload=function(){
+      const max=800;let w=img.width,h=img.height;
+      if(w>max||h>max){const ratio=Math.min(max/w,max/h);w=Math.round(w*ratio);h=Math.round(h*ratio)}
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      e.src=cv.toDataURL('image/jpeg',0.75);
+      renderElements();saveLocal();toast('图片已上传');
+    };
+    img.src=r.result;
+  };
+  r.readAsDataURL(file);
+  document.getElementById('elImageFile_'+id).value='';
 }
 function uploadBg(e){
   const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S.screen.bgUrl=r.result;document.getElementById('scBgUrl').value='（已上传图片）';saveLocal();toast('背景图片已上传')};r.readAsDataURL(f)
@@ -1036,7 +1074,7 @@ function copyAllLinks(){
 function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[]}))}catch(e){}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
 function renderAll(){
-  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderVoidLogs();renderDanmakuHistory();renderDanmakuReview();
+  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderVoidLogs();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
   document.getElementById('ltSignFailMsg').value=S.signFailMsg||'';document.getElementById('ltFlowInterval').value=S.flowInterval||0;
   document.getElementById('scTitle').value=S.screen.title;document.getElementById('scTitleSize').value=S.screen.titleSize;document.getElementById('scTitleColor').value=S.screen.titleColor;document.getElementById('scBgUrl').value=S.screen.bgUrl||'';
