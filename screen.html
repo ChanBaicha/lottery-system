@@ -217,7 +217,8 @@ let S={mqtt:null,topic:'',room:'',prizes:[],fields:[],participants:[],screen:{ti
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
   avatarImages:{},
   drawReadyIndex:0,drawReadyCount:1,
-  lotteryRule:{enable:false,hitList:[]}
+  lotteryRule:{enable:false,hitList:[]},
+  quizResults:[]
 };
 let canvas,ctx,gameCanvas,gameCtx,animId;
 let selectedEl=null;
@@ -278,8 +279,8 @@ function handleMsg(t,d){
         return item;
       });
     }
-    if(d.voidedTickets)S.voidedTickets=d.voidedTickets;
     if(d.lotteryRule)S.lotteryRule=d.lotteryRule;
+    if(d.quizResults)S.quizResults=d.quizResults;
     applyScreenConfig();updateFlowItems();setupAutoRotate();applyMusic();
     try{localStorage.setItem('cj_screen_'+S.room,JSON.stringify({screen:S.screen,prizes:S.prizes}))}catch(e){}
   }else if(t.endsWith('draw_cmd')){
@@ -707,26 +708,36 @@ function animate(){animId=requestAnimationFrame(animate);const t=S.flowType;if(t
 function toast(m){const t=document.createElement('div');t.textContent=m;t.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:20px;background:rgba(0,0,0,.8);z-index:999;font-size:.9em;transition:.3s';document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300)},2000)}
 
 // ========== 抽奖 ==========
-// 获取抽奖候选池：若启用抽奖规则，则仅从命中清单中选取；否则使用全部已签到人员
+// 获取抽奖候选池：若启用抽奖规则，则仅从命中清单中选取；否则使用全部已完成知识问答的人员
 function getDrawPool(){
   var lr=S.lotteryRule||{enable:false,hitList:[]};
+  // 基础池：已完成知识问答的人员（quizResults），fallback 到已签到人员
+  var basePool;
+  if(S.quizResults&&S.quizResults.length){
+    basePool=S.quizResults.map(function(qr){
+      var p=S.participants.find(function(x){return (x.name||'')===(qr.name||'')});
+      if(p)return p;
+      return Object.assign({id:uid(),signed:true,won:false,prizeId:null,name:qr.name,phone:qr.phone||''},{});
+    });
+  }else{
+    basePool=S.participants.filter(p=>p.signed);
+  }
   if(lr.enable&&lr.hitList&&lr.hitList.length){
     // 命中清单为对象数组 {name,phone}
     var pool=lr.hitList.map(function(h){
-      // 优先匹配已签到参与者，保留头像等完整信息
-      var p=S.participants.find(function(x){return (x.name||'')===(h.name||'')});
+      var p=basePool.find(function(x){return (x.name||'')===(h.name||'')});
       if(p)return p;
-      return Object.assign({id:uid(),signed:true,won:false,prizeId:null,name:h.name,phone:h.phone||'',ticket:h.ticket||''},{});
-    }).filter(function(p){return p.name&&p.signed&&!(S.noRepeat&&p.won)&&!p.voided});
+      return Object.assign({id:uid(),signed:true,won:false,prizeId:null,name:h.name,phone:h.phone||''},{});
+    }).filter(function(p){return p.name&&!(S.noRepeat&&p.won)&&!p.voided});
     return pool;
   }
-  return S.participants.filter(p=>p.signed&&!(S.noRepeat&&p.won)&&!p.voided);
+  return basePool.filter(p=>!(S.noRepeat&&p.won)&&!p.voided);
 }
 function startDraw(){
   if(S.isDrawing)return;
   const signed=getDrawPool();
   const available=S.prizes.filter(p=>p.won<p.count);
-  if(!signed.length){toast((S.lotteryRule&&S.lotteryRule.enable)?'命中清单为空，请先执行规则匹配':'没有可参与的已签到人员');return}
+  if(!signed.length){toast((S.lotteryRule&&S.lotteryRule.enable)?'命中清单为空，请先执行规则匹配':'没有可参与的已完成答题人员');return}
   if(!available.length){toast('没有可抽的奖品');return}
   S.isDrawing=true;document.getElementById('drawBtn').disabled=true;
   S.drawReadyIndex=0;
@@ -795,8 +806,7 @@ function beginActualDraw(){
       prize.won++;w.won=true;w.prizeId=prize.id;w.prizeName=prize.name;
       var pData=S.participants.find(pp=>pp.name===w.name);
       var phone=pData?pData.phone:'';
-      var ticket=pData?pData.ticket:'';
-      winners.push({name:w.name,phone:phone||'',ticket:ticket||'',prize:prize.name,prizeColor:prize.color,prizeImg:prize.img||'',avatar:w.avatar||S.avatarImages[w.name]||''});
+      winners.push({name:w.name,phone:phone||'',prize:prize.name,prizeColor:prize.color,prizeImg:prize.img||'',avatar:w.avatar||S.avatarImages[w.name]||''});
     }
     broadcastLottery(winners);
     showDrawResult(winners,Date.now());
@@ -873,11 +883,10 @@ function beginActualDraw(){
       const prizeIndex=Math.min(S.drawReadyIndex,available.length-1);
       const prize=available[prizeIndex];
       prize.won++;w.won=true;w.prizeId=prize.id;w.prizeName=prize.name;
-      // 找到参与者的phone和ticket
+      // 找到参与者的phone
       var pData=S.participants.find(pp=>pp.name===w.name);
       var phone=pData?pData.phone:'';
-      var ticket=pData?pData.ticket:'';
-      winners.push({name:w.name,phone:phone||'',ticket:ticket||'',prize:prize.name,prizeColor:prize.color,prizeImg:prize.img||'',avatar:w.avatar||S.avatarImages[w.name]||''});
+      winners.push({name:w.name,phone:phone||'',prize:prize.name,prizeColor:prize.color,prizeImg:prize.img||'',avatar:w.avatar||S.avatarImages[w.name]||''});
     }
     broadcastLottery(winners);
     showDrawResult(winners,Date.now());
@@ -904,8 +913,7 @@ function showDrawResult(winners,drawTime){
     (prizeImg?'<img src="'+prizeImg+'" style="width:80px;height:80px;border-radius:16px;object-fit:cover;margin:0 auto 12px;display:block">':'')+
     winners.map(function(w){
       var phoneDisplay=w.phone?w.phone.substring(0,3)+'****'+w.phone.substring(w.phone.length-4):'';
-      var ticketDisplay=w.ticket||'';
-      return '<div class="winner-item"><div class="winner-avatar">'+(w.avatar?'<img src="'+w.avatar+'" style="width:100%;height:100%;object-fit:cover">':(w.name||'?')[0])+'</div><div><div class="winner-name">'+w.name+'</div>'+(phoneDisplay?'<div class="winner-phone">'+phoneDisplay+'</div>':'')+(ticketDisplay?'<div class="winner-ticket">🎫'+ticketDisplay+'</div>':'')+'</div><button class="winner-delete-btn" onclick="deleteWinner(\''+w.name+'\',\''+w.prize+'\','+(drawTime||0)+')" title="删除此中奖人">✕</button></div>';
+      return '<div class="winner-item"><div class="winner-avatar">'+(w.avatar?'<img src="'+w.avatar+'" style="width:100%;height:100%;object-fit:cover">':(w.name||'?')[0])+'</div><div><div class="winner-name">'+w.name+'</div>'+(phoneDisplay?'<div class="winner-phone">'+phoneDisplay+'</div>':'')+'</div><button class="winner-delete-btn" onclick="deleteWinner(\''+w.name+'\',\''+w.prize+'\','+(drawTime||0)+')" title="删除此中奖人">✕</button></div>';
     }).join('')+
     '<div class="winner-prize">🎉 获得：'+prizeName+'</div></div>';
   r.classList.add('show');

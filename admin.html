@@ -64,7 +64,6 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="games" onclick="switchTab('games')">🎮 互动游戏</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="quiz" onclick="switchTab('quiz')">🧠 知识问答</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="screen" onclick="switchTab('screen')">🖥️ 大屏外观</div>
-    <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="tickets" onclick="switchTab('tickets')">🎫 奖券管理</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="danmaku" onclick="switchTab('danmaku')">💬 弹幕管理</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="participants" onclick="switchTab('participants')">👥 参与者</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="records" onclick="switchTab('records')">🏆 中奖记录</div>
@@ -120,12 +119,12 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
   <!-- 签到字段配置 -->
   <div class="panel" id="panel-fields">
     <h2 style="font-size:1.3em;margin-bottom:6px">📝 签到字段配置</h2>
-    <p style="color:var(--sub);font-size:.85em;margin-bottom:16px">自定义参与者签到时需要填写的信息字段。可增加、删除、排序字段。默认包含姓名、手机号、抽奖券编码三个核心字段。</p>
+    <p style="color:var(--sub);font-size:.85em;margin-bottom:16px">自定义参与者签到时需要填写的信息字段。可增加、删除、排序字段。默认包含姓名、手机号两个核心字段。</p>
     <div class="section">
       <div class="f-row">
         <div class="f-grp"><label>字段名称</label><input id="fdName" placeholder="如：公司名称"></div>
         <div class="f-grp" style="max-width:140px"><label>字段类型</label>
-          <select id="fdType"><option value="text">单行文本</option><option value="textarea">多行文本</option><option value="number">数字</option><option value="select">下拉选择</option><option value="phone">手机号</option><option value="wechat">微信号</option><option value="avatar">微信头像URL</option><option value="ticket">抽奖券编码</option></select>
+          <select id="fdType"><option value="text">单行文本</option><option value="textarea">多行文本</option><option value="number">数字</option><option value="select">下拉选择</option><option value="phone">手机号</option><option value="wechat">微信号</option><option value="avatar">微信头像URL</option></select>
         </div>
         <div class="f-grp" style="max-width:120px"><label>占位提示</label><input id="fdPlaceholder" placeholder="如：请输入公司名"></div>
         <div class="f-grp" style="max-width:200px"><label>下拉选项（逗号分隔）</label><input id="fdOptions" placeholder="选项A,选项B,选项C"></div>
@@ -160,7 +159,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:12px">签到失败提示语</h3>
       <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">当签到人填写的信息与登记信息不匹配时，弹出的提示内容。支持自定义。</p>
-      <textarea id="ltSignFailMsg" rows="3" placeholder="签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。" style="width:100%;max-width:600px"></textarea>
+      <textarea id="ltSignFailMsg" rows="3" placeholder="签到失败！请检查您填写的姓名和手机号是否正确。" style="width:100%;max-width:600px"></textarea>
       <button class="btn btn-pri" style="margin-top:8px" onclick="saveSignFailMsg()">💾 保存提示语</button>
     </div>
     <div class="section">
@@ -426,38 +425,6 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em;justify-content:center" onclick="saveScreenConfig()">💾 保存全部外观设置</button>
   </div>
 
-  <!-- 奖券管理 -->
-  <div class="panel" id="panel-tickets">
-    <h2 style="font-size:1.3em;margin-bottom:6px">🎫 奖券管理</h2>
-    <p style="color:var(--sub);font-size:.85em;margin-bottom:16px">管理抽奖券编码。作废的奖券对应登记人无法完成签到。支持批量生成和作废。</p>
-    <div class="section">
-      <h3 style="font-size:1.05em;margin-bottom:10px">📋 批量生成奖券</h3>
-      <div class="f-row">
-        <div class="f-grp"><label>奖券前缀</label><input id="tkPrefix" placeholder="如：CJ2026" value="CJ2026"></div>
-        <div class="f-grp" style="max-width:100px"><label>生成数量</label><input id="tkCount" type="number" min="1" value="10"></div>
-        <div class="f-grp" style="max-width:100px"><label>编号位数</label><input id="tkDigits" type="number" min="1" max="8" value="4"></div>
-        <div style="padding-bottom:0"><button class="btn btn-pri" onclick="generateTickets()">🎫 生成奖券</button></div>
-      </div>
-    </div>
-    <div class="section">
-      <h3 style="font-size:1.05em;margin-bottom:10px">📝 手动作废奖券</h3>
-      <div class="f-row">
-        <div class="f-grp"><label>输入奖券编码</label><input id="tkVoidInput" placeholder="如：CJ20260001"></div>
-        <div style="padding-bottom:0"><button class="btn btn-dng" onclick="voidTicket()">🚫 作废奖券</button></div>
-      </div>
-    </div>
-    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-      <div style="padding:8px 16px;background:var(--card);border-radius:20px;font-size:.9em">总奖券 <b id="tkTotalCnt" style="color:var(--gold)">0</b> · 有效 <b id="tkActiveCnt" style="color:var(--grn)">0</b> · 已作废 <b id="tkVoidCnt" style="color:var(--red)">0</b></div>
-      <button class="btn btn-out" onclick="exportTickets()">📋 导出奖券清单</button>
-      <button class="btn btn-dng" onclick="clearTickets()">🗑️ 清空全部奖券</button>
-    </div>
-    <div id="tkList" style="max-height:400px;overflow-y:auto"></div>
-    <div class="section" style="margin-top:16px">
-      <h3 style="font-size:1.05em;margin-bottom:10px">📜 奖券作废日志</h3>
-      <div id="voidLogList" style="max-height:200px;overflow-y:auto"></div>
-    </div>
-  </div>
-
   <!-- 弹幕管理 -->
   <div class="panel" id="panel-danmaku">
     <h2 style="font-size:1.3em;margin-bottom:6px">💬 弹幕管理</h2>
@@ -506,7 +473,6 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <select id="ptOpFilter" onchange="filterParticipants(this.value)" style="padding:8px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em"><option value="">全部来源</option></select>
       <button class="btn btn-out" onclick="exportParticipants()">📋 导出名单</button>
       <button class="btn btn-dng" onclick="clearParticipants()">🗑️ 清空全部</button>
-      <button class="btn btn-gold" onclick="voidTodaySigned()">🚫 一键作废当日已签到</button>
     </div>
     <div class="section" style="margin-bottom:12px">
       <div style="font-weight:bold;margin-bottom:8px;font-size:.95em">📊 各来源账号实时登记数量</div>
@@ -526,7 +492,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <div id="recList" style="max-height:500px;overflow-y:auto"></div>
     <div class="section" style="margin-top:16px">
       <h3 style="font-size:1.05em;margin-bottom:10px">🗑️ 被删除的中奖人</h3>
-      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">大屏端删除的中奖人将出现在这里，可单条恢复其获奖资格（恢复后奖券回到获奖状态，奖品计数恢复）。</p>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">大屏端删除的中奖人将出现在这里，可单条恢复其获奖资格（恢复后获奖资格恢复，奖品计数恢复）。</p>
       <div id="voidedWinnerList" style="max-height:250px;overflow-y:auto"></div>
     </div>
   </div>
@@ -618,12 +584,12 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
 <script>
 let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   prizes:[],accounts:[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}],
-  fields:[{id:'f1',name:'姓名',type:'text',placeholder:'请输入姓名',required:true,showFlow:true},{id:'f2',name:'手机号',type:'phone',placeholder:'请输入手机号',required:true,showFlow:false},{id:'f3',name:'抽奖券编码',type:'ticket',placeholder:'请输入抽奖券编码',required:true,showFlow:false}],
+  fields:[{id:'f1',name:'姓名',type:'text',placeholder:'请输入姓名',required:true,showFlow:true},{id:'f2',name:'手机号',type:'phone',placeholder:'请输入手机号',required:true,showFlow:false}],
   drawCount:1,noRepeat:true,drawMode:'random',
   screen:{title:'🎉 幸运抽奖盛典',titleSize:48,titleColor:'#fdcb6e',bgUrl:'',flowType:'meteor',elements:[]},
   signin:{lat:null,lng:null,radius:500,startTime:null,endTime:null,enable:true},
   participants:[],records:[],baseLink:'',
-  tickets:[],voidedTickets:[],voidLogs:[],signFailMsg:'签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。',
+  signFailMsg:'签到失败！请检查您填写的姓名和手机号是否正确。',
   flowInterval:0,
   gameConfig:{shakeDuration:10,reactionDuration:15,reactionIntervalType:'random',reactionFixedInterval:2,reactionMinInterval:1,reactionMaxInterval:3,quizRounds:3,quizInterval:5,autoStartThreshold:0},
   danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,mode:'scroll',colorful:true,history:[]},
@@ -693,7 +659,7 @@ function connectMQTT(){
   const cid='admin_'+uid();
   try{
     S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
-    S.mqtt.on('connect',()=>{updateConn('online');S.mqtt.subscribe(S.topic+'sign_in');S.mqtt.subscribe(S.topic+'register');S.mqtt.subscribe(S.topic+'game_cmd');S.mqtt.subscribe(S.topic+'request_config');S.mqtt.subscribe(S.topic+'danmaku');S.mqtt.subscribe(S.topic+'ticket_void');S.mqtt.subscribe(S.topic+'lottery_result');S.mqtt.subscribe(S.topic+'winner_void');S.mqtt.subscribe(S.topic+'quiz_register');S.mqtt.subscribe(S.topic+'quiz_result');broadcastConfig()});
+    S.mqtt.on('connect',()=>{updateConn('online');S.mqtt.subscribe(S.topic+'sign_in');S.mqtt.subscribe(S.topic+'register');S.mqtt.subscribe(S.topic+'game_cmd');S.mqtt.subscribe(S.topic+'request_config');S.mqtt.subscribe(S.topic+'danmaku');S.mqtt.subscribe(S.topic+'lottery_result');S.mqtt.subscribe(S.topic+'winner_void');S.mqtt.subscribe(S.topic+'quiz_register');S.mqtt.subscribe(S.topic+'quiz_result');broadcastConfig()});
     S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
     S.mqtt.on('error',()=>updateConn('offline'));S.mqtt.on('reconnect',()=>updateConn('connecting'));S.mqtt.on('close',()=>updateConn('offline'));
   }catch(e){updateConn('offline')}
@@ -704,7 +670,6 @@ function handleMsg(t,d){
     if(d.type==='register'){handleRegister(d)}else{handleSignIn(d)}
   }else if(t.endsWith('request_config')){broadcastConfig()}
   else if(t.endsWith('danmaku')){handleDanmaku(d)}
-  else if(t.endsWith('ticket_void')){handleTicketVoid(d)}
   else if(t.endsWith('game_cmd')){/* 游戏指令转发 */}
   else if(t.endsWith('lottery_result')){handleLotteryResult(d)}
   else if(t.endsWith('winner_void')){handleWinnerVoid(d)}
@@ -791,28 +756,12 @@ function handleDanmaku(d){
     }
   }
 }
-function handleTicketVoid(d){
-  if(!d.code)return;
-  if(!S.voidedTickets.includes(d.code)){S.voidedTickets.push(d.code)}
-  // 更新奖券状态
-  const tk=S.tickets.find(t=>t.code===d.code);
-  if(tk)tk.voided=true;
-  // 记录作废日志
-  if(!S.voidLogs)S.voidLogs=[];
-  // 避免重复记录同一奖券
-  if(!S.voidLogs.find(l=>l.code===d.code)){
-    S.voidLogs.unshift({code:d.code,reason:d.reason||'未注明',operator:d.operator||'未知',time:d.time||Date.now()});
-  }
-  saveLocal();renderTickets();renderVoidLogs();broadcastConfig();
-  toast('🚫 奖券已作废: '+d.code+(d.reason?('（'+d.reason+'）'):''));
-}
 function broadcastConfig(){
   if(!S.mqtt||!S.mqtt.connected)return;
   S.mqtt.publish(S.topic+'config',JSON.stringify({
     prizes:S.prizes,fields:S.fields,screen:S.screen,signin:S.signin,drawCount:S.drawCount,
     accounts:S.accounts,baseLink:S.baseLink,participantCount:S.participants.length,
-    participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,ticket:p.ticket||'',operator:p.operator||'',registerTime:p.registerTime||null,voided:p.voided||false}}),
-    tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,
+    participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,operator:p.operator||'',registerTime:p.registerTime||null,voided:p.voided||false}}),
     signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,
     gameConfig:S.gameConfig,
     danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview,mode:S.danmaku.mode||'scroll',colorful:S.danmaku.colorful!==false},
@@ -820,6 +769,7 @@ function broadcastConfig(){
     quizConfig:S.quizConfig,
     quizFields:S.quizFields,
     quizBoardName:S.quizBoardName,
+    quizResults:(S.quizResults||[]).map(function(qr){return{name:qr.name,phone:qr.phone||''}}),
     lotteryRule:S.lotteryRule||{enable:false,hitList:[]},
     time:Date.now()
   }))
@@ -952,14 +902,14 @@ function moveField(id,dir){const i=S.fields.findIndex(f=>f.id===id);if(i<0)retur
 function renderFields(){
   const l=document.getElementById('fdList');
   if(!S.fields.length){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px">暂无字段</div>';return}
-  const typeMap={text:'单行文本',textarea:'多行文本',number:'数字',select:'下拉选择',phone:'手机号',wechat:'微信号',avatar:'微信头像URL',ticket:'抽奖券编码'};
+  const typeMap={text:'单行文本',textarea:'多行文本',number:'数字',select:'下拉选择',phone:'手机号',wechat:'微信号',avatar:'微信头像URL'};
   l.innerHTML=S.fields.map((f,i)=>'<div class="section" style="display:flex;align-items:center;gap:10px;padding:12px 16px"><div style="color:var(--sub);font-size:.85em;width:24px">'+(i+1)+'</div><div style="flex:1"><div style="font-weight:bold">'+f.name+(f.required?' <span style="color:var(--red);font-size:.8em">*必填</span>':'')+(f.showFlow?' <span style="color:var(--grn);font-size:.8em">📺大屏显示</span>':'')+'</div><div style="font-size:.82em;color:var(--sub)">'+(typeMap[f.type]||f.type)+(f.options?' · 选项:'+f.options:'')+(f.placeholder?' · 提示:'+f.placeholder:'')+'</div></div><div style="display:flex;gap:4px"><button class="btn btn-out btn-sm" onclick="moveField(\''+f.id+'\',-1)">↑</button><button class="btn btn-out btn-sm" onclick="moveField(\''+f.id+'\',1)">↓</button><button class="btn btn-dng btn-sm" onclick="delField(\''+f.id+'\')">🗑</button></div></div>').join('')
 }
 
 // ========== 抽奖设置 ==========
 function saveDrawCount(){S.drawCount=parseInt(document.getElementById('ltDrawCount').value)||1;saveLocal();broadcastConfig();toast('已保存：每轮抽'+S.drawCount+'人')}
 function saveNoRepeat(){S.noRepeat=document.getElementById('ltNoRepeat').checked;saveLocal();broadcastConfig();toast('防重复设置已保存')}
-function saveSignFailMsg(){S.signFailMsg=document.getElementById('ltSignFailMsg').value.trim()||'签到失败！请检查您填写的姓名、手机号和抽奖券编码是否正确。';saveLocal();broadcastConfig();toast('签到失败提示语已保存')}
+function saveSignFailMsg(){S.signFailMsg=document.getElementById('ltSignFailMsg').value.trim()||'签到失败！请检查您填写的姓名和手机号是否正确。';saveLocal();broadcastConfig();toast('签到失败提示语已保存')}
 function saveFlowInterval(){S.flowInterval=parseInt(document.getElementById('ltFlowInterval').value)||0;saveLocal();broadcastConfig();toast('动画轮播间隔已保存：'+(S.flowInterval>0?S.flowInterval+'秒':'不轮播'))}
 // ========== 游戏设置 ==========
 function saveGameConfig(){
@@ -1230,7 +1180,7 @@ function runLotteryRule(){
       });
       if(!qz)return;
     }
-    hit.push({name:name,phone:phone,gender:p.gender||'',ticket:p.ticket||'',signed:true,won:p.won||false});
+    hit.push({name:name,phone:phone,gender:p.gender||'',signed:true,won:p.won||false});
   });
   r.hitList=hit;
   r.runTime=Date.now();
@@ -1259,8 +1209,8 @@ function renderLotteryRule(){
 function exportHitList(){
   var r=S.lotteryRule||{};var list=r.hitList||[];
   if(!list.length){toast('暂无命中清单');return}
-  var rows=[['序号','姓名','手机号','性别','抽奖券','是否中奖']];
-  list.forEach(function(p,i){rows.push([i+1,p.name,p.phone,p.gender||'',p.ticket||'',p.won?'是':'否'])});
+  var rows=[['序号','姓名','手机号','性别','是否中奖']];
+  list.forEach(function(p,i){rows.push([i+1,p.name,p.phone,p.gender||'',p.won?'是':'否'])});
   if(typeof XLSX==='undefined'){var csv='\uFEFF'+rows.map(function(row){return row.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"'}).join(',')}).join('\n');var b=new Blob([csv],{type:'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='命中清单_'+Date.now()+'.csv';a.click();URL.revokeObjectURL(a.href)}
   else{var wb=XLSX.utils.book_new();var ws=XLSX.utils.aoa_to_sheet(rows);XLSX.utils.book_append_sheet(wb,ws,'命中清单');XLSX.writeFile(wb,'命中清单_'+Date.now()+'.xlsx')}
   toast('已导出');
@@ -1292,7 +1242,7 @@ function applyTeleAgentHitList(){
     var parts=ln.split(/[,，\s]+/);var nm=parts[0].trim();if(nm)names.push(nm);
   });
   // 从参与者中按姓名匹配
-  var hit=names.map(function(nm){var p=S.participants.find(function(p){return (p.name||'').trim()===nm});if(!p)return null;return {name:p.name,phone:p.phone||'',gender:p.gender||'',ticket:p.ticket||'',signed:!!p.signed,time:p.signTime||0,won:!!p.won}}).filter(function(x){return x});
+  var hit=names.map(function(nm){var p=S.participants.find(function(p){return (p.name||'').trim()===nm});if(!p)return null;return {name:p.name,phone:p.phone||'',gender:p.gender||'',signed:!!p.signed,time:p.signTime||0,won:!!p.won}}).filter(function(x){return x});
   var r=S.lotteryRule||{};r.hitList=hit;r.ruleDesc=document.getElementById('lrPhoneCalc').value||'';S.lotteryRule=r;
   saveLocal();broadcastConfig();renderLotteryRule();toast('已应用 '+hit.length+' 人到命中清单');
 }
@@ -1378,68 +1328,6 @@ function uploadMusic(e){
   const f=e.target.files[0];if(!f)return;
   if(f.size>5*1024*1024){toast('音乐文件不能超过5MB');return}
   const r=new FileReader();r.onload=()=>{S.music.url=r.result;S.music.preset='custom';S.music.name=f.name;S.music.enable=true;document.getElementById('scMusicName').textContent='当前: '+f.name;saveLocal();toast('音乐文件已上传（'+(f.size/1024/1024).toFixed(1)+'MB）')};r.readAsDataURL(f);e.target.value=''
-}
-
-// ========== 奖券管理 ==========
-function generateTickets(){
-  const prefix=document.getElementById('tkPrefix').value.trim()||'CJ';
-  const count=parseInt(document.getElementById('tkCount').value)||10;
-  const digits=parseInt(document.getElementById('tkDigits').value)||4;
-  let added=0;
-  for(let i=0;i<count;i++){
-    const code=prefix+String(i+1).padStart(digits,'0');
-    if(!S.tickets.find(t=>t.code===code)){
-      S.tickets.push({code,voided:false,createdAt:Date.now()});
-      added++;
-    }
-  }
-  saveLocal();renderTickets();broadcastConfig();toast('已生成 '+added+' 张奖券')
-}
-function voidTicket(){
-  const code=document.getElementById('tkVoidInput').value.trim();
-  if(!code){toast('请输入奖券编码');return}
-  const tk=S.tickets.find(t=>t.code===code);
-  if(tk){tk.voided=true}else{S.tickets.push({code,voided:true,createdAt:Date.now()})}
-  if(!S.voidedTickets.includes(code))S.voidedTickets.push(code);
-  document.getElementById('tkVoidInput').value='';
-  saveLocal();renderTickets();broadcastConfig();toast('奖券已作废: '+code)
-}
-function unvoidTicket(code){
-  const tk=S.tickets.find(t=>t.code===code);
-  if(tk)tk.voided=false;
-  S.voidedTickets=S.voidedTickets.filter(c=>c!==code);
-  saveLocal();renderTickets();broadcastConfig();toast('奖券已恢复: '+code)
-}
-function renderTickets(){
-  const total=S.tickets.length;
-  const active=S.tickets.filter(t=>!t.voided).length;
-  const voided=total-active;
-  document.getElementById('tkTotalCnt').textContent=total;
-  document.getElementById('tkActiveCnt').textContent=active;
-  document.getElementById('tkVoidCnt').textContent=voided;
-  const l=document.getElementById('tkList');
-  if(!total){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px">暂无奖券</div>';return}
-  l.innerHTML=S.tickets.map(t=>'<div class="section" style="display:flex;align-items:center;gap:12px;padding:10px 16px"><div style="flex:1"><div style="font-weight:bold;font-family:monospace">'+t.code+'</div></div>'+(t.voided?'<span class="badge badge-void">已作废</span>':'<span class="badge badge-act">有效</span>')+(t.voided?'<button class="btn btn-out btn-sm" onclick="unvoidTicket(\''+t.code+'\')">恢复</button>':'<button class="btn btn-dng btn-sm" onclick="voidTicketManual(\''+t.code+'\')">作废</button>')+'</div>').join('')
-}
-function voidTicketManual(code){
-  const tk=S.tickets.find(t=>t.code===code);
-  if(tk)tk.voided=true;
-  if(!S.voidedTickets.includes(code))S.voidedTickets.push(code);
-  saveLocal();renderTickets();broadcastConfig();toast('奖券已作废: '+code)
-}
-function exportTickets(){
-  if(!S.tickets.length){toast('暂无奖券');return}
-  let csv='\uFEFF序号,奖券编码,状态\n';
-  S.tickets.forEach((t,i)=>{csv+=(i+1)+','+t.code+','+(t.voided?'已作废':'有效')+'\n'});
-  downloadCSV(csv,'奖券清单_'+Date.now()+'.csv');toast('已导出')
-}
-function clearTickets(){if(!S.tickets.length){toast('暂无奖券');return}if(confirm('确定清空全部奖券？')){S.tickets=[];S.voidedTickets=[];S.voidLogs=[];saveLocal();renderTickets();renderVoidLogs();broadcastConfig();toast('已清空')}}
-function renderVoidLogs(){
-  var l=document.getElementById('voidLogList');if(!l)return;
-  if(!S.voidLogs||!S.voidLogs.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无作废日志</div>';return}
-  l.innerHTML=S.voidLogs.map(function(log){
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--card2);border-radius:8px;margin-bottom:4px"><div style="flex:1"><div style="font-family:monospace;font-size:.9em">🎫 '+log.code+'</div><div style="font-size:.75em;color:var(--sub);margin-top:2px">原因: '+log.reason+' · 操作人: '+log.operator+' · '+fmt(log.time)+'</div></div><span class="badge badge-void">已作废</span></div>';
-  }).join('');
 }
 
 // ========== 弹幕管理 ==========
@@ -1535,7 +1423,7 @@ function renderParticipants(){
   if(filterOp)list=list.filter(function(p){return(p.operator||'未知')===filterOp});
   if(!list.length){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px">'+(filterOp?'该来源账号暂无参与者':'暂无参与者')+'</div>';return}
   const colors=['#6c5ce7','#fd79a8','#fdcb6e','#00b894','#0984e3','#e17055'];
-  l.innerHTML=list.map(function(p,i){return '<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(p.won?'opacity:.5':'')+'"><div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;background:'+colors[i%colors.length]+';flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+(p.name||'未知')+(p.won?' <span style="color:var(--gold);font-size:.8em">已中奖</span>':'')+'</div><div style="font-size:.8em;color:var(--sub)">'+(p.phone||'')+(p.ticket?' · 🎫'+p.ticket:'')+(p.operator?' · 👤'+p.operator:'')+(p.registerTime?' · 登记'+fmt(p.registerTime):'')+(p.signed?' · ✅已签到':'')+(p.signTime?' · 签到'+fmt(p.signTime):'')+'</div></div><button class="btn btn-dng btn-sm" onclick="delParticipant(\''+p.id+'\')">✕</button></div>'}).join('')
+  l.innerHTML=list.map(function(p,i){return '<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(p.won?'opacity:.5':'')+'"><div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;background:'+colors[i%colors.length]+';flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+(p.name||'未知')+(p.won?' <span style="color:var(--gold);font-size:.8em">已中奖</span>':'')+'</div><div style="font-size:.8em;color:var(--sub)">'+(p.phone||'')+(p.operator?' · 👤'+p.operator:'')+(p.registerTime?' · 登记'+fmt(p.registerTime):'')+(p.signed?' · ✅已签到':'')+(p.signTime?' · 签到'+fmt(p.signTime):'')+'</div></div><button class="btn btn-dng btn-sm" onclick="delParticipant(\''+p.id+'\')">✕</button></div>'}).join('')
 }
 function delParticipant(id){S.participants=S.participants.filter(p=>p.id!==id);saveLocal();renderParticipants();broadcastConfig();toast('已删除')}
 function clearParticipants(){if(!S.participants.length){toast('暂无参与者');return}if(confirm('确定清空所有参与者？')){S.participants=[];saveLocal();renderParticipants();broadcastConfig();toast('已清空')}}
@@ -1551,14 +1439,8 @@ function voidTodaySigned(){
     p.voided=true;
     p.voidReason='已参与抽奖';
     p.voidTime=Date.now();
-    // 如果有抽奖券编码，也同步加入作废列表
-    var ticket=p.ticket||(p.fields&&p.fields.ticket)||'';
-    if(ticket&&!S.voidedTickets.includes(ticket)){S.voidedTickets.push(ticket);
-      if(!S.voidLogs)S.voidLogs=[];
-      if(!S.voidLogs.find(l=>l.code===ticket)){S.voidLogs.unshift({code:ticket,reason:'已参与抽奖',operator:'系统一键作废',time:Date.now()})}
-    }
   });
-  saveLocal();renderParticipants();renderTickets();renderVoidLogs();broadcastConfig();
+  saveLocal();renderParticipants();broadcastConfig();
   toast('已作废 '+todaySigned.length+' 人，备注为「已参与抽奖」');
 }
 function exportParticipants(){
@@ -1612,10 +1494,10 @@ function copyAllLinks(){
 }
 
 // ========== 存储渲染 ==========
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[],lotteryRule:S.lotteryRule||{}}))}catch(e){}}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[],lotteryRule:S.lotteryRule||{}}))}catch(e){}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
 function renderAll(){
-  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderVoidLogs();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();
+  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
   document.getElementById('ltSignFailMsg').value=S.signFailMsg||'';document.getElementById('ltFlowInterval').value=S.flowInterval||0;
   document.getElementById('scTitle').value=S.screen.title;document.getElementById('scTitleSize').value=S.screen.titleSize;document.getElementById('scTitleColor').value=S.screen.titleColor;document.getElementById('scBgUrl').value=S.screen.bgUrl||'';
