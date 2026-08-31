@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>知识问答</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0a0e27;color:#fff;min-height:100vh;user-select:none}
+input,button,select,textarea{font-family:inherit;outline:none;border:none}
+:root{--pri:#6c5ce7;--pri-l:#a29bfe;--acc:#fd79a8;--gold:#fdcb6e;--grn:#00b894;--red:#e17055;--blue:#0984e3;--card:#161b3c;--card2:#1e2550;--sub:#a0a8c8;--bd:rgba(255,255,255,.1)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--pri);border-radius:2px}
+.btn{padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.95em;transition:.2s;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn-pri{background:var(--pri);color:#fff}.btn-pri:active{background:#5a4bd1}
+.btn-out{background:transparent;border:1px solid var(--bd);color:var(--sub)}.btn-out:active{border-color:var(--pri);color:#fff}
+.btn-suc{background:var(--grn);color:#fff}.btn-dng{background:var(--red);color:#fff}
+.btn-gold{background:var(--gold);color:#333;font-weight:bold}
+.card{background:var(--card);border-radius:16px;padding:20px;margin-bottom:14px;border:1px solid var(--bd)}
+.f-grp{margin-bottom:12px}
+.f-grp label{display:block;font-size:.85em;color:var(--sub);margin-bottom:4px}
+.f-grp input,.f-grp select{width:100%;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em}
+.f-grp input:focus,.f-grp select:focus{border-color:var(--pri)}
+.f-grp input::placeholder{color:#4a5070}
+.opt-btn{width:100%;padding:16px;border-radius:12px;background:var(--card2);border:2px solid var(--bd);color:#fff;font-size:1em;cursor:pointer;transition:.2s;text-align:left;margin-bottom:10px;line-height:1.6}
+.opt-btn:active{border-color:var(--pri);background:var(--pri)}
+.opt-btn.selected{border-color:var(--gold);background:rgba(253,203,110,.15)}
+.opt-btn.correct{border-color:var(--grn);background:rgba(0,184,148,.2)}
+.opt-btn.wrong{border-color:var(--red);background:rgba(225,112,85,.2)}
+.progress-bar{height:4px;background:var(--card2);border-radius:2px;overflow:hidden;margin-bottom:16px}
+.progress-fill{height:100%;background:var(--pri);transition:width .3s}
+.timer-display{font-size:1.4em;font-weight:bold;font-family:monospace;color:var(--gold)}
+.stat-box{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.stat-item{flex:1;min-width:80px;text-align:center;padding:12px;background:var(--card);border-radius:12px;border:1px solid var(--bd)}
+.stat-num{font-size:1.6em;font-weight:bold}
+.stat-label{font-size:.75em;color:var(--sub);margin-top:4px}
+.round-badge{display:inline-block;padding:4px 14px;border-radius:20px;background:var(--pri);color:#fff;font-size:.85em;font-weight:bold}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 登录页 -->
+  <div id="loginPage" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px">
+    <div class="card" style="width:100%;max-width:380px;text-align:center">
+      <h1 style="font-size:1.5em;margin-bottom:8px;background:linear-gradient(135deg,#6c5ce7,#fd79a8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">知识问答</h1>
+      <p style="color:var(--sub);font-size:.85em;margin-bottom:24px">请登录后参与答题</p>
+      <div class="f-grp"><input id="loginUser" placeholder="账号" style="font-size:1em" onkeydown="if(event.key==='Enter')document.getElementById('loginPwd').focus()"></div>
+      <div class="f-grp"><input id="loginPwd" type="password" placeholder="密码" style="font-size:1em" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em" onclick="doLogin()">登 录</button>
+      <p style="color:var(--sub);font-size:.78em;margin-top:12px">账号由后台管理员统一配置</p>
+    </div>
+  </div>
+
+  <!-- 登记页 -->
+  <div id="regPage" style="display:none;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
+      <div style="font-weight:bold;font-size:1.1em">📝 新办手机号码登记</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="doLogout()">退出</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:12px">请填写以下信息参与知识问答</div>
+      <div id="regForm">
+        <div class="f-grp"><label>姓名 <span style="color:var(--red)">*</span></label><input id="qzName" placeholder="请输入姓名" style="font-size:1em"></div>
+        <div class="f-grp"><label>性别 <span style="color:var(--red)">*</span></label><select id="qzGender"><option value="">请选择性别</option><option value="男">男</option><option value="女">女</option></select></div>
+        <div class="f-grp"><label>新办手机号码 <span style="color:var(--red)">*</span></label><div style="display:flex;align-items:center;gap:6px"><input id="qzPhonePre" type="tel" placeholder="前3位" maxlength="3" style="width:80px;padding:12px 10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em;text-align:center"><span style="color:var(--sub);font-weight:bold;font-size:1.1em">XXXX</span><input id="qzPhoneSuf" type="tel" placeholder="后4位" maxlength="4" style="width:90px;padding:12px 10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:1em;text-align:center"></div></div>
+      </div>
+      <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em;margin-top:8px" onclick="submitReg()">✅ 提交登记</button>
+    </div>
+  </div>
+
+  <!-- 答题页 -->
+  <div id="quizPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="round-badge" id="roundBadge">第1轮</span>
+        <span style="font-size:.85em;color:var(--sub)" id="roundInfo"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="timer-display" id="qTimer">0.00s</span>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="doLogout()">退出</button>
+      </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progBar" style="width:0%"></div></div>
+    <div class="card" id="questionCard">
+      <div style="font-size:.85em;color:var(--sub);margin-bottom:8px" id="qIndex">第 1 题</div>
+      <div style="font-size:1.15em;font-weight:bold;margin-bottom:16px;line-height:1.6" id="qText">加载中...</div>
+      <div id="qOptions"></div>
+    </div>
+    <div id="feedback" style="display:none;text-align:center;padding:16px;border-radius:12px;margin-bottom:14px;font-size:1.1em;font-weight:bold"></div>
+    <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em;display:none" id="nextBtn" onclick="nextQuestion()">下一题 →</button>
+  </div>
+
+  <!-- 结果页 -->
+  <div id="resultPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:3em;margin-bottom:8px">🎉</div>
+      <h1 style="font-size:1.5em;margin-bottom:8px">答题完成！</h1>
+    </div>
+    <div class="stat-box">
+      <div class="stat-item"><div class="stat-num" id="rCorrect" style="color:var(--grn)">0</div><div class="stat-label">答对题数</div></div>
+      <div class="stat-item"><div class="stat-num" id="rTotal" style="color:var(--gold)">0</div><div class="stat-label">总题数</div></div>
+      <div class="stat-item"><div class="stat-num" id="rAccuracy" style="color:var(--pri-l)">0%</div><div class="stat-label">正确率</div></div>
+      <div class="stat-item"><div class="stat-num" id="rTotalTime" style="color:var(--acc)">0.00s</div><div class="stat-label">总用时</div></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:bold;margin-bottom:12px">📋 答题明细</div>
+      <div id="detailList" style="max-height:400px;overflow-y:auto"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn btn-pri" style="flex:1;padding:14px;font-size:1em" id="againBtn" onclick="startQuiz()" style="display:none">🔄 再来一轮</button>
+      <button class="btn btn-out" style="flex:1;padding:14px;font-size:1em" onclick="doLogout()">退出</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script>
+let S={
+  mqtt:null,topic:'',room:'',currentUser:null,
+  _accounts:null,configReceived:false,
+  quizConfig:null,quizFields:[],
+  allParticipants:[],
+  // 答题状态
+  questions:[],currentQ:0,currentRound:1,totalRounds:1,
+  answers:[],allRoundResults:[],
+  qStartTime:0,totalStartTime:0,
+  _retryTimer:null
+};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
+function fmtTime(ms){return(ms/1000).toFixed(2)}
+function maskPhone(p){if(!p)return'';return p.substr(0,3)+'XXXX'+p.substr(-4)}
+
+// ========== 初始化 ==========
+(function init(){
+  const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
+  try{const cached=JSON.parse(localStorage.getItem('cj_reg_accounts_'+S.room)||'null');if(cached&&cached.length){S._accounts=cached}}catch(e){}
+  if(!S._accounts||!S._accounts.length){S._accounts=[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}]}
+  connectMQTT();
+  tryAutoLogin();
+})();
+
+// ========== MQTT ==========
+function connectMQTT(){
+  const cid='quiz_'+uid();
+  try{
+    S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
+    S.mqtt.on('connect',()=>{
+      updateMqtt('online');
+      S.mqtt.subscribe(S.topic+'config');
+      S.mqtt.subscribe(S.topic+'quiz_result');
+      S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'quiz',time:Date.now()}));
+      if(S._retryTimer)clearInterval(S._retryTimer);
+      S._retryTimer=setInterval(()=>{
+        if(S.mqtt&&S.mqtt.connected&&!S.configReceived){
+          S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'quiz',time:Date.now()}));
+        }else if(S.configReceived&&S._retryTimer){
+          clearInterval(S._retryTimer);S._retryTimer=null;
+        }
+      },5000);
+    });
+    S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
+    S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
+  }catch(e){updateMqtt('offline')}
+}
+function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
+function handleMsg(t,d){
+  if(t.endsWith('config')){
+    S.configReceived=true;
+    if(d.accounts&&d.accounts.length){
+      S._accounts=d.accounts;
+      try{localStorage.setItem('cj_reg_accounts_'+S.room,JSON.stringify(d.accounts))}catch(e){}
+    }
+    S._accounts=(d.accounts&&d.accounts.length)?d.accounts:(S._accounts||[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}]);
+    S.quizConfig=d.quizConfig||null;
+    S.quizFields=d.quizFields||[];
+    S.allParticipants=d.participants||[];
+    if(!S.currentUser)tryAutoLogin();
+  }else if(t.endsWith('quiz_result')){
+    // 收到后台返回的答题确认
+  }
+}
+
+// ========== 登录 ==========
+function rememberLogin(acc){
+  try{localStorage.setItem('cj_quiz_login_'+S.room,JSON.stringify({user:acc.user,pwd:acc.pwd,name:acc.name,role:acc.role,time:Date.now()}))}catch(e){}
+}
+function tryAutoLogin(){
+  try{
+    const d=JSON.parse(localStorage.getItem('cj_quiz_login_'+S.room)||'null');
+    if(!d||!d.user||!d.pwd)return;
+    if(!S._accounts||!S._accounts.length)return;
+    const acc=S._accounts.find(a=>a.user===d.user&&a.pwd===d.pwd);
+    if(!acc)return;
+    enterReg(acc);
+  }catch(e){}
+}
+function enterReg(acc){
+  S.currentUser=acc;
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('regPage').style.display='block';
+  rememberLogin(acc);
+}
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPwd').value.trim();
+  if(!u||!p){toast('请输入账号密码');return}
+  if(S._accounts&&S._accounts.length){
+    const acc=S._accounts.find(a=>a.user===u&&a.pwd===p);
+    if(!acc){toast('账号或密码错误');return}
+    enterReg(acc);
+    return;
+  }
+  toast('正在同步账号信息，请稍候...');
+  if(S.mqtt&&S.mqtt.connected){S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'quiz',time:Date.now()}))}
+  setTimeout(doLogin,2000);
+}
+function doLogout(){
+  S.currentUser=null;
+  try{localStorage.removeItem('cj_quiz_login_'+S.room)}catch(e){}
+  location.reload();
+}
+
+// ========== 登记提交 ==========
+function submitReg(){
+  const name=document.getElementById('qzName').value.trim();
+  const gender=document.getElementById('qzGender').value;
+  const phonePre=document.getElementById('qzPhonePre').value.trim();
+  const phoneSuf=document.getElementById('qzPhoneSuf').value.trim();
+
+  if(!name){toast('请输入姓名');return}
+  if(!gender){toast('请选择性别');return}
+  if(!phonePre||phonePre.length!==3){toast('请输入手机号前3位');return}
+  if(!phoneSuf||phoneSuf.length!==4){toast('请输入手机号后4位');return}
+  if(!/^\d{3}$/.test(phonePre)){toast('手机号前3位必须为数字');return}
+  if(!/^\d{4}$/.test(phoneSuf)){toast('手机号后4位必须为数字');return}
+
+  const fullPhone=phonePre+'XXXX'+phoneSuf;
+
+  // 与登记/签到信息校验（姓名和手机号匹配）
+  if(S.allParticipants&&S.allParticipants.length){
+    const matched=S.allParticipants.find(function(p){
+      var pName=(p.name||'').trim();
+      var pPhone=p.phone||'';
+      return pName===name && pPhone===fullPhone;
+    });
+    if(!matched){
+      toast('校验失败：姓名和手机号与登记/签到信息不匹配');
+      return;
+    }
+  }
+
+  S.quizUserInfo={name:name,gender:gender,phone:fullPhone,phonePre:phonePre,phoneSuf:phoneSuf};
+
+  // 发送登记信息到后台
+  S.mqtt.publish(S.topic+'quiz_register',JSON.stringify({
+    type:'quiz_register',
+    name:name,gender:gender,phone:fullPhone,
+    operator:S.currentUser?S.currentUser.name:'',
+    time:Date.now()
+  }));
+
+  // 检查是否有题库配置
+  if(!S.quizConfig||!S.quizConfig.questions||!S.quizConfig.questions.length){
+    toast('题库尚未配置，请联系管理员导入题库');
+    return;
+  }
+
+  S.totalRounds=S.quizConfig.rounds||1;
+  S.currentRound=1;
+  startQuiz();
+}
+
+// ========== 答题 ==========
+function startQuiz(){
+  // 随机抽题或按配置
+  var pool=S.quizConfig.questions||[];
+  var count=S.quizConfig.questionCount||pool.length;
+  if(count>pool.length)count=pool.length;
+
+  // 打乱题目顺序
+  var shuffled=pool.slice().sort(function(){return Math.random()-0.5});
+  S.questions=shuffled.slice(0,count);
+  S.currentQ=0;
+  S.answers=[];
+  S.currentRound=S.currentRound||1;
+  S.qStartTime=Date.now();
+  S.totalStartTime=Date.now();
+
+  document.getElementById('regPage').style.display='none';
+  document.getElementById('resultPage').style.display='none';
+  document.getElementById('quizPage').style.display='block';
+  document.getElementById('roundBadge').textContent='第'+S.currentRound+'轮';
+  document.getElementById('roundInfo').textContent='共'+S.totalRounds+'轮';
+
+  renderQuestion();
+  startTimer();
+}
+
+var _timerInterval=null;
+function startTimer(){
+  if(_timerInterval)clearInterval(_timerInterval);
+  _timerInterval=setInterval(function(){
+    var elapsed=Date.now()-S.qStartTime;
+    document.getElementById('qTimer').textContent=fmtTime(elapsed)+'s';
+  },50);
+}
+function stopTimer(){if(_timerInterval){clearInterval(_timerInterval);_timerInterval=null}}
+
+function renderQuestion(){
+  var q=S.questions[S.currentQ];
+  if(!q)return;
+  var progress=((S.currentQ+1)/S.questions.length*100).toFixed(0);
+  document.getElementById('progBar').style.width=progress+'%';
+  document.getElementById('qIndex').textContent='第 '+(S.currentQ+1)+' / '+S.questions.length+' 题';
+  document.getElementById('qText').textContent=q.question;
+
+  // 打乱选项顺序
+  var opts=q.options||[];
+  var optData=opts.map(function(text,idx){return{text:text,isCorrect:idx===(q.answer||0)}});
+  if(S.quizConfig&&S.quizConfig.shuffleOptions!==false){
+    optData=optData.sort(function(){return Math.random()-0.5});
+  }
+
+  var html=optData.map(function(o,i){
+    return '<button class="opt-btn" data-idx="'+i+'" data-correct="'+o.isCorrect+'" onclick="selectAnswer('+i+',this)">'+o.text+'</button>';
+  }).join('');
+  document.getElementById('qOptions').innerHTML=html;
+  document.getElementById('feedback').style.display='none';
+  document.getElementById('nextBtn').style.display='none';
+  S.qStartTime=Date.now();
+  startTimer();
+}
+
+function selectAnswer(idx,btn){
+  stopTimer();
+  var elapsed=Date.now()-S.qStartTime;
+  var isCorrect=btn.getAttribute('data-correct')==='true';
+  var q=S.questions[S.currentQ];
+
+  // 标记选中
+  var allBtns=document.querySelectorAll('.opt-btn');
+  allBtns.forEach(function(b){b.onclick=null});
+  btn.classList.add('selected');
+
+  // 显示正确/错误
+  allBtns.forEach(function(b){
+    if(b.getAttribute('data-correct')==='true')b.classList.add('correct');
+    else if(b===btn)b.classList.add('wrong');
+  });
+
+  // 反馈
+  var fb=document.getElementById('feedback');
+  fb.style.display='block';
+  if(isCorrect){
+    fb.style.background='rgba(0,184,148,.15)';
+    fb.style.color='var(--grn)';
+    fb.textContent='✅ 回答正确！用时 '+fmtTime(elapsed)+'s';
+  }else{
+    fb.style.background='rgba(225,112,85,.15)';
+    fb.style.color='var(--red)';
+    fb.textContent='❌ 回答错误！用时 '+fmtTime(elapsed)+'s';
+  }
+
+  // 记录答案
+  S.answers.push({
+    question:q.question,
+    selected:btn.textContent,
+    correct:isCorrect,
+    correctAnswer:q.options[q.answer||0],
+    timeMs:elapsed,
+    timeStr:fmtTime(elapsed)
+  });
+
+  document.getElementById('nextBtn').style.display='block';
+  document.getElementById('nextBtn').textContent=S.currentQ<S.questions.length-1?'下一题 →':'查看结果 →';
+}
+
+function nextQuestion(){
+  S.currentQ++;
+  if(S.currentQ<S.questions.length){
+    renderQuestion();
+  }else{
+    finishRound();
+  }
+}
+
+function finishRound(){
+  stopTimer();
+  var totalTime=Date.now()-S.totalStartTime;
+  var correctCount=S.answers.filter(function(a){return a.correct}).length;
+
+  var roundResult={
+    round:S.currentRound,
+    answers:S.answers.slice(),
+    correctCount:correctCount,
+    totalCount:S.questions.length,
+    totalTimeMs:totalTime,
+    totalTimeStr:fmtTime(totalTime),
+    accuracy:S.questions.length>0?(correctCount/S.questions.length*100).toFixed(1):'0'
+  };
+
+  S.allRoundResults.push(roundResult);
+
+  // 发送结果到后台
+  S.mqtt.publish(S.topic+'quiz_result',JSON.stringify({
+    type:'quiz_result',
+    user:S.quizUserInfo,
+    operator:S.currentUser?S.currentUser.name:'',
+    round:S.currentRound,
+    answers:S.answers,
+    correctCount:correctCount,
+    totalCount:S.questions.length,
+    totalTimeMs:totalTime,
+    time:Date.now()
+  }));
+
+  showResults();
+}
+
+function showResults(){
+  document.getElementById('quizPage').style.display='none';
+  document.getElementById('resultPage').style.display='block';
+
+  // 汇总所有轮次
+  var allAnswers=[];
+  var totalCorrect=0,totalCount=0,totalTimeMs=0;
+  S.allRoundResults.forEach(function(r){
+    allAnswers=allAnswers.concat(r.answers);
+    totalCorrect+=r.correctCount;
+    totalCount+=r.totalCount;
+    totalTimeMs+=r.totalTimeMs;
+  });
+
+  document.getElementById('rCorrect').textContent=totalCorrect;
+  document.getElementById('rTotal').textContent=totalCount;
+  document.getElementById('rAccuracy').textContent=totalCount>0?(totalCorrect/totalCount*100).toFixed(0)+'%':'0%';
+  document.getElementById('rTotalTime').textContent=fmtTime(totalTimeMs)+'s';
+
+  // 渲染明细
+  var html=allAnswers.map(function(a,i){
+    var icon=a.correct?'✅':'❌';
+    var color=a.correct?'var(--grn)':'var(--red)';
+    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--card2);border-radius:8px;margin-bottom:6px">'+
+      '<div style="font-size:1.2em;flex-shrink:0">'+icon+'</div>'+
+      '<div style="flex:1">'+
+        '<div style="font-weight:bold;font-size:.9em">'+(i+1)+'. '+a.question+'</div>'+
+        '<div style="font-size:.8em;color:var(--sub);margin-top:4px">你的答案：'+a.selected+'</div>'+
+        (a.correct?'':'<div style="font-size:.8em;color:var(--grn);margin-top:2px">正确答案：'+a.correctAnswer+'</div>')+
+        '<div style="font-size:.78em;color:'+color+';margin-top:4px">用时：'+a.timeStr+'s</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  document.getElementById('detailList').innerHTML=html;
+
+  // 是否可再玩
+  if(S.currentRound<S.totalRounds){
+    var againBtn=document.getElementById('againBtn');
+    againBtn.style.display='block';
+    againBtn.textContent='🔄 再来一轮（'+(S.currentRound+1)+'/'+S.totalRounds+'）';
+    againBtn.onclick=function(){
+      S.currentRound++;
+      startQuiz();
+    };
+  }else{
+    var againBtn=document.getElementById('againBtn');
+    againBtn.style.display='block';
+    againBtn.textContent='🔄 重新开始';
+    againBtn.onclick=function(){
+      S.currentRound=1;
+      S.allRoundResults=[];
+      startQuiz();
+    };
+  }
+}
+</script>
+</body>
+</html>

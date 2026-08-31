@@ -187,6 +187,8 @@ function maskPhone(p){if(!p)return'';return p.substr(0,3)+'****'+p.substr(-4)}
   const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
   // 加载缓存的账号列表，使免密登录不依赖后台在线
   try{const cached=JSON.parse(localStorage.getItem('cj_reg_accounts_'+S.room)||'null');if(cached&&cached.length){S._accounts=cached;S.configReceived=false}}catch(e){}
+  // 兜底：无缓存账号时使用默认账号，确保后台不在线也能登录
+  if(!S._accounts||!S._accounts.length){S._accounts=[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}]}
   connectMQTT();
   // 页面加载即可尝试免密登录（后台不在线时用缓存账号）
   if(S._accounts&&S._accounts.length){tryAutoLogin()}
@@ -225,10 +227,10 @@ function handleMsg(t,d){
       // 缓存账号列表到本地，使下次访问可免密登录（不依赖后台在线）
       try{localStorage.setItem('cj_reg_accounts_'+S.room,JSON.stringify(d.accounts))}catch(e){}
     }
-    S._accounts=(d.accounts&&d.accounts.length)?d.accounts:(S._accounts||[{user:'admin',pwd:'admin123',name:'管理员'}]);
+    S._accounts=(d.accounts&&d.accounts.length)?d.accounts:(S._accounts||[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}]);
     S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
     S.tickets=d.tickets||[];S.voidedTickets=d.voidedTickets||[];S.baseLink=d.baseLink||'';
-    S.allParticipants=d.participants||[];
+    S.allParticipants=d.participants||[];S.quizFields=d.quizFields||[];S.quizConfig=d.quizConfig||null;
     updateStats();
     if(S.currentUser)renderRegForm();
     if(!S.currentUser)tryAutoLogin();
@@ -273,19 +275,21 @@ function enterSystem(acc){
 function doLogin(){
   const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPwd').value.trim();
   if(!u||!p){toast('请输入账号密码');return}
-  if(!S._accounts||!S._accounts.length){
-    if(!S._syncWarned){
-      S._syncWarned=true;
-      setTimeout(()=>{if(!S._accounts||!S._accounts.length)toast('无法同步后台配置，请确认后台管理端已登录并在线',3000)},10000);
-    }
-    toast('正在同步账号信息，请稍候...');
-    // 强制重发请求，加速同步
-    if(S.mqtt&&S.mqtt.connected){S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'register',time:Date.now()}))}
-    setTimeout(doLogin,2000);return
+  // 有账号（含默认兜底）时直接验证
+  if(S._accounts&&S._accounts.length){
+    const acc=S._accounts.find(a=>a.user===u&&a.pwd===p);
+    if(!acc){toast('账号或密码错误');return}
+    enterSystem(acc);
+    return;
   }
-  const acc=S._accounts.find(a=>a.user===u&&a.pwd===p);
-  if(!acc){toast('账号或密码错误');return}
-  enterSystem(acc);
+  // 无任何账号时等待后台同步
+  if(!S._syncWarned){
+    S._syncWarned=true;
+    setTimeout(()=>{if(!S._accounts||!S._accounts.length)toast('无法同步后台配置，请确认后台管理端已登录并在线',3000)},10000);
+  }
+  toast('正在同步账号信息，请稍候...');
+  if(S.mqtt&&S.mqtt.connected){S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'register',time:Date.now()}))}
+  setTimeout(doLogin,2000);
 }
 function doLogout(){S.currentUser=null;try{localStorage.removeItem('cj_reg_'+S.room)}catch(e){}location.reload()}
 

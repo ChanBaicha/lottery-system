@@ -61,6 +61,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="fields" onclick="switchTab('fields')">📝 签到字段配置</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="lottery" onclick="switchTab('lottery')">🎲 抽奖设置</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="games" onclick="switchTab('games')">🎮 互动游戏</div>
+    <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="quiz" onclick="switchTab('quiz')">🧠 知识问答</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="screen" onclick="switchTab('screen')">🖥️ 大屏外观</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="tickets" onclick="switchTab('tickets')">🎫 奖券管理</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="danmaku" onclick="switchTab('danmaku')">💬 弹幕管理</div>
@@ -224,6 +225,76 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     </div>
 
     <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em;justify-content:center" onclick="saveGameConfig()">💾 保存游戏设置</button>
+  </div>
+
+  <!-- 知识问答 -->
+  <div class="panel" id="panel-quiz">
+    <h2 style="font-size:1.3em;margin-bottom:6px">🧠 知识问答管理</h2>
+    <p style="color:var(--sub);font-size:.85em;margin-bottom:16px">管理知识问答题库、参与轮次、界面字段配置，查看并导出答题结果。</p>
+
+    <!-- 题库管理 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">📋 题库管理</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-pri" onclick="document.getElementById('quizFile').click()">📂 导入Excel题库</button>
+        <input type="file" id="quizFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importQuizExcel(this)">
+        <button class="btn btn-out" onclick="downloadQuizTemplate()">📄 下载Excel模板</button>
+        <button class="btn btn-out" onclick="addManualQuestion()">➕ 手动添加</button>
+        <button class="btn btn-dng" onclick="clearQuizQuestions()">🗑️ 清空题库</button>
+      </div>
+      <div id="quizQList" style="max-height:300px;overflow-y:auto"></div>
+    </div>
+
+    <!-- 手动添加题目 -->
+    <div class="section" id="quizManualForm" style="display:none">
+      <h3 style="font-size:1.05em;margin-bottom:10px">➕ 手动添加题目</h3>
+      <div class="f-grp" style="margin-bottom:8px"><label>题目内容</label><textarea id="quizQText" rows="2" placeholder="请输入题目内容"></textarea></div>
+      <div class="f-row" style="margin-bottom:8px">
+        <div class="f-grp"><label>选项A</label><input id="quizOptA" placeholder="选项A内容"></div>
+        <div class="f-grp"><label>选项B</label><input id="quizOptB" placeholder="选项B内容"></div>
+      </div>
+      <div class="f-row" style="margin-bottom:8px">
+        <div class="f-grp"><label>选项C</label><input id="quizOptC" placeholder="选项C内容"></div>
+        <div class="f-grp"><label>选项D</label><input id="quizOptD" placeholder="选项D内容"></div>
+      </div>
+      <div class="f-grp" style="max-width:200px;margin-bottom:10px"><label>正确答案</label><select id="quizAnswer"><option value="0">选项A</option><option value="1">选项B</option><option value="2">选项C</option><option value="3">选项D</option></select></div>
+      <button class="btn btn-pri" onclick="saveManualQuestion()">✅ 添加题目</button>
+      <button class="btn btn-out" onclick="document.getElementById('quizManualForm').style.display='none'">取消</button>
+    </div>
+
+    <!-- 答题设置 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">⚙️ 答题设置</h3>
+      <div class="f-row">
+        <div class="f-grp" style="max-width:150px"><label>可参与轮次</label><input id="quizRounds" type="number" min="1" max="20" value="1"></div>
+        <div class="f-grp" style="max-width:150px"><label>每轮题数</label><input id="quizQCount" type="number" min="1" value="10" placeholder="留空=全部"></div>
+        <div class="f-grp" style="max-width:200px"><label>答题模式</label><select id="quizMode"><option value="sequential">顺序答题</option><option value="random">随机抽题</option></select></div>
+        <div class="f-grp" style="max-width:150px"><label>选项打乱</label><select id="quizShuffle"><option value="true">打乱顺序</option><option value="false">保持顺序</option></select></div>
+      </div>
+      <button class="btn btn-pri" onclick="saveQuizConfig()">💾 保存设置</button>
+    </div>
+
+    <!-- 登记字段配置 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">📝 登记字段配置</h3>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">知识问答板块登记信息为"新办手机号码"，包含：姓名（文本）、性别（下拉选择）、新办手机号码（前3位+XXXX+后4位）。除性别外，姓名和手机号需与抽奖登记/签到信息进行校验。</p>
+      <div class="f-row">
+        <div class="f-grp"><label>板块名称</label><input id="quizBoardName" placeholder="如：新办手机号码" value="新办手机号码"></div>
+        <div class="f-grp"><label>登记提示语</label><input id="quizRegTip" placeholder="如：请填写以下信息参与知识问答"></div>
+      </div>
+      <button class="btn btn-pri" onclick="saveQuizFields()">💾 保存字段配置</button>
+    </div>
+
+    <!-- 答题结果 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">📊 答题结果统计</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+        <div style="padding:8px 16px;background:var(--card2);border-radius:20px;font-size:.9em">参与人次 <b id="quizPartCount" style="color:var(--gold)">0</b> · 总答题数 <b id="quizAnsCount" style="color:var(--grn)">0</b></div>
+        <button class="btn btn-suc" onclick="exportQuizResults()">📥 导出答题记录</button>
+        <button class="btn btn-dng" onclick="clearQuizResults()">🗑️ 清空结果</button>
+      </div>
+      <div id="quizResultList" style="max-height:400px;overflow-y:auto"></div>
+    </div>
   </div>
 
   <!-- 大屏外观 -->
@@ -427,6 +498,10 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
           <div style="font-weight:bold;margin-bottom:4px">⚙️ 后台管理端（当前页面）</div>
           <div id="linkAdmin" style="color:var(--gold);font-size:.85em;word-break:break-all;cursor:pointer" onclick="copyText(this.textContent)">未设置</div>
         </div>
+        <div style="padding:14px;background:var(--card2);border-radius:10px;border-left:4px solid var(--blue)">
+          <div style="font-weight:bold;margin-bottom:4px">🧠 知识问答端</div>
+          <div id="linkQuiz" style="color:var(--blue);font-size:.85em;word-break:break-all;cursor:pointer" onclick="copyText(this.textContent)">未设置</div>
+        </div>
       </div>
       <button class="btn btn-pri" style="width:100%;margin-top:12px;padding:12px;justify-content:center" onclick="saveBaseLink()">💾 保存地址并同步</button>
     </div>
@@ -449,7 +524,11 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   gameConfig:{shakeDuration:10,reactionDuration:15,reactionIntervalType:'random',reactionFixedInterval:2,reactionMinInterval:1,reactionMaxInterval:3,quizRounds:3,quizInterval:5,autoStartThreshold:0},
   danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,mode:'scroll',colorful:true,history:[]},
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
-  voidedWinners:[]
+  voidedWinners:[],
+  quizConfig:{questions:[],rounds:1,questionCount:10,mode:'sequential',shuffleOptions:true},
+  quizFields:[{id:'qz_name',name:'姓名',type:'text',required:true},{id:'qz_gender',name:'性别',type:'select',options:'男,女',required:true},{id:'qz_phone',name:'新办手机号码',type:'phone',required:true}],
+  quizBoardName:'新办手机号码',
+  quizResults:[]
 };
 let currentTab='prizes';
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
@@ -491,7 +570,7 @@ function connectMQTT(){
   const cid='admin_'+uid();
   try{
     S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
-    S.mqtt.on('connect',()=>{updateConn('online');S.mqtt.subscribe(S.topic+'sign_in');S.mqtt.subscribe(S.topic+'register');S.mqtt.subscribe(S.topic+'game_cmd');S.mqtt.subscribe(S.topic+'request_config');S.mqtt.subscribe(S.topic+'danmaku');S.mqtt.subscribe(S.topic+'ticket_void');S.mqtt.subscribe(S.topic+'lottery_result');S.mqtt.subscribe(S.topic+'winner_void');broadcastConfig()});
+    S.mqtt.on('connect',()=>{updateConn('online');S.mqtt.subscribe(S.topic+'sign_in');S.mqtt.subscribe(S.topic+'register');S.mqtt.subscribe(S.topic+'game_cmd');S.mqtt.subscribe(S.topic+'request_config');S.mqtt.subscribe(S.topic+'danmaku');S.mqtt.subscribe(S.topic+'ticket_void');S.mqtt.subscribe(S.topic+'lottery_result');S.mqtt.subscribe(S.topic+'winner_void');S.mqtt.subscribe(S.topic+'quiz_register');S.mqtt.subscribe(S.topic+'quiz_result');broadcastConfig()});
     S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
     S.mqtt.on('error',()=>updateConn('offline'));S.mqtt.on('reconnect',()=>updateConn('connecting'));S.mqtt.on('close',()=>updateConn('offline'));
   }catch(e){updateConn('offline')}
@@ -506,6 +585,8 @@ function handleMsg(t,d){
   else if(t.endsWith('game_cmd')){/* 游戏指令转发 */}
   else if(t.endsWith('lottery_result')){handleLotteryResult(d)}
   else if(t.endsWith('winner_void')){handleWinnerVoid(d)}
+  else if(t.endsWith('quiz_register')){handleQuizRegister(d)}
+  else if(t.endsWith('quiz_result')){handleQuizResult(d)}
 }
 function handleLotteryResult(d){
   if(!d.winners||!d.winners.length)return;
@@ -613,6 +694,9 @@ function broadcastConfig(){
     gameConfig:S.gameConfig,
     danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview,mode:S.danmaku.mode||'scroll',colorful:S.danmaku.colorful!==false},
     music:S.music,
+    quizConfig:S.quizConfig,
+    quizFields:S.quizFields,
+    quizBoardName:S.quizBoardName,
     time:Date.now()
   }))
 }
@@ -767,6 +851,174 @@ function saveGameConfig(){
     autoStartThreshold:parseInt(document.getElementById('gmAutoStartThreshold').value)||0
   };
   saveLocal();broadcastConfig();toast('游戏设置已保存并同步');
+}
+
+// ========== 知识问答 ==========
+function importQuizExcel(input){
+  const file=input.files[0];
+  if(!file)return;
+  if(typeof XLSX==='undefined'){toast('Excel库加载中，请稍后重试');input.value='';return}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      var questions=[];
+      rows.forEach(function(row,i){
+        if(i===0)return; // 跳过表头
+        if(!row[0])return;
+        var opts=[];
+        for(var j=1;j<=4;j++){if(row[j])opts.push(String(row[j]).trim())}
+        if(opts.length<2)return;
+        var ans=parseInt(row[5]);
+        if(isNaN(ans)||ans<0||ans>=opts.length)ans=0;
+        questions.push({id:uid(),question:String(row[0]).trim(),options:opts,answer:ans});
+      });
+      var count=questions.length;
+      if(!count){toast('未解析到有效题目');input.value='';return}
+      S.quizConfig.questions=(S.quizConfig.questions||[]).concat(questions);
+      saveLocal();renderQuizQuestions();broadcastConfig();
+      toast('已导入 '+count+' 道题（当前共 '+S.quizConfig.questions.length+' 道）');
+    }catch(err){toast('Excel解析失败：'+err.message)}
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function downloadQuizTemplate(){
+  if(typeof XLSX==='undefined'){toast('Excel库加载中，请稍后重试');return}
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.aoa_to_sheet([
+    ['题目','选项A','选项B','选项C','选项D','正确答案序号'],
+    ['中国的首都是哪里？','北京','上海','广州','深圳','0'],
+    ['一年有多少个月？','10','12','14','16','1'],
+    ['太阳从哪个方向升起？','东方','西方','南方','北方','0']
+  ]);
+  ws['!cols']=[{wch:30},{wch:15},{wch:15},{wch:15},{wch:15},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'题库模板');
+  XLSX.writeFile(wb,'知识问答题库模板.xlsx');
+  toast('模板已下载');
+}
+function addManualQuestion(){
+  document.getElementById('quizManualForm').style.display='block';
+  document.getElementById('quizQText').value='';
+  document.getElementById('quizOptA').value='';
+  document.getElementById('quizOptB').value='';
+  document.getElementById('quizOptC').value='';
+  document.getElementById('quizOptD').value='';
+}
+function saveManualQuestion(){
+  var q=document.getElementById('quizQText').value.trim();
+  if(!q){toast('请输入题目内容');return}
+  var opts=[];
+  ['quizOptA','quizOptB','quizOptC','quizOptD'].forEach(function(id){
+    var v=document.getElementById(id).value.trim();
+    if(v)opts.push(v);
+  });
+  if(opts.length<2){toast('至少需要2个选项');return}
+  var ans=parseInt(document.getElementById('quizAnswer').value)||0;
+  if(ans>=opts.length)ans=0;
+  if(!S.quizConfig.questions)S.quizConfig.questions=[];
+  S.quizConfig.questions.push({id:uid(),question:q,options:opts,answer:ans});
+  document.getElementById('quizManualForm').style.display='none';
+  saveLocal();renderQuizQuestions();broadcastConfig();
+  toast('题目已添加（当前共 '+S.quizConfig.questions.length+' 道）');
+}
+function delQuizQuestion(id){
+  if(!S.quizConfig.questions)return;
+  S.quizConfig.questions=S.quizConfig.questions.filter(function(q){return q.id!==id});
+  saveLocal();renderQuizQuestions();broadcastConfig();toast('题目已删除');
+}
+function clearQuizQuestions(){
+  if(!S.quizConfig.questions||!S.quizConfig.questions.length){toast('题库为空');return}
+  if(!confirm('确定清空全部题库？'))return;
+  S.quizConfig.questions=[];
+  saveLocal();renderQuizQuestions();broadcastConfig();toast('题库已清空');
+}
+function renderQuizQuestions(){
+  var l=document.getElementById('quizQList');
+  if(!l)return;
+  var qs=S.quizConfig.questions||[];
+  if(!qs.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:20px;font-size:.9em">暂无题目，请导入Excel题库或手动添加</div>';return}
+  l.innerHTML=qs.map(function(q,i){
+    var optStr=q.options.map(function(o,j){return (j===q.answer?'✅ ':'　 ')+(j+1)+'. '+o}).join('<br>');
+    return '<div class="section" style="padding:10px 14px;margin-bottom:6px"><div style="display:flex;align-items:flex-start;gap:8px"><div style="color:var(--sub);font-size:.85em;min-width:24px">'+(i+1)+'</div><div style="flex:1"><div style="font-weight:bold;font-size:.9em">'+q.question+'</div><div style="font-size:.8em;color:var(--sub);margin-top:4px">'+optStr+'</div></div><button class="btn btn-dng btn-sm" onclick="delQuizQuestion(\''+q.id+'\')">🗑</button></div></div>';
+  }).join('');
+}
+function saveQuizConfig(){
+  S.quizConfig.rounds=parseInt(document.getElementById('quizRounds').value)||1;
+  S.quizConfig.questionCount=parseInt(document.getElementById('quizQCount').value)||10;
+  S.quizConfig.mode=document.getElementById('quizMode').value||'sequential';
+  S.quizConfig.shuffleOptions=document.getElementById('quizShuffle').value==='true';
+  saveLocal();broadcastConfig();toast('答题设置已保存并同步');
+}
+function saveQuizFields(){
+  S.quizBoardName=document.getElementById('quizBoardName').value.trim()||'新办手机号码';
+  saveLocal();broadcastConfig();toast('字段配置已保存');
+}
+function handleQuizRegister(d){
+  // 记录知识问答登记
+  if(!S.quizResults)S.quizResults=[];
+  toast('🧠 '+d.name+' 完成知识问答登记');
+}
+function handleQuizResult(d){
+  if(!S.quizResults)S.quizResults=[];
+  S.quizResults.push({
+    id:uid(),
+    name:d.user?d.user.name:'',
+    gender:d.user?d.user.gender:'',
+    phone:d.user?d.user.phone:'',
+    round:d.round||1,
+    correctCount:d.correctCount||0,
+    totalCount:d.totalCount||0,
+    totalTimeMs:d.totalTimeMs||0,
+    answers:d.answers||[],
+    operator:d.operator||'',
+    time:d.time||Date.now()
+  });
+  saveLocal();renderQuizResults();toast('🧠 '+d.user.name+' 完成第'+d.round+'轮答题：'+d.correctCount+'/'+d.totalCount+' 正确');
+}
+function renderQuizResults(){
+  var l=document.getElementById('quizResultList');
+  if(!l)return;
+  var results=S.quizResults||[];
+  document.getElementById('quizPartCount').textContent=results.length;
+  var totalAns=results.reduce(function(s,r){return s+(r.totalCount||0)},0);
+  document.getElementById('quizAnsCount').textContent=totalAns;
+  if(!results.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:20px;font-size:.9em">暂无答题记录</div>';return}
+  l.innerHTML=results.map(function(r,i){
+    var accuracy=r.totalCount>0?(r.correctCount/r.totalCount*100).toFixed(0):0;
+    return '<div class="section" style="padding:10px 14px;margin-bottom:6px"><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0">'+((r.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+r.name+' <span style="font-size:.8em;color:var(--sub)">第'+r.round+'轮</span></div><div style="font-size:.8em;color:var(--sub)">手机号:'+maskPhoneQ(r.phone)+' · 正确:'+r.correctCount+'/'+r.totalCount+' · 正确率:'+accuracy+'% · 总用时:'+(r.totalTimeMs/1000).toFixed(2)+'s</div></div></div></div>';
+  }).join('');
+}
+function maskPhoneQ(p){if(!p)return'';return p.substr(0,3)+'XXXX'+p.substr(-4)}
+function exportQuizResults(){
+  if(!S.quizResults||!S.quizResults.length){toast('暂无答题记录');return}
+  var headers=['序号','姓名','性别','新办手机号码','轮次','答对题数','总题数','正确率(%)','总答题时长(秒)','每题答题时长(秒)','每题是否正确','操作人','答题时间'];
+  var rows=[headers];
+  S.quizResults.forEach(function(r,i){
+    var accuracy=r.totalCount>0?(r.correctCount/r.totalCount*100).toFixed(2):'0';
+    var totalTime=(r.totalTimeMs/1000).toFixed(2);
+    var perQTimes=(r.answers||[]).map(function(a){return a.timeStr||fmtTime(a.timeMs)}).join('; ');
+    var perQCorrect=(r.answers||[]).map(function(a){return a.correct?'正确':'错误'}).join('; ');
+    rows.push([i+1,r.name||'',r.gender||'',r.phone||'',r.round||1,r.correctCount||0,r.totalCount||0,accuracy,totalTime,perQTimes,perQCorrect,r.operator||'',fmt(r.time)]);
+  });
+  if(typeof XLSX==='undefined'){
+    // CSV 降级
+    var csv='\uFEFF'+rows.map(function(row){return row.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"'}).join(',')}).join('\n');
+    var b=new Blob([csv],{type:'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='知识问答答题记录_'+Date.now()+'.csv';a.click();URL.revokeObjectURL(a.href);
+  }else{
+    var wb=XLSX.utils.book_new();
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb,ws,'答题记录');
+    XLSX.writeFile(wb,'知识问答答题记录_'+Date.now()+'.xlsx');
+  }
+  toast('已导出 '+S.quizResults.length+' 条记录');
+}
+function clearQuizResults(){
+  if(!S.quizResults||!S.quizResults.length){toast('暂无记录');return}
+  if(!confirm('确定清空全部答题记录？'))return;
+  S.quizResults=[];saveLocal();renderQuizResults();toast('已清空');
 }
 
 // ========== 大屏外观 ==========
@@ -1065,24 +1317,25 @@ function saveSigninConfig(){
 // ========== 各端地址 ==========
 function updateLinks(){
   const b=document.getElementById('linkBase').value.trim().replace(/\/$/,'');
-  if(!b){document.getElementById('linkScreen').textContent='未设置';document.getElementById('linkRegister').textContent='未设置';document.getElementById('linkSignin').textContent='未设置';document.getElementById('linkAdmin').textContent='未设置';return}
+  if(!b){document.getElementById('linkScreen').textContent='未设置';document.getElementById('linkRegister').textContent='未设置';document.getElementById('linkSignin').textContent='未设置';document.getElementById('linkAdmin').textContent='未设置';document.getElementById('linkQuiz').textContent='未设置';return}
   document.getElementById('linkScreen').textContent=b+'/screen.html?room='+S.room;
   document.getElementById('linkRegister').textContent=b+'/register.html?room='+S.room;
   document.getElementById('linkSignin').textContent=b+'/signin.html?room='+S.room;
   document.getElementById('linkAdmin').textContent=b+'/admin.html?room='+S.room;
+  document.getElementById('linkQuiz').textContent=b+'/quiz.html?room='+S.room;
 }
 function saveBaseLink(){S.baseLink=document.getElementById('linkBase').value.trim().replace(/\/$/,'');saveLocal();broadcastConfig();toast('地址已保存并同步')}
 function copyAllLinks(){
-  const s=document.getElementById('linkScreen').textContent,r=document.getElementById('linkRegister').textContent,si=document.getElementById('linkSignin').textContent;
+  const s=document.getElementById('linkScreen').textContent,r=document.getElementById('linkRegister').textContent,si=document.getElementById('linkSignin').textContent,qz=document.getElementById('linkQuiz').textContent;
   if(s==='未设置'){toast('请先设置基础地址');return}
-  copyText('大屏端: '+s+'\n登记端: '+r+'\n签到端: '+si);toast('链接已复制')
+  copyText('大屏端: '+s+'\n登记端: '+r+'\n签到端: '+si+'\n知识问答端: '+qz);toast('链接已复制')
 }
 
 // ========== 存储渲染 ==========
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[]}))}catch(e){}}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,tickets:S.tickets,voidedTickets:S.voidedTickets,voidLogs:S.voidLogs,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[]}))}catch(e){}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
 function renderAll(){
-  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderVoidLogs();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();
+  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderTickets();renderVoidLogs();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
   document.getElementById('ltSignFailMsg').value=S.signFailMsg||'';document.getElementById('ltFlowInterval').value=S.flowInterval||0;
   document.getElementById('scTitle').value=S.screen.title;document.getElementById('scTitleSize').value=S.screen.titleSize;document.getElementById('scTitleColor').value=S.screen.titleColor;document.getElementById('scBgUrl').value=S.screen.bgUrl||'';
@@ -1106,7 +1359,14 @@ function renderAll(){
   var mVol=document.getElementById('scMusicVolume');if(mVol)mVol.value=mc.volume||0.5;
   var mGrp=document.getElementById('scMusicUploadGrp');if(mGrp)mGrp.style.display=mc.preset==='custom'?'block':'none';
   var mName=document.getElementById('scMusicName');if(mName)mName.textContent=mc.name?'当前: '+mc.name:'未设置背景音乐';
-  updateLinks();selectFlow(S.screen.flowType||'meteor')
+  updateLinks();selectFlow(S.screen.flowType||'meteor');
+  // 知识问答设置初始化
+  var qc=S.quizConfig||{};
+  var qr=document.getElementById('quizRounds');if(qr)qr.value=qc.rounds||1;
+  var qcc=document.getElementById('quizQCount');if(qcc)qcc.value=qc.questionCount||10;
+  var qm=document.getElementById('quizMode');if(qm)qm.value=qc.mode||'sequential';
+  var qs=document.getElementById('quizShuffle');if(qs)qs.value=qc.shuffleOptions!==false?'true':'false';
+  var qbn=document.getElementById('quizBoardName');if(qbn)qbn.value=S.quizBoardName||'新办手机号码';
 }
 // URL room
 (function(){const p=new URLSearchParams(location.search);if(p.get('room')){S.room=p.get('room');S.topic='cj2026/'+S.room+'/';loadLocal()}})();
