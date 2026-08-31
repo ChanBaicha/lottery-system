@@ -101,10 +101,14 @@ body{font-family:'Microsoft YaHei',sans-serif;overflow:hidden;background:#0a0e27
 .winner-ticket{font-size:.75em;color:rgba(253,203,110,.7);margin-top:1px;font-family:monospace}
 
 /* AI 结论展示层 */
-#aiAnalysisLayer{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:250;display:none;align-items:center;justify-content:center;text-align:center;background:rgba(0,0,0,.88);border:2px solid var(--gold);border-radius:24px;padding:40px 60px;max-width:80vw;box-shadow:0 0 60px rgba(253,203,110,.25)}
+#aiAnalysisLayer{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:250;display:none;align-items:center;justify-content:center;text-align:center;background:rgba(0,0,0,.88);border:2px solid var(--gold);border-radius:24px;padding:30px 50px;max-width:85vw;max-height:85vh;overflow-y:auto;box-shadow:0 0 60px rgba(253,203,110,.25)}
 #aiAnalysisLayer.show{display:flex;animation:aiZoomIn .5s ease}
 #aiAnalysisLayer .ai-badge{font-size:1em;color:var(--gold);margin-bottom:12px;letter-spacing:2px}
-#aiAnalysisLayer .ai-text{font-size:1.8em;font-weight:bold;line-height:1.5;color:#fff}
+#aiAnalysisLayer .ai-text{font-size:1.6em;font-weight:bold;line-height:1.5;color:#fff;margin-bottom:20px}
+#aiAnalysisLayer .ai-list-title{font-size:1em;color:var(--gold);margin-bottom:14px;letter-spacing:1px}
+#aiAnalysisLayer .ai-grid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:1200px}
+#aiAnalysisLayer .ai-name-card{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:14px;background:rgba(108,92,231,.18);border:1px solid rgba(253,203,110,.35);font-size:1.1em;font-weight:bold;color:#fff;min-width:140px}
+#aiAnalysisLayer .ai-name-card .ai-phone{font-size:.75em;color:rgba(255,255,255,.6);font-weight:normal}
 @keyframes aiZoomIn{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}50%{transform:translate(-50%,-50%) scale(1.05)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
 
 /* 游戏覆盖层 */
@@ -188,6 +192,8 @@ body{font-family:'Microsoft YaHei',sans-serif;overflow:hidden;background:#0a0e27
     <div>
       <div class="ai-badge">🤖 AI 分析结论</div>
       <div class="ai-text" id="aiAnalysisText"></div>
+      <div class="ai-list-title" id="aiListTitle" style="display:none">🎯 命中名单</div>
+      <div class="ai-grid" id="aiAnalysisList"></div>
     </div>
   </div>
 
@@ -336,22 +342,38 @@ function handleMsg(t,d){
       updateFlowItems();
     }
   }else if(t.endsWith('ai_analysis')){
-    showAiAnalysis(d.text||'');
+    showAiAnalysis(d.text||'',d.list);
   }
 }
 
 // ========== AI 结论展示 ==========
-function showAiAnalysis(text){
-  if(!text)return;
+function showAiAnalysis(text,list){
+  if(!text&&(!list||!list.length))return;
   const layer=document.getElementById('aiAnalysisLayer');
   const el=document.getElementById('aiAnalysisText');
-  el.textContent=text;
+  const listTitle=document.getElementById('aiListTitle');
+  const listEl=document.getElementById('aiAnalysisList');
+  el.textContent=text||'';
+  if(list&&list.length){
+    listTitle.style.display='block';
+    listEl.innerHTML=list.map(function(p){
+      var nm=(p.name||'').trim();var ph=(p.phone||'').trim();
+      if(ph&&ph.length>7)ph=ph.slice(0,3)+'****'+ph.slice(-4);
+      return '<span class="ai-name-card">'+escHtml(nm)+(ph?'<span class="ai-phone">'+ph+'</span>':'')+'</span>';
+    }).join('');
+  }else{
+    listTitle.style.display='none';
+    listEl.innerHTML='';
+  }
   layer.classList.add('show');
-  // 自动隐藏（15秒后），点击可提前关闭
-  setTimeout(function(){
+  // 自动隐藏（20秒后），点击可提前关闭
+  if(_aiHideTimer)clearTimeout(_aiHideTimer);
+  _aiHideTimer=setTimeout(function(){
     if(layer.classList.contains('show'))layer.classList.remove('show');
-  },15000);
+  },20000);
 }
+var _aiHideTimer=null;
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 document.addEventListener('click',function(e){
   const layer=document.getElementById('aiAnalysisLayer');
   if(layer&&layer.classList.contains('show')&&!layer.contains(e.target)){
