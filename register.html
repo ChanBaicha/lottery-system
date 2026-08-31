@@ -88,7 +88,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   <div id="statsPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="font-weight:bold;font-size:1.1em">📊 登记统计</div>
-      <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button>
+      <div style="display:flex;gap:8px;align-items:center"><button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button><button class="btn btn-out" style="padding:6px 12px;font-size:.8em;color:var(--red);border-color:rgba(225,112,85,.4)" onclick="doLogout()">退出</button></div>
     </div>
     <div class="stat-box">
       <div class="stat-item"><div class="stat-num" id="stTotal" style="color:var(--gold)">0</div><div class="stat-label">总登记</div></div>
@@ -113,7 +113,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   <div id="voidPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="font-weight:bold;font-size:1.1em">🎫 奖券作废</div>
-      <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button>
+      <div style="display:flex;gap:8px;align-items:center"><button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button><button class="btn btn-out" style="padding:6px 12px;font-size:.8em;color:var(--red);border-color:rgba(225,112,85,.4)" onclick="doLogout()">退出</button></div>
     </div>
     <div class="card">
       <p style="color:var(--sub);font-size:.85em;margin-bottom:12px">输入要作废的抽奖券编码，选择作废原因，作废后对应参与者将无法完成签到。</p>
@@ -144,7 +144,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   <div id="qrPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh;text-align:center">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
       <div style="font-weight:bold;font-size:1.1em">📱 二维码</div>
-      <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button>
+      <div style="display:flex;gap:8px;align-items:center"><button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button><button class="btn btn-out" style="padding:6px 12px;font-size:.8em;color:var(--red);border-color:rgba(225,112,85,.4)" onclick="doLogout()">退出</button></div>
     </div>
     <div class="card">
       <div style="font-weight:bold;margin-bottom:14px">📲 签到端二维码</div>
