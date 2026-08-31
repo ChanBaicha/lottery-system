@@ -248,12 +248,14 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <!-- TeleAgent 辅助 -->
     <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:10px">🤖 TeleAgent 辅助生成复杂规则</h3>
-      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">如需用自然语言描述更复杂的抽奖规则，可将下方提示复制到本地 TeleAgent 应用中，由它分析并返回命中名单，再将名单粘贴回本页。</p>
-      <div class="f-grp" style="margin-bottom:8px"><label>当前命中人员（复制给 TeleAgent）</label><textarea id="lrTeleAgentInput" rows="6" readonly></textarea></div>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">如需用自然语言描述更复杂的抽奖规则，可点击下方按钮生成完整 AI 指令（含规则描述 + 全量人员清单 + 输出格式要求），复制到本地 TeleAgent 应用中执行，再将返回名单粘贴回本页。支持多种名单格式，自动容错匹配。</p>
+      <div class="f-grp" style="margin-bottom:8px"><label>TeleAgent 指令（复制用）</label><textarea id="lrTeleAgentInput" rows="6" readonly></textarea></div>
       <button class="btn btn-out" onclick="buildTeleAgentPrompt()">🤖 生成 TeleAgent 指令</button>
       <button class="btn btn-out" onclick="copyTeleAgentPrompt()">📋 复制指令到剪贴板</button>
-      <div class="f-grp" style="margin-top:10px"><label>粘贴 TeleAgent 返回名单（每行：姓名,手机号）</label><textarea id="lrTeleAgentResult" rows="5" placeholder="例如：&#10;王小明,13812345678&#10;张丽华,13998765432"></textarea></div>
+      <div class="f-grp" style="margin-top:10px"><label>粘贴 TeleAgent 返回名单（支持：姓名,手机号 / 序号. 姓名 手机号 / 纯姓名，每行一条）</label><textarea id="lrTeleAgentResult" rows="5" placeholder="例如：&#10;1. 王小明 13812345678&#10;张丽华,13998765432&#10;李强"></textarea></div>
       <button class="btn btn-pri" onclick="applyTeleAgentHitList()">✅ 应用名单到命中清单</button>
+      <div class="f-grp" style="margin-top:10px"><label>AI 分析结论（可选，可广播到大屏展示）</label><textarea id="lrAiAnalysis" rows="3" placeholder="例如：本次按手机号后四位相加为偶数筛选，共命中 50 人，其中 42 人已完成知识问答。"></textarea></div>
+      <button class="btn btn-out" onclick="broadcastAiAnalysis()">📡 广播 AI 结论到大屏</button>
     </div>
   </div>
 
@@ -1222,29 +1224,80 @@ function clearLotteryRule(){
   saveLocal();broadcastConfig();renderLotteryRule();toast('已清空规则，可重新制定');
 }
 // TeleAgent 辅助
+// 生成完整 AI 指令：规则描述 + 全量人员清单 + 明确输出格式
 function buildTeleAgentPrompt(){
-  var r=S.lotteryRule||{};var list=r.hitList||[];
+  var r=readLotteryRuleUI();
+  var list=r.hitList||[];
+  // 规则描述（结构化拼装，便于 AI 理解）
+  var conds=[];
+  if(r.enable)conds.push('启用抽奖规则');
+  if(r.signed)conds.push('已完成现场签到');
+  if(r.quiz)conds.push('已完成知识问答');
+  if(r.notWon)conds.push('尚未中奖');
+  if(r.nameKeywords)conds.push('姓名包含关键字：'+r.nameKeywords);
+  if(r.nameStart)conds.push('姓名以「'+r.nameStart+'」开头');
+  if(r.nameEnd)conds.push('姓名以「'+r.nameEnd+'」结尾');
+  if(r.phonePrefix)conds.push('手机号前3位为 '+r.phonePrefix);
+  if(r.phoneSuffix)conds.push('手机号后4位为 '+r.phoneSuffix);
+  if(r.phoneCalc)conds.push('数字运算规则：'+r.phoneCalc);
+  var ruleText=conds.length?conds.join('；'):'（未勾选任何条件，请按自然语言描述补充规则）';
   var person=list.map(function(p){return p.name+' '+p.phone}).join('\n');
   var el=document.getElementById('lrTeleAgentInput');
-  el.value='请根据以下抽奖规则，从人员清单中筛选出命中的人员（返回每行「姓名,手机号」）：\n\n规则描述：'+r.ruleDesc+'\n\n人员清单（姓名 手机号）：\n'+(person||'（暂无，请先执行规则匹配）');
+  el.value='请根据以下抽奖规则，从人员清单中筛选出所有命中的人员。\n\n【抽奖规则】\n'+ruleText+'\n\n【人员清单（姓名 手机号）】\n'+(person||'（暂无，请先执行规则匹配）')+'\n\n【输出要求】\n只输出命中人员名单，每行一条，格式为「序号. 姓名 手机号」（如：1. 王小明 13812345678）。不要输出任何解释、标题或额外内容。';
   toast('指令已生成');
 }
 function copyTeleAgentPrompt(){
   var el=document.getElementById('lrTeleAgentInput');if(!el.value){toast('请先生成指令');return}
   navigator.clipboard.writeText(el.value).then(function(){toast('指令已复制，可粘贴到 TeleAgent')}).catch(function(){toast('请手动复制')});
 }
+// 容错解析 TeleAgent 返回名单
+function parseTeleAgentResult(txt){
+  var names=[];var phones={};
+  var lines=String(txt||'').split('\n');
+  lines.forEach(function(ln){
+    ln=ln.trim();if(!ln)return;
+    // 去掉可能的序号前缀：1. / 1、 / ① 等
+    ln=ln.replace(/^\s*\d+[\.、:：\)）]\s*/,'').replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/,'');
+    if(!ln)return;
+    // 中文逗号/英文逗号/空白分隔
+    var parts=ln.split(/[,，、\t;；]+|\s{2,}/);
+    parts=parts.map(function(s){return s.trim()}).filter(Boolean);
+    var name=parts[0];
+    // 手机号：从后续部分或第一部分内联提取
+    var phone='';
+    for(var i=1;i<parts.length;i++){var m=parts[i].match(/\d{7,11}/);if(m){phone=m[0];break}}
+    if(!phone){var nm=name.match(/([^\d\s]+)\s*(\d{7,11})/);if(nm){name=nm[1];phone=nm[2]}}
+    name=name.replace(/^\d+\s*/,'').trim();if(!name)return;
+    names.push(name);if(phone)phones[name]=phone;
+  });
+  return {names:names,phones:phones};
+}
 function applyTeleAgentHitList(){
   var txt=document.getElementById('lrTeleAgentResult').value.trim();
   if(!txt){toast('请先粘贴 TeleAgent 返回名单');return}
-  var lines=txt.split('\n');var names=[];
-  lines.forEach(function(ln){
-    ln=ln.trim();if(!ln)return;
-    var parts=ln.split(/[,，\s]+/);var nm=parts[0].trim();if(nm)names.push(nm);
+  var parsed=parseTeleAgentResult(txt);
+  if(!parsed.names.length){toast('未解析到有效名单，请检查格式');return}
+  // 从参与者中按姓名匹配（优先手机号匹配）
+  var hit=[];
+  parsed.names.forEach(function(nm){
+    var p=null;
+    if(parsed.phones[nm]){p=S.participants.find(function(p){return p.phone===parsed.phones[nm]})}
+    if(!p){p=S.participants.find(function(p){return (p.name||'').trim()===nm})}
+    if(!p)return;
+    if(hit.some(function(h){return h.name===p.name&&h.phone===p.phone}))return;
+    hit.push({name:p.name,phone:p.phone||'',gender:p.gender||'',signed:!!p.signed,time:p.signTime||0,won:!!p.won});
   });
-  // 从参与者中按姓名匹配
-  var hit=names.map(function(nm){var p=S.participants.find(function(p){return (p.name||'').trim()===nm});if(!p)return null;return {name:p.name,phone:p.phone||'',gender:p.gender||'',signed:!!p.signed,time:p.signTime||0,won:!!p.won}}).filter(function(x){return x});
-  var r=S.lotteryRule||{};r.hitList=hit;r.ruleDesc=document.getElementById('lrPhoneCalc').value||'';S.lotteryRule=r;
-  saveLocal();broadcastConfig();renderLotteryRule();toast('已应用 '+hit.length+' 人到命中清单');
+  var r=S.lotteryRule||{};r.hitList=hit;S.lotteryRule=r;
+  saveLocal();broadcastConfig();renderLotteryRule();
+  toast('已应用 '+hit.length+' 人到命中清单'+(parsed.names.length>hit.length?'（'+(parsed.names.length-hit.length)+' 条未匹配到参与者）':''));
+}
+// 广播 AI 结论到大屏
+function broadcastAiAnalysis(){
+  var txt=document.getElementById('lrAiAnalysis').value.trim();
+  if(!txt){toast('请先填写 AI 分析结论');return}
+  if(!S.mqtt||!S.mqtt.connected){toast('MQTT 未连接，无法广播');return}
+  S.mqtt.publish(S.topic+'ai_analysis',JSON.stringify({text:txt,time:Date.now()}));
+  toast('AI 结论已广播到大屏');
 }
 function importHitNames(){
   var el=document.getElementById('lrTeleAgentResult');if(!el)return;

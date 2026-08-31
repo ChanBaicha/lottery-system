@@ -100,6 +100,13 @@ body{font-family:'Microsoft YaHei',sans-serif;overflow:hidden;background:#0a0e27
 .winner-phone{font-size:.8em;color:rgba(255,255,255,.6);margin-top:2px}
 .winner-ticket{font-size:.75em;color:rgba(253,203,110,.7);margin-top:1px;font-family:monospace}
 
+/* AI 结论展示层 */
+#aiAnalysisLayer{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:250;display:none;align-items:center;justify-content:center;text-align:center;background:rgba(0,0,0,.88);border:2px solid var(--gold);border-radius:24px;padding:40px 60px;max-width:80vw;box-shadow:0 0 60px rgba(253,203,110,.25)}
+#aiAnalysisLayer.show{display:flex;animation:aiZoomIn .5s ease}
+#aiAnalysisLayer .ai-badge{font-size:1em;color:var(--gold);margin-bottom:12px;letter-spacing:2px}
+#aiAnalysisLayer .ai-text{font-size:1.8em;font-weight:bold;line-height:1.5;color:#fff}
+@keyframes aiZoomIn{0%{transform:translate(-50%,-50%) scale(.3);opacity:0}50%{transform:translate(-50%,-50%) scale(1.05)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+
 /* 游戏覆盖层 */
 #gameOverlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:150;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.9)}
 #gameOverlay.show{display:flex}
@@ -173,6 +180,14 @@ body{font-family:'Microsoft YaHei',sans-serif;overflow:hidden;background:#0a0e27
       <div id="drawReady"></div>
       <div id="drawRolling" class="draw-names"></div>
       <div id="drawResult" class="draw-result"></div>
+    </div>
+  </div>
+
+  <!-- AI 结论展示层 -->
+  <div id="aiAnalysisLayer">
+    <div>
+      <div class="ai-badge">🤖 AI 分析结论</div>
+      <div class="ai-text" id="aiAnalysisText"></div>
     </div>
   </div>
 
@@ -259,6 +274,7 @@ function connectMQTT(){
       S.mqtt.subscribe(S.topic+'quiz_answer');
       S.mqtt.subscribe(S.topic+'danmaku_show');
       S.mqtt.subscribe(S.topic+'avatar_update');
+      S.mqtt.subscribe(S.topic+'ai_analysis');
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'screen',time:Date.now()}));
     });
     S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
@@ -319,8 +335,29 @@ function handleMsg(t,d){
       if(p)p.avatar=d.avatar;
       updateFlowItems();
     }
+  }else if(t.endsWith('ai_analysis')){
+    showAiAnalysis(d.text||'');
   }
 }
+
+// ========== AI 结论展示 ==========
+function showAiAnalysis(text){
+  if(!text)return;
+  const layer=document.getElementById('aiAnalysisLayer');
+  const el=document.getElementById('aiAnalysisText');
+  el.textContent=text;
+  layer.classList.add('show');
+  // 自动隐藏（15秒后），点击可提前关闭
+  setTimeout(function(){
+    if(layer.classList.contains('show'))layer.classList.remove('show');
+  },15000);
+}
+document.addEventListener('click',function(e){
+  const layer=document.getElementById('aiAnalysisLayer');
+  if(layer&&layer.classList.contains('show')&&!layer.contains(e.target)){
+    layer.classList.remove('show');
+  }
+});
 
 // ========== 大屏外观应用 ==========
 function applyScreenConfig(){
