@@ -252,8 +252,13 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <div class="f-grp" style="margin-bottom:8px"><label>TeleAgent 指令（复制用）</label><textarea id="lrTeleAgentInput" rows="6" readonly></textarea></div>
       <button class="btn btn-out" onclick="buildTeleAgentPrompt()">🤖 生成 TeleAgent 指令</button>
       <button class="btn btn-out" onclick="copyTeleAgentPrompt()">📋 复制指令到剪贴板</button>
-      <div class="f-grp" style="margin-top:10px"><label>粘贴 TeleAgent 返回名单（支持：姓名,手机号 / 序号. 姓名 手机号 / 纯姓名，每行一条）</label><textarea id="lrTeleAgentResult" rows="5" placeholder="例如：&#10;1. 王小明 13812345678&#10;张丽华,13998765432&#10;李强"></textarea></div>
+      <div class="f-grp" style="margin-top:10px"><label>粘贴 TeleAgent 返回名单（支持：姓名,手机号 / 序号. 姓名 手机号 / 纯姓名，每行一条）<span id="lrAutoSyncTip" style="color:var(--grn);font-weight:bold"></span></label><textarea id="lrTeleAgentResult" rows="5" placeholder="例如：&#10;1. 王小明 13812345678&#10;张丽华,13998765432&#10;李强"></textarea></div>
       <button class="btn btn-pri" onclick="applyTeleAgentHitList()">✅ 应用名单到命中清单</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-out" onclick="watchHitResultFile()" id="btnWatchFile">📁 监控本地筛选结果文件</button>
+        <button class="btn btn-out" onclick="unwatchHitResultFile()" id="btnUnwatchFile" style="display:none">⏹ 停止监控</button>
+        <span id="fileWatchTip" style="color:var(--sub);font-size:.82em;align-self:center">自动读取 <code>ai_hit_result.txt</code> 并同步到命中清单</span>
+      </div>
       <div class="f-grp" style="margin-top:10px"><label>AI 分析结论（可选，可广播到大屏展示）</label><textarea id="lrAiAnalysis" rows="3" placeholder="例如：本次按手机号后四位相加为偶数筛选，共命中 50 人，其中 42 人已完成知识问答。"></textarea></div>
       <button class="btn btn-out" onclick="broadcastAiAnalysis()">📡 广播 AI 结论到大屏</button>
     </div>
@@ -1291,13 +1296,85 @@ function applyTeleAgentHitList(){
   saveLocal();broadcastConfig();renderLotteryRule();
   toast('已应用 '+hit.length+' 人到命中清单'+(parsed.names.length>hit.length?'（'+(parsed.names.length-hit.length)+' 条未匹配到参与者）':''));
 }
-// 广播 AI 结论到大屏
+// 粘贴返回名单后自动应用并同步到大屏
+function autoApplyTeleAgentHitList(){
+  var el=document.getElementById('lrTeleAgentResult');
+  var txt=el?el.value.trim():'';
+  if(!txt)return;
+  var parsed=parseTeleAgentResult(txt);
+  if(!parsed.names.length)return;
+  applyTeleAgentHitList();
+  // 广播 AI 结论（自动附带命中名单）
+  var r=S.lotteryRule||{};
+  var hit=r.hitList||[];
+  if(hit.length){
+    var text=(document.getElementById('lrAiAnalysis').value.trim())||('AI 筛选完成：共命中 '+hit.length+' 人');
+    S.mqtt&&S.mqtt.publish(S.topic+'ai_analysis',JSON.stringify({text:text,list:hit.map(function(p){return{name:p.name,phone:p.phone||''}}),time:Date.now()}));
+    toast('已自动同步 '+hit.length+' 人到抽奖系统，并广播到大屏');
+  }
+}
+// 文件监控：轮询本地 ai_hit_result.txt，有内容即自动解析并同步
+var _hitFileTimer=null;
+function watchHitResultFile(){
+  if(!window.showDirectoryPicker){toast('当前浏览器不支持文件夹选择（需 Chrome/Edge）');return}
+  var btn=document.getElementById('btnWatchFile'),btn2=document.getElementById('btnUnwatchFile');
+  btn.disabled=true;btn.textContent='🔄 等待选择文件夹...';
+  (async function(){
+    try{
+      var dir=await window.showDirectoryPicker({mode:'readwrite'});
+      _hitFileDir=dir;btn.style.display='none';btn2.style.display='inline-block';
+      document.getElementById('fileWatchTip').innerHTML='已监控 <code>ai_hit_result.txt</code>（'+dir.name+'），TeleAgent 写入后自动同步';
+      toast('已选择文件夹：'+dir.name+'，开始监控');
+      _pollHitFile();
+      if(_hitFileTimer)clearInterval(_hitFileTimer);
+      _hitFileTimer=setInterval(_pollHitFile,3000);
+    }catch(e){
+      btn.disabled=false;btn2.style.display='none';btn.style.display='inline-block';
+      if(e&&e.name==='AbortError'){toast('已取消选择');return}
+      toast('选择文件夹失败：'+e.message);
+    }
+  })();
+}
+async function _pickFile(){
+  try{
+    var fh=await _hitFileDir.getFileHandle('ai_hit_result.txt',{create:false});
+    return await fh.getFile();
+  }catch(e){return null}
+}
+var _lastHitFileSig=null;
+async function _pollHitFile(){
+  try{
+    if(!_hitFileDir)return;
+    var fh=await _hitFileDir.getFileHandle('ai_hit_result.txt',{create:false});
+    var f=await fh.getFile();
+    var text=await f.text();
+    if(!text||!text.trim())return;
+    var sig=text.trim().length+':'+text.trim().slice(-20);
+    if(sig===_lastHitFileSig)return;
+    _lastHitFileSig=sig;
+    document.getElementById('lrTeleAgentResult').value=text.trim();
+    autoApplyTeleAgentHitList();
+  }catch(e){}
+}
+function unwatchHitResultFile(){
+  if(_hitFileTimer){clearInterval(_hitFileTimer);_hitFileTimer=null}
+  _hitFileDir=null;
+  document.getElementById('btnWatchFile').style.display='inline-block';
+  document.getElementById('btnWatchFile').disabled=false;
+  document.getElementById('btnUnwatchFile').style.display='none';
+  document.getElementById('fileWatchTip').innerHTML='自动读取 <code>ai_hit_result.txt</code> 并同步到命中清单';
+  toast('已停止监控');
+}
+// 广播 AI 结论到大屏（可附带命中名单）
 function broadcastAiAnalysis(){
   var txt=document.getElementById('lrAiAnalysis').value.trim();
   if(!txt){toast('请先填写 AI 分析结论');return}
   if(!S.mqtt||!S.mqtt.connected){toast('MQTT 未连接，无法广播');return}
-  S.mqtt.publish(S.topic+'ai_analysis',JSON.stringify({text:txt,time:Date.now()}));
-  toast('AI 结论已广播到大屏');
+  var r=S.lotteryRule||{};var hit=r.hitList||[];
+  var msg={text:txt,time:Date.now()};
+  if(hit.length)msg.list=hit.map(function(p){return{name:p.name,phone:p.phone||''}});
+  S.mqtt.publish(S.topic+'ai_analysis',JSON.stringify(msg));
+  toast('AI 结论已广播到大屏'+(hit.length?'（含 '+hit.length+' 人命中名单）':''));
 }
 function importHitNames(){
   var el=document.getElementById('lrTeleAgentResult');if(!el)return;
@@ -1585,6 +1662,21 @@ function renderAll(){
 }
 // URL room
 (function(){const p=new URLSearchParams(location.search);if(p.get('room')){S.room=p.get('room');S.topic='cj2026/'+S.room+'/';loadLocal()}})();
+
+// 粘贴 TeleAgent 返回名单后自动应用并同步
+(function(){
+  document.addEventListener('DOMContentLoaded',function(){
+    var el=document.getElementById('lrTeleAgentResult');
+    if(el){
+      el.addEventListener('paste',function(){setTimeout(autoApplyTeleAgentHitList,50)});
+      el.addEventListener('change',function(){autoApplyTeleAgentHitList()});
+      el.addEventListener('input',function(){
+        var tip=document.getElementById('lrAutoSyncTip');
+        if(tip)tip.textContent='（粘贴后自动同步）';
+      });
+    }
+  });
+})();
 
 // 页面加载时检查已保存的登录状态，自动进入系统
 (function(){
