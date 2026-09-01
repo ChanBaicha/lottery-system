@@ -26,10 +26,16 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 .badge-act{background:rgba(0,184,148,.2);color:var(--grn)}
 .badge-void{background:rgba(225,112,85,.2);color:var(--red)}
 .badge-signed{background:rgba(108,92,231,.2);color:var(--pri-l)}
+.badge-quiz{background:rgba(253,203,110,.2);color:var(--gold)}
 .stat-box{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.stat-item{flex:1;min-width:80px;text-align:center;padding:12px;background:var(--card);border-radius:12px;border:1px solid var(--bd)}
+.stat-item{flex:1;min-width:70px;text-align:center;padding:12px;background:var(--card);border-radius:12px;border:1px solid var(--bd)}
 .stat-num{font-size:1.6em;font-weight:bold}
 .stat-label{font-size:.75em;color:var(--sub);margin-top:4px}
+.detail-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.detail-modal .card{max-width:500px;width:100%;max-height:80vh;overflow-y:auto}
+.tab-bar{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tab-btn{padding:8px 16px;border-radius:10px;font-size:.85em;cursor:pointer;background:var(--card2);color:var(--sub);border:1px solid var(--bd);transition:.2s}
+.tab-btn.active{background:var(--pri);color:#fff;border-color:var(--pri)}
 </style>
 </head>
 <body>
@@ -52,7 +58,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div style="font-weight:bold;font-size:1.1em">📝 登记参与者 <span id="regUser" style="color:var(--gold);font-size:.85em"></span></div>
       <div style="display:flex;gap:8px;align-items:center">
         <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
-        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" id="statsBtn" onclick="showStats()">📊 统计</button>
+        <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showStatsPage()">📊 统计</button>
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" id="qrBtn" onclick="showQRPage()">📱 二维码</button>
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="doLogout()">退出</button>
       </div>
@@ -62,7 +68,8 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
     <div class="stat-box">
       <div class="stat-item"><div class="stat-num" id="statTotal" style="color:var(--gold)">0</div><div class="stat-label">已登记</div></div>
       <div class="stat-item"><div class="stat-num" id="statSigned" style="color:var(--grn)">0</div><div class="stat-label">已签到</div></div>
-      <div class="stat-item"><div class="stat-num" id="statMine" style="color:var(--pri-l)">0</div><div class="stat-label">我登记的</div></div>
+      <div class="stat-item"><div class="stat-num" id="statQuiz" style="color:var(--pri-l)">0</div><div class="stat-label">已答题</div></div>
+      <div class="stat-item"><div class="stat-num" id="statMine" style="color:var(--gold)">0</div><div class="stat-label">我登记的</div></div>
     </div>
 
     <!-- 登记表单 -->
@@ -89,21 +96,37 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div style="font-weight:bold;font-size:1.1em">📊 登记统计</div>
       <div style="display:flex;gap:8px;align-items:center"><button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button><button class="btn btn-out" style="padding:6px 12px;font-size:.8em;color:var(--red);border-color:rgba(225,112,85,.4)" onclick="doLogout()">退出</button></div>
     </div>
+
+    <!-- 汇总统计 -->
     <div class="stat-box">
       <div class="stat-item"><div class="stat-num" id="stTotal" style="color:var(--gold)">0</div><div class="stat-label">总登记</div></div>
       <div class="stat-item"><div class="stat-num" id="stSigned" style="color:var(--grn)">0</div><div class="stat-label">已签到</div></div>
       <div class="stat-item"><div class="stat-num" id="stUnsigned" style="color:var(--red)">0</div><div class="stat-label">未签到</div></div>
+      <div class="stat-item"><div class="stat-num" id="stQuiz" style="color:var(--pri-l)">0</div><div class="stat-label">已答题</div></div>
     </div>
-      <div style="font-weight:bold;margin-bottom:10px">📊 各登记者数据汇总</div>
-      <div id="stOpSummary" style="margin-bottom:12px"></div>
-      <div class="card" style="margin-bottom:12px">
-      <div style="font-weight:bold;margin-bottom:8px">👥 详细登记信息</div>
+
+    <!-- 按登记者汇总 -->
+    <div id="stOpSummary" style="margin-bottom:12px"></div>
+
+    <!-- 筛选与详细列表 -->
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:bold">👥 详细信息</div>
+        <button class="btn btn-out" style="padding:4px 10px;font-size:.8em" onclick="exportAllStats()">📥 导出</button>
+      </div>
       <div class="f-grp">
         <label>按登记者筛选</label>
         <select id="stFilterOp" onchange="renderStats()"><option value="">全部登记人</option></select>
       </div>
-      <div id="stList" style="max-height:360px;overflow-y:auto"></div>
+      <!-- 状态筛选标签 -->
+      <div class="tab-bar" style="margin-bottom:10px">
+        <div class="tab-btn active" data-filter="all" onclick="setStatFilter('all')">全部</div>
+        <div class="tab-btn" data-filter="signed" onclick="setStatFilter('signed')">已签到</div>
+        <div class="tab-btn" data-filter="unsigned" onclick="setStatFilter('unsigned')">未签到</div>
+        <div class="tab-btn" data-filter="quiz" onclick="setStatFilter('quiz')">已答题</div>
+        <div class="tab-btn" data-filter="noquiz" onclick="setStatFilter('noquiz')">未答题</div>
       </div>
+      <div id="stList" style="max-height:400px;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -125,6 +148,17 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <p style="color:var(--pri-l);font-size:.82em;margin-top:12px;word-break:break-all" id="qrScreenUrl"></p>
     </div>
   </div>
+
+  <!-- 人员详情弹窗 -->
+  <div id="detailModal" class="detail-modal" style="display:none" onclick="if(event.target===this)closeDetail()">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-weight:bold;font-size:1.1em" id="detailTitle">人员详情</div>
+        <button class="btn btn-out" style="padding:4px 10px;font-size:.8em" onclick="closeDetail()">✕</button>
+      </div>
+      <div id="detailContent"></div>
+    </div>
+  </div>
 </div>
 
 <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
@@ -134,13 +168,14 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 let S={mqtt:null,topic:'',room:'',currentUser:null,
   fields:[],prizes:[],signin:{enable:true},drawCount:1,
   _accounts:null,participants:[],
-  regList:[],baseLink:'',allParticipants:[],configReceived:false
+  regList:[],baseLink:'',allParticipants:[],allQuizResults:[],configReceived:false,
+  _statFilter:'all'
 };
 function roleOf(a){a=a||{};return(a.role||(a.user==='admin'?'super':'staff'))}
 function isStaff(){return roleOf(S.currentUser)==='staff'}
 function isViewer(){return roleOf(S.currentUser)==='viewer'}
 function isSuper(){return roleOf(S.currentUser)==='super'}
-function canViewStats(){return isSuper()||isViewer()}
+function canViewStats(){return isSuper()||isViewer()||isStaff()}
 function canReg(){return isSuper()||isStaff()}
 function canQR(){return isSuper()}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
@@ -151,12 +186,9 @@ function maskPhone(p){if(!p)return'';return p.substr(0,3)+'****'+p.substr(-4)}
 // ========== 初始化 ==========
 (function init(){
   const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
-  // 加载缓存的账号列表，使免密登录不依赖后台在线
   try{const cached=JSON.parse(localStorage.getItem('cj_reg_accounts_'+S.room)||'null');if(cached&&cached.length){S._accounts=cached;S.configReceived=false}}catch(e){}
-  // 兜底：无缓存账号时使用默认账号，确保后台不在线也能登录
   if(!S._accounts||!S._accounts.length){S._accounts=[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}]}
   connectMQTT();
-  // 页面加载即可尝试免密登录（后台不在线时用缓存账号）
   if(S._accounts&&S._accounts.length){tryAutoLogin()}
 })();
 
@@ -170,7 +202,6 @@ function connectMQTT(){
       S.mqtt.subscribe(S.topic+'config');
       S.mqtt.subscribe(S.topic+'lottery_result');
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'register',time:Date.now()}));
-      // 周期性重发配置请求，确保能同步到后台账号（防止初次请求丢失）
       if(S._retryTimer)clearInterval(S._retryTimer);
       S._retryTimer=setInterval(()=>{
         if(S.mqtt&&S.mqtt.connected&&!S.configReceived){
@@ -190,13 +221,15 @@ function handleMsg(t,d){
     S.configReceived=true;
     if(d.accounts&&d.accounts.length){
       S._accounts=d.accounts;
-      // 缓存账号列表到本地，使下次访问可免密登录（不依赖后台在线）
       try{localStorage.setItem('cj_reg_accounts_'+S.room,JSON.stringify(d.accounts))}catch(e){}
     }
     S._accounts=(d.accounts&&d.accounts.length)?d.accounts:(S._accounts||[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}]);
     S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
     S.baseLink=d.baseLink||'';
-    S.allParticipants=d.participants||[];S.quizFields=d.quizFields||[];S.quizConfig=d.quizConfig||null;
+    S.allParticipants=d.participants||[];
+    S.quizFields=d.quizFields||[];S.quizConfig=d.quizConfig||null;
+    // 存储答题详情
+    S.allQuizResults=d.quizResults||[];
     updateStats();
     if(S.currentUser)renderRegForm();
     if(!S.currentUser)tryAutoLogin();
@@ -222,31 +255,28 @@ function enterSystem(acc){
   document.getElementById('loginPage').style.display='none';
   document.getElementById('regPage').style.display='block';
   document.getElementById('regUser').textContent='('+acc.name+')';
-  // 按角色控制按钮显隐
   const statsBtn=document.getElementById('statsBtn');
   const qrBtn=document.getElementById('qrBtn');
+  // 登记者和登记管理员都能看统计
   if(statsBtn)statsBtn.style.display=canViewStats()?'inline-flex':'none';
   if(qrBtn)qrBtn.style.display=canQR()?'inline-flex':'none';
-  // 按角色控制首页内容：登记者看登记表单；登记管理员/超管看统计
   const regCard=document.getElementById('regCard');
   const recentCard=document.getElementById('recentCard');
   if(regCard)regCard.style.display=canReg()?'block':'none';
   if(recentCard)recentCard.style.display=canReg()?'block':'none';
-  if(!canReg()&&canViewStats()){showStats()}
+  if(!canReg()&&canViewStats()){showStatsPage()}
   else{renderRegForm();updateStats()}
   rememberLogin(acc);
 }
 function doLogin(){
   const u=document.getElementById('loginUser').value.trim(),p=document.getElementById('loginPwd').value.trim();
   if(!u||!p){toast('请输入账号密码');return}
-  // 有账号（含默认兜底）时直接验证
   if(S._accounts&&S._accounts.length){
     const acc=S._accounts.find(a=>a.user===u&&a.pwd===p);
     if(!acc){toast('账号或密码错误');return}
     enterSystem(acc);
     return;
   }
-  // 无任何账号时等待后台同步
   if(!S._syncWarned){
     S._syncWarned=true;
     setTimeout(()=>{if(!S._accounts||!S._accounts.length)toast('无法同步后台配置，请确认后台管理端已登录并在线',3000)},10000);
@@ -258,9 +288,9 @@ function doLogin(){
 function doLogout(){S.currentUser=null;try{localStorage.removeItem('cj_reg_'+S.room)}catch(e){}location.reload()}
 
 // ========== 页面切换 ==========
-function showStats(){document.getElementById('regPage').style.display='none';document.getElementById('statsPage').style.display='block';updateStatsPage()}
+function showStatsPage(){document.getElementById('regPage').style.display='none';document.getElementById('qrPage').style.display='none';document.getElementById('statsPage').style.display='block';updateStatsPage()}
 function showQRPage(){document.getElementById('regPage').style.display='none';document.getElementById('qrPage').style.display='block';generateQR()}
-function backToReg(){document.getElementById('qrPage').style.display='none';if(!canReg()&&canViewStats()){document.getElementById('statsPage').style.display='block';document.getElementById('regPage').style.display='none'}else{document.getElementById('statsPage').style.display='none';document.getElementById('regPage').style.display='block'}}
+function backToReg(){document.getElementById('qrPage').style.display='none';document.getElementById('statsPage').style.display='none';if(!canReg()&&canViewStats()){document.getElementById('statsPage').style.display='block'}else{document.getElementById('regPage').style.display='block'}}
 
 // ========== 登记表单 ==========
 function renderRegForm(){
@@ -285,15 +315,14 @@ function submitRegister(){
     const el=document.getElementById('reg_'+f.id);
     if(!el)return;
     var val=el.value.trim();
-    // 手机号分段输入特殊处理
     if(f.type==='phone'){
       var pre=document.getElementById('reg_'+f.id+'_pre');
       var suf=document.getElementById('reg_'+f.id+'_suf');
       var preVal=pre?pre.value.trim():'';
       var sufVal=suf?suf.value.trim():'';
       if(f.required&&(!preVal||!sufVal)){toast('请完整填写 '+f.name+'（前3位和后4位）');valid=false;return}
-      val=preVal+'XXXX'+sufVal; // 拼接为完整格式（前3+XXXX+后4）
-      el.value=val; // 同步hidden字段
+      val=preVal+'XXXX'+sufVal;
+      el.value=val;
     }
     if(f.required&&!val){toast('请填写 '+f.name);valid=false;return}
     data[f.id]=val;data[f.name]=val;
@@ -312,77 +341,218 @@ function submitRegister(){
 
 function clearRegForm(){S.fields.forEach(f=>{const el=document.getElementById('reg_'+f.id);if(el)el.value='';var pre=document.getElementById('reg_'+f.id+'_pre');var suf=document.getElementById('reg_'+f.id+'_suf');if(pre)pre.value='';if(suf)suf.value=''})}
 function renderRegList(){
-  document.getElementById('regList').innerHTML=S.regList.map(r=>'<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((r.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+r.name+'</div><div style="font-size:.75em;color:var(--sub)">'+maskPhone(r.phone)+' · '+fmt(r.time)+'</div></div></div>').join('')||'<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无登记记录</div>';
+  document.getElementById('regList').innerHTML=S.regList.map(r=>{
+    var quizDone=hasQuizResult(r.name,r.phone);
+    var badges='';
+    if(quizDone)badges+=' <span class="badge badge-quiz">已答题</span>';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((r.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+r.name+badges+'</div><div style="font-size:.75em;color:var(--sub)">'+maskPhone(r.phone)+' · '+fmt(r.time)+'</div></div></div>';
+  }).join('')||'<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无登记记录</div>';
+}
+
+// ========== 答题数据查询 ==========
+function hasQuizResult(name,phone){
+  if(!S.allQuizResults||!S.allQuizResults.length)return false;
+  return S.allQuizResults.some(function(q){
+    var qName=(q.name||'').trim();
+    var qPhone=q.phone||'';
+    return qName===name&&(qPhone===phone||qPhone===phone.replace('XXXX','XXXX'));
+  });
+}
+function getQuizDetail(name,phone){
+  if(!S.allQuizResults||!S.allQuizResults.length)return null;
+  // 取最新一条（时间最大的）
+  var best=null;
+  S.allQuizResults.forEach(function(q){
+    var qName=(q.name||'').trim();
+    var qPhone=q.phone||'';
+    if(qName===name&&(qPhone===phone||qPhone===phone.replace('XXXX','XXXX'))){
+      if(!best||q.time>best.time)best=q;
+    }
+  });
+  return best;
 }
 
 // ========== 统计 ==========
 function updateStats(){
-  const total=S.allParticipants?S.allParticipants.length:0;
-  const signed=S.allParticipants?S.allParticipants.filter(p=>p.signed).length:0;
-  const mine=S.regList.length;
+  var total=S.allParticipants?S.allParticipants.length:0;
+  var signed=S.allParticipants?S.allParticipants.filter(function(p){return p.signed}).length:0;
+  var mine=S.regList.length;
+  var quizCount=0;
+  if(S.allParticipants&&S.allQuizResults){
+    S.allParticipants.forEach(function(p){
+      if(hasQuizResult(p.name,p.phone))quizCount++;
+    });
+  }
   document.getElementById('statTotal').textContent=total;
   document.getElementById('statSigned').textContent=signed;
+  document.getElementById('statQuiz').textContent=quizCount;
   document.getElementById('statMine').textContent=mine;
 }
 function updateStatsPage(){
-  const total=S.allParticipants?S.allParticipants.length:0;
-  const signed=S.allParticipants?S.allParticipants.filter(p=>p.signed).length:0;
-  const allList=S.allParticipants||[];
+  // 登记者只看自己登记的数据，登记管理员/超管看全部
+  var allList=isStaff()?getMyParticipants():(S.allParticipants||[]);
+  var total=allList.length;
+  var signed=allList.filter(function(p){return p.signed}).length;
+  var quizCount=allList.filter(function(p){return hasQuizResult(p.name,p.phone)}).length;
   document.getElementById('stTotal').textContent=total;
   document.getElementById('stSigned').textContent=signed;
   document.getElementById('stUnsigned').textContent=total-signed;
-  // 按登记者汇总统计
-  const byOp={};
-  allList.forEach(p=>{const op=p.operator||'未知';if(!byOp[op])byOp[op]={total:0,signed:0,unsigned:0};byOp[op].total++;if(p.signed)byOp[op].signed++;else byOp[op].unsigned++});
-  // 渲染汇总报表
-  const sumEl=document.getElementById('stOpSummary');
+  document.getElementById('stQuiz').textContent=quizCount;
+  // 按登记者汇总（仅管理员/超管看全部汇总）
+  var byOp={};
+  allList.forEach(function(p){var op=p.operator||'未知';if(!byOp[op])byOp[op]={total:0,signed:0,unsigned:0,quiz:0};byOp[op].total++;if(p.signed)byOp[op].signed++;else byOp[op].unsigned++;if(hasQuizResult(p.name,p.phone))byOp[op].quiz++});
+  var sumEl=document.getElementById('stOpSummary');
   if(sumEl){
-    const ops=Object.keys(byOp);
+    var ops=Object.keys(byOp);
     if(!ops.length){sumEl.innerHTML='<div class="card" style="text-align:center;color:var(--sub);padding:20px;font-size:.9em">暂无数据</div>'}
-    else{sumEl.innerHTML='<div class="card"><div style="font-weight:bold;margin-bottom:10px;font-size:.95em">📋 按登记者汇总</div><div style="overflow-x:auto"><table style="width:100%;font-size:.85em;border-collapse:collapse"><thead><tr style="color:var(--sub);text-align:left;border-bottom:1px solid var(--bd)"><th style="padding:8px 6px">登记者</th><th style="text-align:center;padding:8px 6px">登记数</th><th style="text-align:center;padding:8px 6px">已签到</th><th style="text-align:center;padding:8px 6px">未签到</th><th style="text-align:center;padding:8px 6px">签到率</th></tr></thead><tbody>'+ops.map(op=>{const d=byOp[op];const rate=d.total>0?Math.round(d.signed/d.total*100):0;return '<tr style="border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer" onclick="filterByOp(\''+op.replace(/'/g,'\\\'')+'\')"><td style="padding:8px 6px;font-weight:bold">👤 '+op+'</td><td style="text-align:center;padding:8px 6px;color:var(--gold)">'+d.total+'</td><td style="text-align:center;padding:8px 6px;color:var(--grn)">'+d.signed+'</td><td style="text-align:center;padding:8px 6px;color:var(--red)">'+d.unsigned+'</td><td style="text-align:center;padding:8px 6px">'+rate+'%</td></tr>'}).join('')+'<tr style="border-top:2px solid var(--bd);font-weight:bold"><td style="padding:8px 6px">合计</td><td style="text-align:center;padding:8px 6px;color:var(--gold)">'+total+'</td><td style="text-align:center;padding:8px 6px;color:var(--grn)">'+signed+'</td><td style="text-align:center;padding:8px 6px;color:var(--red)">'+(total-signed)+'</td><td style="text-align:center;padding:8px 6px">'+(total>0?Math.round(signed/total*100):0)+'%</td></tr></tbody></table></div></div>'}
+    else{sumEl.innerHTML='<div class="card"><div style="font-weight:bold;margin-bottom:10px;font-size:.95em">📋 按登记者汇总</div><div style="overflow-x:auto"><table style="width:100%;font-size:.85em;border-collapse:collapse"><thead><tr style="color:var(--sub);text-align:left;border-bottom:1px solid var(--bd)"><th style="padding:8px 4px">登记者</th><th style="text-align:center;padding:8px 4px">登记</th><th style="text-align:center;padding:8px 4px">签到</th><th style="text-align:center;padding:8px 4px">答题</th><th style="text-align:center;padding:8px 4px">未签</th></tr></thead><tbody>'+ops.map(function(op){var d=byOp[op];return '<tr style="border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer" onclick="filterByOp(\''+op.replace(/'/g,'\\\'')+'\')"><td style="padding:8px 4px;font-weight:bold">👤 '+op+'</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+d.total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+d.signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+d.quiz+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+d.unsigned+'</td></tr>'}).join('')+'<tr style="border-top:2px solid var(--bd);font-weight:bold"><td style="padding:8px 4px">合计</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+quizCount+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+(total-signed)+'</td></tr></tbody></table></div></div>'}
   }
-  // 登记人筛选下拉
-  const ops={};
-  if(allList){allList.forEach(p=>{const op=p.operator||'未知';ops[op]=true})}
-  const sel=document.getElementById('stFilterOp');
-  const cur=sel.value;
-  const opKeys=Object.keys(ops);
-  sel.innerHTML='<option value="">全部登记人</option>'+opKeys.map(op=>'<option value="'+op+'">'+op+'</option>').join('');
+  // 筛选下拉
+  var opsMap={};
+  allList.forEach(function(p){var op=p.operator||'未知';opsMap[op]=true});
+  var sel=document.getElementById('stFilterOp');
+  var cur=sel.value;
+  var opKeys=Object.keys(opsMap);
+  sel.innerHTML='<option value="">全部登记人</option>'+opKeys.map(function(op){return '<option value="'+op+'">'+op+'</option>'}).join('');
   if(cur)sel.value=cur;
   renderStats();
 }
+function getMyParticipants(){
+  // 返回当前登记者自己登记的参与者
+  if(!S.allParticipants)return [];
+  var myUser=S.currentUser?S.currentUser.user:'';
+  var myName=S.currentUser?S.currentUser.name:'';
+  return S.allParticipants.filter(function(p){
+    return (p.operatorUser&&p.operatorUser===myUser)||(p.operator&&p.operator===myName);
+  });
+}
 function filterByOp(op){var sel=document.getElementById('stFilterOp');if(sel){sel.value=op;renderStats()}var list=document.getElementById('stList');if(list)list.scrollIntoView({behavior:'smooth'})}
+function setStatFilter(filter){
+  S._statFilter=filter;
+  document.querySelectorAll('.tab-btn[data-filter]').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-filter')===filter)});
+  renderStats();
+}
 function renderStats(){
-  const sel=document.getElementById('stFilterOp');
-  const filterOp=sel?sel.value:'';
-  const list=(S.allParticipants||[]).filter(p=>!filterOp||(p.operator||'未知')===filterOp);
-  // 汇总统计
+  var sel=document.getElementById('stFilterOp');
+  var filterOp=sel?sel.value:'';
+  var allList=isStaff()?getMyParticipants():(S.allParticipants||[]);
+  var list=allList.filter(function(p){
+    if(filterOp&&(p.operator||'未知')!==filterOp)return false;
+    var f=S._statFilter||'all';
+    if(f==='signed'&&!p.signed)return false;
+    if(f==='unsigned'&&p.signed)return false;
+    var quizDone=hasQuizResult(p.name,p.phone);
+    if(f==='quiz'&&!quizDone)return false;
+    if(f==='noquiz'&&quizDone)return false;
+    return true;
+  });
   document.getElementById('stTotal').textContent=list.length;
-  document.getElementById('stSigned').textContent=list.filter(p=>p.signed).length;
-  document.getElementById('stUnsigned').textContent=list.length-list.filter(p=>p.signed).length;
-  const l=document.getElementById('stList');
+  document.getElementById('stSigned').textContent=list.filter(function(p){return p.signed}).length;
+  document.getElementById('stUnsigned').textContent=list.length-list.filter(function(p){return p.signed}).length;
+  document.getElementById('stQuiz').textContent=list.filter(function(p){return hasQuizResult(p.name,p.phone)}).length;
+  var l=document.getElementById('stList');
   if(!list.length){l.innerHTML='<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无数据</div>';return}
-  l.innerHTML=list.map(p=>{
-    const st=p.signed?'<span class="badge badge-signed">已签到</span>':'<span class="badge badge-void">未签到</span>';
-    const regTime=p.registerTime?fmt(p.registerTime):'';
-    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((p.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+p.name+' '+st+'</div><div style="font-size:.75em;color:var(--sub)">手机号:'+maskPhone(p.phone)+'</div><div style="font-size:.72em;color:var(--sub)">登记人:'+(p.operator||'未知')+' · '+regTime+'</div></div></div>';
+  l.innerHTML=list.map(function(p){
+    var st=p.signed?'<span class="badge badge-signed">已签到</span>':'<span class="badge badge-void">未签到</span>';
+    var quizDone=hasQuizResult(p.name,p.phone);
+    var quizBadge=quizDone?'<span class="badge badge-quiz">已答题</span>':'';
+    var quizInfo='';
+    if(quizDone){
+      var qd=getQuizDetail(p.name,p.phone);
+      if(qd){
+        var acc=qd.totalCount>0?Math.round(qd.correctCount/qd.totalCount*100):0;
+        quizInfo=' · 答对'+qd.correctCount+'/'+qd.totalCount+' ('+acc+'%) · '+(qd.totalTimeMs/1000).toFixed(1)+'s';
+      }
+    }
+    var regTime=p.registerTime?fmt(p.registerTime):'';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="showDetail(\''+((p.name||'').replace(/'/g,'\\\''))+'\',\''+((p.phone||'').replace(/'/g,'\\\''))+'\')"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((p.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+p.name+' '+st+' '+quizBadge+'</div><div style="font-size:.75em;color:var(--sub)">手机号:'+maskPhone(p.phone)+quizInfo+'</div><div style="font-size:.72em;color:var(--sub)">登记人:'+(p.operator||'未知')+' · '+regTime+'</div></div><div style="color:var(--sub);font-size:1.2em">›</div></div>';
   }).join('');
 }
+
+// ========== 人员详情弹窗 ==========
+function showDetail(name,phone){
+  var p=(S.allParticipants||[]).find(function(pp){return pp.name===name&&(pp.phone||'')===phone});
+  if(!p)p=(S.allParticipants||[]).find(function(pp){return pp.name===name});
+  var qd=getQuizDetail(name,phone);
+  document.getElementById('detailTitle').textContent='👤 '+(name||'')+' 详情';
+  var html='<div style="font-size:.9em">';
+  // 基本信息
+  html+='<div style="margin-bottom:12px;padding:10px;background:var(--card2);border-radius:8px">';
+  html+='<div style="font-weight:bold;margin-bottom:6px">📋 基本信息</div>';
+  html+='<div style="color:var(--sub);line-height:1.8">';
+  html+='<div>姓名：<b style="color:#fff">'+(name||'')+'</b></div>';
+  html+='<div>手机号：<b style="color:#fff">'+maskPhone(phone)+'</b></div>';
+  if(p&&p.operator)html+='<div>登记人：<b style="color:#fff">'+p.operator+'</b></div>';
+  if(p&&p.registerTime)html+='<div>登记时间：<b style="color:#fff">'+fmt(p.registerTime)+'</b></div>';
+  if(p){
+    html+='<div>签到状态：';
+    if(p.signed){html+='<span class="badge badge-signed">已签到</span>';if(p.signTime)html+=' <span style="color:var(--sub)">'+fmt(p.signTime)+'</span>'}
+    else html+='<span class="badge badge-void">未签到</span>';
+    html+='</div>';
+  }
+  // 自定义字段
+  if(p&&p.fields){
+    var extraFields=Object.keys(p.fields).filter(function(k){return k!=='name'&&k!=='phone'&&k!=='id'&&k!=='signed'&&k!=='registerTime'&&k!=='operator'&&k!=='operatorUser'&&p.fields[k]});
+    if(extraFields.length){
+      html+='<div style="margin-top:6px;font-weight:bold">附加信息：</div>';
+      extraFields.forEach(function(k){html+='<div>'+k+'：<b style="color:#fff">'+p.fields[k]+'</b></div>'});
+    }
+  }
+  html+='</div></div>';
+  // 答题详情
+  if(qd){
+    var acc=qd.totalCount>0?Math.round(qd.correctCount/qd.totalCount*100):0;
+    html+='<div style="margin-bottom:12px;padding:10px;background:var(--card2);border-radius:8px">';
+    html+='<div style="font-weight:bold;margin-bottom:6px">🧠 答题详情</div>';
+    html+='<div style="color:var(--sub);line-height:1.8">';
+    html+='<div>答题轮次：<b style="color:#fff">第'+(qd.round||1)+'轮</b></div>';
+    html+='<div>答对题数：<b style="color:var(--gold)">'+qd.correctCount+'</b> / '+qd.totalCount+'</div>';
+    html+='<div>正确率：<b style="color:'+(acc>=60?'var(--grn)':'var(--red)')+'">'+acc+'%</b></div>';
+    html+='<div>答题总用时：<b style="color:#fff">'+(qd.totalTimeMs/1000).toFixed(2)+'秒</b></div>';
+    if(qd.time)html+='<div>答题时间：<b style="color:#fff">'+fmt(qd.time)+'</b></div>';
+    html+='</div></div>';
+  }else{
+    html+='<div style="margin-bottom:12px;padding:10px;background:var(--card2);border-radius:8px"><div style="font-weight:bold;margin-bottom:6px">🧠 答题详情</div><div style="color:var(--sub);text-align:center;padding:8px">尚未参与知识问答答题</div></div>';
+  }
+  html+='</div>';
+  document.getElementById('detailContent').innerHTML=html;
+  document.getElementById('detailModal').style.display='flex';
+}
+function closeDetail(){document.getElementById('detailModal').style.display='none'}
 
 // ========== 导出 ==========
 function exportMyRecords(){
   if(!S.regList.length){toast('暂无记录');return}
-  let csv='\uFEFF序号,姓名,手机号,登记时间\n';
-  S.regList.forEach((r,i)=>{csv+=(i+1)+','+(r.name||'')+','+(r.phone||'')+','+fmt(r.time)+'\n'});
-  const b=new Blob([csv],{type:'text/csv;charset=utf-8'});const l=document.createElement('a');l.href=URL.createObjectURL(b);l.download='我的登记记录_'+Date.now()+'.csv';l.click();URL.revokeObjectURL(l.href);
+  var csv='\uFEFF序号,姓名,手机号,登记时间,是否答题\n';
+  S.regList.forEach(function(r,i){
+    var quizDone=hasQuizResult(r.name,r.phone)?'是':'否';
+    csv+=(i+1)+','+(r.name||'')+','+(r.phone||'')+','+fmt(r.time)+','+quizDone+'\n';
+  });
+  var b=new Blob([csv],{type:'text/csv;charset=utf-8'});var l=document.createElement('a');l.href=URL.createObjectURL(b);l.download='我的登记记录_'+Date.now()+'.csv';l.click();URL.revokeObjectURL(l.href);
   toast('已导出');
+}
+function exportAllStats(){
+  var allList=isStaff()?getMyParticipants():(S.allParticipants||[]);
+  if(!allList.length){toast('暂无数据');return}
+  var csv='\uFEFF序号,姓名,手机号,登记人,登记时间,签到状态,签到时间,是否答题,答对题数,总题数,正确率,答题用时(秒)\n';
+  allList.forEach(function(p,i){
+    var qd=getQuizDetail(p.name,p.phone);
+    var quizDone=qd?'是':'否';
+    var correct=qd?qd.correctCount:'';
+    var total=qd?qd.totalCount:'';
+    var acc=qd&&qd.totalCount>0?Math.round(qd.correctCount/qd.totalCount*100):'';
+    var quizTime=qd?(qd.totalTimeMs/1000).toFixed(2):'';
+    csv+=(i+1)+','+(p.name||'')+','+(p.phone||'')+','+(p.operator||'')+','+(p.registerTime?fmt(p.registerTime):'')+','+(p.signed?'已签到':'未签到')+','+(p.signTime?fmt(p.signTime):'')+','+quizDone+','+correct+','+total+','+acc+','+quizTime+'\n';
+  });
+  var b=new Blob([csv],{type:'text/csv;charset=utf-8'});var l=document.createElement('a');l.href=URL.createObjectURL(b);l.download='登记统计_'+Date.now()+'.csv';l.click();URL.revokeObjectURL(l.href);
+  toast('已导出 '+allList.length+' 条');
 }
 
 // ========== 二维码 ==========
 function generateQR(){
   if(!S.baseLink){toast('请先在后台设置基础地址');return}
-  const signinUrl=S.baseLink+'/signin.html?room='+S.room;
-  const screenUrl=S.baseLink+'/screen.html?room='+S.room;
+  var signinUrl=S.baseLink+'/signin.html?room='+S.room;
+  var screenUrl=S.baseLink+'/screen.html?room='+S.room;
   document.getElementById('qrSigninUrl').textContent=signinUrl;
   document.getElementById('qrScreenUrl').textContent=screenUrl;
   document.getElementById('qrSignin').innerHTML='';
