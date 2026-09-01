@@ -776,7 +776,7 @@ function broadcastConfig(){
     quizConfig:S.quizConfig,
     quizFields:S.quizFields,
     quizBoardName:S.quizBoardName,
-    quizResults:(S.quizResults||[]).map(function(qr){return{name:qr.name,phone:qr.phone||''}}),
+    quizResults:(S.quizResults||[]).map(function(qr){return{name:qr.name||'',phone:qr.phone||'',gender:qr.gender||'',round:qr.round||1,correctCount:qr.correctCount||0,totalCount:qr.totalCount||0,totalTimeMs:qr.totalTimeMs||0,time:qr.time||0}}),
     lotteryRule:S.lotteryRule||{enable:false,hitList:[]},
     time:Date.now()
   }))
