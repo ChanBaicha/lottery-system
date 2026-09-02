@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>智能体抽奖</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei',sans-serif;background:#0a0e27;color:#fff;min-height:100vh;overflow-x:hidden}
+input,button,select,textarea{font-family:inherit;outline:none;border:none}
+:root{--pri:#6c5ce7;--pri-l:#a29bfe;--acc:#fd79a8;--gold:#fdcb6e;--grn:#00b894;--red:#e17055;--blue:#0984e3;--card:#161b3c;--card2:#1e2550;--sub:#a0a8c8;--bd:rgba(255,255,255,.1)}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--pri);border-radius:2px}
+.btn{padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.95em;transition:.2s;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.btn-pri{background:var(--pri);color:#fff}.btn-pri:active{background:#5a4bd1}
+.btn-out{background:transparent;border:1px solid var(--bd);color:var(--sub)}.btn-out:active{border-color:var(--pri);color:#fff}
+.btn-suc{background:var(--grn);color:#fff}.btn-dng{background:var(--red);color:#fff}
+.btn-gold{background:var(--gold);color:#333;font-weight:bold}
+.card{background:var(--card);border-radius:16px;padding:20px;margin-bottom:14px;border:1px solid var(--bd)}
+.stat-box{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.stat-item{flex:1;min-width:80px;text-align:center;padding:14px 8px;background:var(--card);border-radius:12px;border:1px solid var(--bd)}
+.stat-num{font-size:1.6em;font-weight:bold}
+.stat-label{font-size:.75em;color:var(--sub);margin-top:4px}
+
+/* 智能体动画 */
+.agent-avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--pri),var(--acc));display:flex;align-items:center;justify-content:center;font-size:2em;flex-shrink:0;position:relative}
+.agent-avatar.thinking{animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(108,92,231,.4)}50%{transform:scale(1.08);box-shadow:0 0 0 12px rgba(108,92,231,0)}}
+.agent-avatar.done{background:linear-gradient(135deg,var(--grn),var(--gold))}
+.agent-avatar.error{background:linear-gradient(135deg,var(--red),var(--gold))}
+
+/* 日志流 */
+.log-stream{max-height:320px;overflow-y:auto;padding:4px 0}
+.log-item{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;margin-bottom:4px;border-radius:8px;background:var(--card2);font-size:.85em;animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.log-icon{font-size:1.1em;flex-shrink:0;margin-top:1px}
+.log-text{flex:1;line-height:1.5}
+.log-time{font-size:.72em;color:var(--sub);flex-shrink:0;margin-top:2px}
+
+/* 步骤指示器 */
+.step-flow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.step-pill{padding:6px 14px;border-radius:20px;background:var(--card2);border:1px solid var(--bd);font-size:.78em;color:var(--sub);transition:.3s}
+.step-pill.active{border-color:var(--pri);background:rgba(108,92,231,.2);color:var(--pri-l)}
+.step-pill.done{border-color:var(--grn);background:rgba(0,184,148,.15);color:var(--grn)}
+.step-pill.fail{border-color:var(--red);background:rgba(225,112,85,.15);color:var(--red)}
+
+/* 候选人滚动展示 */
+.candidate-scroll{display:flex;gap:8px;overflow:hidden;white-space:nowrap;padding:12px 0;mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent)}
+.candidate-chip{padding:8px 16px;border-radius:20px;background:var(--card2);border:1px solid var(--bd);font-size:.85em;flex-shrink:0;transition:.2s}
+.candidate-chip.hit{border-color:var(--gold);background:rgba(253,203,110,.15);color:var(--gold);font-weight:bold;transform:scale(1.05)}
+.candidate-chip.miss{opacity:.4}
+.candidate-chip.winner{border-color:var(--grn);background:rgba(0,184,148,.2);color:var(--grn);font-weight:bold;animation:bounce .5s ease}
+@keyframes bounce{0%{transform:scale(.8)}50%{transform:scale(1.15)}100%{transform:scale(1.05)}}
+
+/* 中奖结果 */
+.winner-card{background:linear-gradient(135deg,rgba(253,203,110,.15),rgba(0,184,148,.1));border:2px solid var(--gold);border-radius:20px;padding:24px;text-align:center;animation:zoomIn .5s ease}
+@keyframes zoomIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+.winner-avatar{width:72px;height:72px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:2em;font-weight:bold;color:#333;margin:0 auto 12px}
+.winner-name{font-size:1.8em;font-weight:bold;color:var(--gold);margin-bottom:6px}
+.winner-detail{font-size:.85em;color:var(--sub);line-height:1.8}
+
+/* 数字拆解可视化 */
+.digit-viz{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0}
+.digit-box{width:36px;height:36px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:1.2em;font-weight:bold;font-family:monospace;transition:.3s}
+.digit-box.from-phone{border-color:var(--blue);color:var(--blue)}
+.digit-box.from-ticket{border-color:var(--acc);color:var(--acc)}
+.digit-box.sum-target{border-color:var(--gold);background:rgba(253,203,110,.15);color:var(--gold)}
+
+/* 规则配置 */
+.rule-config{background:var(--card2);border-radius:12px;padding:16px;margin-bottom:14px}
+.rule-config label{display:block;font-size:.82em;color:var(--sub);margin-bottom:4px}
+.rule-config input,.rule-config select{width:100%;padding:10px 12px;border-radius:8px;background:var(--card);border:1px solid var(--bd);color:#fff;font-size:.9em}
+.rule-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.rule-row>div{flex:1;min-width:120px}
+
+/* 进度条 */
+.progress-track{height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:8px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--pri),var(--gold));transition:width .5s ease;border-radius:3px}
+</style>
+</head>
+<body>
+<div id="app" style="max-width:900px;margin:0 auto;padding:16px;min-height:100vh">
+  <!-- 顶部 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="agent-avatar" id="agentIcon">🤖</div>
+      <div>
+        <div style="font-weight:bold;font-size:1.3em">智能体抽奖引擎</div>
+        <div style="font-size:.8em;color:var(--sub)">AI Rule-Based Lottery System</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
+      <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="resetEngine()">重置</button>
+    </div>
+  </div>
+
+  <!-- 统计概览 -->
+  <div class="stat-box" id="overviewStats">
+    <div class="stat-item"><div class="stat-num" id="sTotal" style="color:var(--gold)">0</div><div class="stat-label">总参与者</div></div>
+    <div class="stat-item"><div class="stat-num" id="sSigned" style="color:var(--grn)">0</div><div class="stat-label">已签到</div></div>
+    <div class="stat-item"><div class="stat-num" id="sQuiz" style="color:var(--pri-l)">0</div><div class="stat-label">已答题</div></div>
+    <div class="stat-item"><div class="stat-num" id="sEligible" style="color:var(--acc)">0</div><div class="stat-label">抽奖候选</div></div>
+  </div>
+
+  <!-- 步骤流程指示 -->
+  <div class="step-flow" id="stepFlow">
+    <div class="step-pill" id="step1">① 数据加载</div>
+    <div class="step-pill" id="step2">② 筛选签到</div>
+    <div class="step-pill" id="step3">③ 校验答题</div>
+    <div class="step-pill" id="step4">④ 排除中奖</div>
+    <div class="step-pill" id="step5">⑤ 数字运算</div>
+    <div class="step-pill" id="step6">⑥ 命中抽取</div>
+    <div class="step-pill" id="step7">⑦ 结果呈现</div>
+  </div>
+
+  <!-- 规则配置区 -->
+  <div class="card" id="ruleConfigCard">
+    <div style="font-weight:bold;margin-bottom:12px">📋 抽奖规则配置</div>
+    <div class="rule-config">
+      <div class="rule-row">
+        <div><label>数字运算规则</label><input id="ruleCalc" placeholder="如：全部数字相加等于5" value="全部数字相加等于5"></div>
+        <div><label>中奖人数</label><input id="ruleWinCount" type="number" value="1" min="1" style="width:80px"></div>
+      </div>
+      <div class="rule-row">
+        <div><label>筛选条件</label>
+          <select id="ruleFilter">
+            <option value="all" selected>已签到 + 已答题 + 未中奖</option>
+            <option value="signed">仅已签到</option>
+            <option value="quiz">仅已答题</option>
+            <option value="none">不筛选</option>
+          </select>
+        </div>
+        <div><label>抽取方式</label>
+          <select id="ruleMode">
+            <option value="match" selected>规则匹配（满足条件的全部命中）</option>
+            <option value="random">规则筛选后随机抽取</option>
+            <option value="best">取答题成绩最佳</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-gold" style="width:100%;padding:14px;font-size:1.1em" id="runBtn" onclick="runLottery()">🚀 启动智能体抽奖</button>
+  </div>
+
+  <!-- 候选人滚动展示区 -->
+  <div class="card" id="candidateCard" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div style="font-weight:bold">🎯 候选人池</div>
+      <div style="font-size:.82em;color:var(--sub)" id="candidateCount">0 人</div>
+    </div>
+    <div class="candidate-scroll" id="candidateScroll"></div>
+  </div>
+
+  <!-- 智能体日志流 -->
+  <div class="card" id="logCard" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div class="agent-avatar thinking" id="agentLogIcon" style="width:40px;height:40px;font-size:1.3em">🤖</div>
+      <div>
+        <div style="font-weight:bold;font-size:.95em">智能体分析中...</div>
+        <div style="font-size:.78em;color:var(--sub)" id="agentStatus">正在处理数据</div>
+      </div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="logProgress" style="width:0%"></div></div>
+    <div class="log-stream" id="logStream"></div>
+  </div>
+
+  <!-- 中奖结果区 -->
+  <div id="resultArea" style="display:none"></div>
+</div>
+
+<div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script>
+let S={
+  mqtt:null,topic:'',room:'',
+  configReceived:false,
+  allParticipants:[],
+  allQuizResults:[],
+  lotteryRule:null,
+  isRunning:false,
+  _retryTimer:null
+};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
+function maskPhone(p){if(!p)return'';return p.substr(0,3)+'XXXX'+p.substr(-4)}
+function fmtTime(ms){return(ms/1000).toFixed(2)+'s'}
+
+// ========== 工具：数字拆解 ==========
+function extractDigits(str){if(!str)return[];return String(str).replace(/\D/g,'').split('').map(function(d){return parseInt(d)})}
+function digitSum(arr){return arr.reduce(function(a,b){return a+b},0)}
+
+// ========== 初始化 ==========
+(function init(){
+  const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
+  connectMQTT();
+})();
+
+// ========== MQTT ==========
+function connectMQTT(){
+  const cid='agentdraw_'+uid();
+  try{
+    S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
+    S.mqtt.on('connect',()=>{
+      updateMqtt('online');
+      S.mqtt.subscribe(S.topic+'config');
+      S.mqtt.subscribe(S.topic+'lottery_result');
+      S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'agent-draw',time:Date.now()}));
+      if(S._retryTimer)clearInterval(S._retryTimer);
+      S._retryTimer=setInterval(()=>{
+        if(S.mqtt&&S.mqtt.connected&&!S.configReceived){
+          S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'agent-draw',time:Date.now()}));
+        }else if(S.configReceived&&S._retryTimer){
+          clearInterval(S._retryTimer);S._retryTimer=null;
+        }
+      },5000);
+    });
+    S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
+    S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
+  }catch(e){updateMqtt('offline')}
+}
+function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
+function handleMsg(t,d){
+  if(t.endsWith('config')){
+    S.configReceived=true;
+    S.allParticipants=d.participants||[];
+    S.allQuizResults=d.quizResults||[];
+    S.lotteryRule=d.lotteryRule||null;
+    updateOverview();
+  }
+}
+
+// ========== 概览统计 ==========
+function updateOverview(){
+  var total=S.allParticipants.length;
+  var signed=S.allParticipants.filter(function(p){return p.signed}).length;
+  var quizSet={};
+  S.allQuizResults.forEach(function(q){quizSet[(q.name||'')+'|'+(q.phone||'')]=true});
+  var quiz=S.allParticipants.filter(function(p){return quizSet[(p.name||'')+'|'+(p.phone||'')]}).length;
+  var eligible=S.allParticipants.filter(function(p){
+    return p.signed&&!p.won&&quizSet[(p.name||'')+'|'+(p.phone||'')];
+  }).length;
+  document.getElementById('sTotal').textContent=total;
+  document.getElementById('sSigned').textContent=signed;
+  document.getElementById('sQuiz').textContent=quiz;
+  document.getElementById('sEligible').textContent=eligible;
+}
+
+// ========== 步骤指示 ==========
+function setStep(idx,state){
+  var el=document.getElementById('step'+idx);
+  if(!el)return;
+  el.classList.remove('active','done','fail');
+  if(state)el.classList.add(state);
+}
+function resetSteps(){for(var i=1;i<=7;i++)setStep(i,'')}
+
+// ========== 日志系统 ==========
+function addLog(icon,text){
+  var stream=document.getElementById('logStream');
+  var item=document.createElement('div');
+  item.className='log-item';
+  var now=new Date();
+  var ts=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
+  item.innerHTML='<div class="log-icon">'+icon+'</div><div class="log-text">'+text+'</div><div class="log-time">'+ts+'</div>';
+  stream.appendChild(item);
+  stream.scrollTop=stream.scrollHeight;
+}
+function setAgentStatus(text){document.getElementById('agentStatus').textContent=text}
+function setProgress(pct){document.getElementById('logProgress').style.width=pct+'%'}
+
+// ========== 数字运算匹配 ==========
+function matchRule(p,ruleDesc){
+  if(!ruleDesc)return true;
+  var pc=p.preCalc;
+  if(!pc){
+    // 即时计算
+    var digits=extractDigits(p.phone);
+    pc={totalSum:digitSum(digits),allEven:digitSum(digits)%2===0};
+  }
+  var d=ruleDesc;
+  // 全部数字相加等于N
+  var m=d.match(/全部.*(?:数字)?.*(?:相加|和).*(?:等于|为|是)\s*(\d+)/);
+  if(m)return pc.totalSum===parseInt(m[1]);
+  // 全部数字相加为偶/奇
+  if(/全部.*(?:数字)?.*(?:相加|和).*(?:偶|双)/.test(d))return pc.allEven;
+  if(/全部.*(?:数字)?.*(?:相加|和).*(?:奇|单)/.test(d))return !pc.allEven;
+  return true;
+}
+
+// ========== 核心：智能体抽奖流程 ==========
+async function runLottery(){
+  if(S.isRunning)return;
+  S.isRunning=true;
+
+  var ruleCalc=document.getElementById('ruleCalc').value.trim();
+  var winCount=parseInt(document.getElementById('ruleWinCount').value)||1;
+  var filterMode=document.getElementById('ruleFilter').value;
+  var drawMode=document.getElementById('ruleMode').value;
+
+  // UI 初始化
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('runBtn').textContent='⏳ 抽奖进行中...';
+  document.getElementById('logCard').style.display='block';
+  document.getElementById('candidateCard').style.display='block';
+  document.getElementById('resultArea').style.display='none';
+  document.getElementById('logStream').innerHTML='';
+  document.getElementById('agentLogIcon').className='agent-avatar thinking';
+  document.getElementById('agentLogIcon').textContent='🤖';
+  resetSteps();
+  setStep(1,'active');
+  setProgress(5);
+
+  var t0=Date.now();
+  addLog('📡','智能体正在连接数据源...');
+
+  await sleep(300);
+
+  // === Step 1: 数据加载 ===
+  setAgentStatus('正在加载参与者与答题数据');
+  var allList=S.allParticipants.slice();
+  addLog('📊','已加载 '+allList.length+' 名参与者数据');
+  await sleep(200);
+  addLog('🧠','已加载 '+S.allQuizResults.length+' 条答题记录（含多轮最佳成绩）');
+  setStep(1,'done');
+  setStep(2,'active');
+  setProgress(15);
+
+  await sleep(300);
+
+  // === Step 2: 签到筛选 ===
+  setAgentStatus('正在筛选已签到人员');
+  var signedList=allList;
+  if(filterMode==='all'||filterMode==='signed'){
+    signedList=allList.filter(function(p){return p.signed});
+    var removedSign=allList.length-signedList.length;
+    addLog('✅','签到筛选：'+signedList.length+' 人已签到'+(removedSign>0?'（淘汰 '+removedSign+' 人未签到）':''));
+  }else{
+    addLog('⏭️','跳过签到筛选');
+  }
+  setStep(2,'done');
+  setStep(3,'active');
+  setProgress(30);
+
+  await sleep(300);
+
+  // === Step 3: 答题校验 ===
+  setAgentStatus('正在校验知识问答完成情况');
+  var quizSet={};
+  S.allQuizResults.forEach(function(q){quizSet[(q.name||'')+'|'+(q.phone||'')]=q});
+  var quizList=signedList;
+  if(filterMode==='all'||filterMode==='quiz'){
+    quizList=signedList.filter(function(p){return quizSet[(p.name||'')+'|'+(p.phone||'')]});
+    var removedQuiz=signedList.length-quizList.length;
+    addLog('🧠','答题校验：'+quizList.length+' 人已完成知识问答'+(removedQuiz>0?'（淘汰 '+removedQuiz+' 人未答题）':''));
+  }else{
+    addLog('⏭️','跳过答题校验');
+  }
+  setStep(3,'done');
+  setStep(4,'active');
+  setProgress(45);
+
+  await sleep(300);
+
+  // === Step 4: 排除已中奖 ===
+  setAgentStatus('正在排除已中奖人员');
+  var notWonList=quizList;
+  if(filterMode==='all'){
+    notWonList=quizList.filter(function(p){return !p.won});
+    var removedWon=quizList.length-notWonList.length;
+    addLog('🏆','排除已中奖：'+notWonList.length+' 人为有效候选'+(removedWon>0?'（排除 '+removedWon+' 人已中奖）':''));
+  }
+  setStep(4,'done');
+  setStep(5,'active');
+  setProgress(60);
+
+  await sleep(300);
+
+  // 展示候选人池
+  renderCandidates(notWonList);
+  document.getElementById('candidateCount').textContent=notWonList.length+' 人';
+  await sleep(500);
+
+  // === Step 5: 数字运算 ===
+  setAgentStatus('正在执行数字运算规则：'+ruleCalc);
+  addLog('🔢','开始执行数字运算规则：「'+ruleCalc+'」');
+  await sleep(300);
+
+  var matched=notWonList.filter(function(p){
+    var hit=matchRule(p,ruleCalc);
+    var pc=p.preCalc||{};
+    var sum=pc.totalSum||0;
+    if(hit){
+      addLog('🎯','<b style="color:var(--gold)">'+p.name+'</b>（'+maskPhone(p.phone)+'）数字之和='+sum+' ✅ 命中');
+    }
+    return hit;
+  });
+  
+  if(matched.length===0){
+    addLog('❌','数字运算规则未命中任何候选人');
+  }else{
+    addLog('✅','数字运算完成：'+matched.length+' 人命中规则');
+  }
+  setStep(5,'done');
+  setStep(6,'active');
+  setProgress(75);
+
+  await sleep(500);
+
+  // === Step 6: 命中抽取 ===
+  setAgentStatus('正在进行最终抽取');
+  var winners=[];
+  if(drawMode==='match'){
+    // 规则匹配：满足条件的全部命中
+    winners=matched.slice(0,winCount);
+    if(matched.length>winCount){
+      // 如果命中多于需要人数，随机选取
+      addLog('🎲','命中 '+matched.length+' 人超出中奖名额 '+winCount+'，随机抽取...');
+      winners=[];
+      var pool=matched.slice();
+      for(var i=0;i<Math.min(winCount,pool.length);i++){
+        var idx=Math.floor(Math.random()*pool.length);
+        winners.push(pool.splice(idx,1)[0]);
+      }
+    }
+  }else if(drawMode==='random'){
+    // 规则筛选后随机抽取
+    var pool2=matched.length?matched:notWonList;
+    addLog('🎲','从 '+(pool2.length)+' 名候选中随机抽取 '+winCount+' 人');
+    winners=[];
+    var p2=pool2.slice();
+    for(var i=0;i<Math.min(winCount,p2.length);i++){
+      var idx2=Math.floor(Math.random()*p2.length);
+      winners.push(p2.splice(idx2,1)[0]);
+    }
+  }else if(drawMode==='best'){
+    // 取答题成绩最佳
+    var scoreboard=notWonList.map(function(p){
+      var q=quizSet[(p.name||'')+'|'+(p.phone||'')];
+      return{p:p,correct:q?q.correctCount:0,time:q?q.totalTimeMs:999999999};
+    }).sort(function(a,b){return b.correct-a.correct||(a.time-b.time)});
+    winners=scoreboard.slice(0,winCount).map(function(s){return s.p});
+    addLog('🏆','按答题成绩最佳选取：'+winners.map(function(w){return w.name}).join('、'));
+  }
+
+  // 标记候选人状态
+  renderCandidateResult(notWonList,winners);
+
+  setStep(6,'done');
+  setStep(7,'active');
+  setProgress(90);
+
+  await sleep(500);
+
+  // === Step 7: 结果呈现 ===
+  setAgentStatus('正在生成抽奖结果');
+  var totalTime=Date.now()-t0;
+  addLog('🎉','抽奖完成！耗时 '+totalTime+'ms');
+
+  // 广播中奖结果
+  if(S.mqtt&&S.mqtt.connected&&winners.length){
+    S.mqtt.publish(S.topic+'lottery_result',JSON.stringify({
+      winners:winners.map(function(w){return{name:w.name,prize:'智能体抽奖'}}),
+      time:Date.now()
+    }));
+    addLog('📡','中奖结果已广播至全部终端');
+  }
+
+  setStep(7,'done');
+  setProgress(100);
+  document.getElementById('agentLogIcon').className='agent-avatar done';
+  document.getElementById('agentLogIcon').textContent='✅';
+  setAgentStatus('抽奖完成');
+
+  // 渲染中奖结果
+  renderWinners(winners,ruleCalc,totalTime);
+
+  // 恢复按钮
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('runBtn').textContent='🚀 再次启动抽奖';
+  S.isRunning=false;
+}
+
+// ========== 候选人展示 ==========
+function renderCandidates(list){
+  var scroll=document.getElementById('candidateScroll');
+  if(!list.length){scroll.innerHTML='<div style="color:var(--sub);padding:12px;font-size:.85em">无符合条件的候选人</div>';return}
+  scroll.innerHTML=list.map(function(p){
+    var pc=p.preCalc||{};
+    var sum=pc.totalSum||0;
+    return '<div class="candidate-chip" data-name="'+p.name+'">'+p.name+' (Σ='+sum+')</div>';
+  }).join('');
+}
+function renderCandidateResult(list,winners){
+  var scroll=document.getElementById('candidateScroll');
+  var winnerNames={};
+  winners.forEach(function(w){winnerNames[w.name]=true});
+  var chips=scroll.querySelectorAll('.candidate-chip');
+  chips.forEach(function(chip){
+    var name=chip.getAttribute('data-name');
+    if(winnerNames[name]){
+      chip.className='candidate-chip winner';
+    }else{
+      chip.className='candidate-chip miss';
+    }
+  });
+}
+
+// ========== 中奖结果渲染 ==========
+function renderWinners(winners,ruleCalc,totalTime){
+  var area=document.getElementById('resultArea');
+  area.style.display='block';
+  if(!winners.length){
+    area.innerHTML='<div class="card" style="text-align:center;padding:40px"><div style="font-size:3em;margin-bottom:12px">😢</div><div style="font-size:1.2em;color:var(--sub)">本轮无人中奖</div><div style="font-size:.85em;color:var(--sub);margin-top:8px">规则「'+ruleCalc+'」未匹配到任何候选人</div></div>';
+    return;
+  }
+  var html='<div style="text-align:center;margin-bottom:16px"><div style="font-size:2em;margin-bottom:8px">🎊</div><div style="font-size:1.4em;font-weight:bold;color:var(--gold)">恭喜以下中奖者！</div></div>';
+  winners.forEach(function(w,i){
+    var pc=w.preCalc||{};
+    var phoneDigits=extractDigits(w.phone);
+    var ticketDigits=extractDigits(w.ticket||'');
+    var allDigits=phoneDigits.concat(ticketDigits);
+    var totalSum=pc.totalSum||digitSum(allDigits);
+    var teamInfo=w.team||'';
+    var qResult=S.allQuizResults.find(function(q){return q.name===w.name&&q.phone===w.phone});
+    var accuracy=qResult&&qResult.totalCount>0?Math.round(qResult.correctCount/qResult.totalCount*100):0;
+
+    html+='<div class="winner-card" style="margin-bottom:14px">';
+    html+='<div class="winner-avatar">'+((w.name||'?')[0])+'</div>';
+    html+='<div class="winner-name">'+w.name+'</div>';
+    if(teamInfo)html+='<div style="font-size:.85em;color:var(--pri-l);margin-bottom:8px">['+teamInfo+']</div>';
+    html+='<div class="winner-detail">';
+    html+='手机号：'+maskPhone(w.phone)+'<br>';
+    if(qResult)html+='答题成绩：'+qResult.correctCount+'/'+qResult.totalCount+'（正确率 '+accuracy+'%）<br>';
+    html+='</div>';
+    // 数字拆解可视化
+    html+='<div style="margin-top:14px;font-size:.82em;color:var(--sub)">数字拆解验证：</div>';
+    html+='<div class="digit-viz">';
+    phoneDigits.forEach(function(d){
+      html+='<div class="digit-box from-phone">'+d+'</div>';
+    });
+    if(ticketDigits.length){
+      html+='<div style="display:flex;align-items:center;color:var(--sub);font-size:1.2em;padding:0 4px">+</div>';
+      ticketDigits.forEach(function(d){
+        html+='<div class="digit-box from-ticket">'+d+'</div>';
+      });
+    }
+    html+='<div style="display:flex;align-items:center;color:var(--sub);font-size:1.2em;padding:0 4px">=</div>';
+    html+='<div class="digit-box sum-target" style="width:48px">'+totalSum+'</div>';
+    html+='</div>';
+    html+='<div style="font-size:.78em;color:'+(totalSum===5?'var(--grn)':'var(--gold)')+';margin-top:6px">'+(totalSum===5?'✅ 数字之和为5，符合抽奖规则！':'数字之和：'+totalSum)+'</div>';
+    html+='</div>';
+  });
+  html+='<div style="text-align:center;font-size:.8em;color:var(--sub);padding:12px">规则：「'+ruleCalc+'」 · 耗时 '+totalTime+'ms · 智能体抽奖引擎</div>';
+  area.innerHTML=html;
+}
+
+// ========== 重置 ==========
+function resetEngine(){
+  document.getElementById('logCard').style.display='none';
+  document.getElementById('candidateCard').style.display='none';
+  document.getElementById('resultArea').style.display='none';
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('runBtn').textContent='🚀 启动智能体抽奖';
+  resetSteps();
+  setProgress(0);
+  S.isRunning=false;
+}
+
+// ========== 工具 ==========
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+</script>
+</body>
+</html>
