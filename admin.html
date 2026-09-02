@@ -163,6 +163,12 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <button class="btn btn-pri" style="margin-top:8px" onclick="saveSignFailMsg()">💾 保存提示语</button>
     </div>
     <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:12px">签到无答题资格提示语</h3>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">当签到人信息匹配登记数据但<b>未完成知识问答</b>时，弹出的提示内容。</p>
+      <textarea id="ltSignFailNoQuizMsg" rows="3" placeholder="未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格" style="width:100%;max-width:600px"></textarea>
+      <button class="btn btn-pri" style="margin-top:8px" onclick="saveSignFailNoQuizMsg()">💾 保存提示语</button>
+    </div>
+    <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:12px">动画自动轮播</h3>
       <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">设置大屏流动动画自动切换的时间间隔（秒）。设为0表示不自动轮播。</p>
       <div style="display:flex;align-items:center;gap:12px">
@@ -476,10 +482,28 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
   <div class="panel" id="panel-participants">
     <h2 style="font-size:1.3em;margin-bottom:6px">👥 参与者管理</h2>
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-      <div style="padding:8px 16px;background:var(--card);border-radius:20px;font-size:.9em">已登记 <b id="totalCnt" style="color:var(--gold)">0</b> · 已签到 <b id="signedCnt" style="color:var(--grn)">0</b></div>
+      <div style="padding:8px 16px;background:var(--card);border-radius:20px;font-size:.9em">已登记 <b id="totalCnt" style="color:var(--gold)">0</b> · 已签到 <b id="signedCnt" style="color:var(--grn)">0</b> · 已答题 <b id="quizCnt" style="color:var(--pri-l)">0</b> · 未答题 <b id="noQuizCnt" style="color:var(--red)">0</b></div>
       <select id="ptOpFilter" onchange="filterParticipants(this.value)" style="padding:8px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em"><option value="">全部来源</option></select>
       <button class="btn btn-out" onclick="exportParticipants()">📋 导出名单</button>
       <button class="btn btn-dng" onclick="clearParticipants()">🗑️ 清空全部</button>
+    </div>
+    <!-- Excel 导入 -->
+    <div class="section" style="margin-bottom:12px">
+      <div style="font-weight:bold;margin-bottom:8px;font-size:.95em">📥 Excel 批量导入登记数据</div>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">导入含<b>姓名、手机号（前3位+XXXX+后4位格式）、发展战队</b>等列的Excel文件。导入后将<b>替换</b>当前全部登记数据。</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input type="file" id="ptExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importParticipantsExcel(this)">
+        <button class="btn btn-pri" onclick="document.getElementById('ptExcelFile').click()">📂 导入Excel</button>
+        <button class="btn btn-out" onclick="downloadPtTemplate()">📄 下载导入模板</button>
+      </div>
+    </div>
+    <!-- 未答题人员 -->
+    <div class="section" style="margin-bottom:12px" id="noQuizSection">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-weight:bold;font-size:.95em">🚫 未答题人员（已登记但未完成知识问答）</div>
+        <button class="btn btn-out btn-sm" onclick="exportNoQuizList()">📥 导出名单</button>
+      </div>
+      <div id="noQuizList" style="max-height:200px;overflow-y:auto"></div>
     </div>
     <div class="section" style="margin-bottom:12px">
       <div style="font-weight:bold;margin-bottom:8px;font-size:.95em">📊 各来源账号实时登记数量</div>
@@ -597,6 +621,7 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   signin:{lat:null,lng:null,radius:500,startTime:null,endTime:null,enable:true},
   participants:[],records:[],baseLink:'',
   signFailMsg:'签到失败！请检查您填写的姓名和手机号是否正确。',
+  signFailNoQuizMsg:'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',
   flowInterval:0,
   gameConfig:{shakeDuration:10,reactionDuration:15,reactionIntervalType:'random',reactionFixedInterval:2,reactionMinInterval:1,reactionMaxInterval:3,quizRounds:3,quizInterval:5,autoStartThreshold:0},
   danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,mode:'scroll',colorful:true,history:[]},
@@ -768,8 +793,8 @@ function broadcastConfig(){
   S.mqtt.publish(S.topic+'config',JSON.stringify({
     prizes:S.prizes,fields:S.fields,screen:S.screen,signin:S.signin,drawCount:S.drawCount,
     accounts:S.accounts,baseLink:S.baseLink,participantCount:S.participants.length,
-    participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,operator:p.operator||'',registerTime:p.registerTime||null,voided:p.voided||false}}),
-    signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,
+    participants:S.participants.map(function(p){return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,operator:p.operator||'',registerTime:p.registerTime||null,voided:p.voided||false,team:p.team||''}}),
+    signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg||'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',flowInterval:S.flowInterval,
     gameConfig:S.gameConfig,
     danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview,mode:S.danmaku.mode||'scroll',colorful:S.danmaku.colorful!==false},
     music:S.music,
@@ -917,6 +942,7 @@ function renderFields(){
 function saveDrawCount(){S.drawCount=parseInt(document.getElementById('ltDrawCount').value)||1;saveLocal();broadcastConfig();toast('已保存：每轮抽'+S.drawCount+'人')}
 function saveNoRepeat(){S.noRepeat=document.getElementById('ltNoRepeat').checked;saveLocal();broadcastConfig();toast('防重复设置已保存')}
 function saveSignFailMsg(){S.signFailMsg=document.getElementById('ltSignFailMsg').value.trim()||'签到失败！请检查您填写的姓名和手机号是否正确。';saveLocal();broadcastConfig();toast('签到失败提示语已保存')}
+function saveSignFailNoQuizMsg(){S.signFailNoQuizMsg=document.getElementById('ltSignFailNoQuizMsg').value.trim()||'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格';saveLocal();broadcastConfig();toast('无答题资格提示语已保存')}
 function saveFlowInterval(){S.flowInterval=parseInt(document.getElementById('ltFlowInterval').value)||0;saveLocal();broadcastConfig();toast('动画轮播间隔已保存：'+(S.flowInterval>0?S.flowInterval+'秒':'不轮播'))}
 // ========== 游戏设置 ==========
 function saveGameConfig(){
@@ -1533,12 +1559,117 @@ function renderDanmakuHistory(){
 }
 
 // ========== 参与者 ==========
+function importParticipantsExcel(input){
+  var file=input.files[0];
+  if(!file)return;
+  if(typeof XLSX==='undefined'){toast('Excel库加载中，请稍后重试');input.value='';return}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(rows.length<2){toast('Excel中无有效数据');input.value='';return}
+      // 识别表头：姓名、手机号、发展战队
+      var header=rows[0].map(function(h){return String(h||'').trim()});
+      var nameIdx=-1,phoneIdx=-1,teamIdx=-1;
+      header.forEach(function(h,i){
+        var lh=h.toLowerCase();
+        if(h==='姓名'||h==='名字'||lh==='name')nameIdx=i;
+        else if(h==='手机号'||h==='手机'||h==='电话'||lh==='phone'||lh==='mobile')phoneIdx=i;
+        else if(h==='发展战队'||h==='战队'||h==='团队'||h==='部门'||lh==='team'||lh==='group')teamIdx=i;
+      });
+      if(nameIdx<0){toast('未找到「姓名」列，请检查Excel表头');input.value='';return}
+      if(phoneIdx<0){toast('未找到「手机号」列，请检查Excel表头');input.value='';return}
+      // 解析数据行
+      var newParticipants=[];
+      rows.forEach(function(row,i){
+        if(i===0)return; // 跳过表头
+        var name=String(row[nameIdx]||'').trim();
+        if(!name)return;
+        var phone=String(row[phoneIdx]||'').trim();
+        // 手机号格式化为 前3位+XXXX+后4位
+        var phoneDigits=phone.replace(/[^0-9]/g,'');
+        if(phoneDigits.length>=7){
+          phone=phoneDigits.substr(0,3)+'XXXX'+phoneDigits.substr(-4);
+        }else if(phone.indexOf('XXXX')<0){
+          // 非7位以上数字且不包含XXXX，保持原样
+        }
+        var team=teamIdx>=0?String(row[teamIdx]||'').trim():'';
+        newParticipants.push({
+          id:uid(),name:name,phone:phone,team:team,
+          signed:false,won:false,prizeId:null,
+          registerTime:Date.now(),operator:'Excel导入'
+        });
+      });
+      if(!newParticipants.length){toast('未解析到有效数据');input.value='';return}
+      if(!confirm('将导入 '+newParticipants.length+' 条登记数据，此操作将替换当前全部登记数据。确认继续？')){input.value='';return}
+      S.participants=newParticipants;
+      saveLocal();renderParticipants();broadcastConfig();
+      toast('已导入 '+newParticipants.length+' 条登记数据');
+    }catch(err){toast('Excel解析失败：'+err.message)}
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function downloadPtTemplate(){
+  if(typeof XLSX==='undefined'){toast('Excel库加载中，请稍后重试');return}
+  var wb=XLSX.utils.book_new();
+  var ws=XLSX.utils.aoa_to_sheet([
+    ['姓名','手机号','发展战队'],
+    ['张三','138XXXX1234','战队A'],
+    ['李四','139XXXX5678','战队B'],
+    ['王五','191XXXX6231','战队C']
+  ]);
+  ws['!cols']=[{wch:12},{wch:16},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'登记模板');
+  XLSX.writeFile(wb,'参与者登记导入模板.xlsx');
+  toast('模板已下载');
+}
+function hasQuizResult(name,phone){
+  if(!S.quizResults||!S.quizResults.length)return false;
+  return S.quizResults.some(function(qr){
+    var qrName=(qr.name||'').trim();
+    var qrPhone=qr.phone||'';
+    return qrName===name&&(qrPhone===phone||qrPhone===phone.replace('XXXX','XXXX'));
+  });
+}
+function renderNoQuizList(){
+  var el=document.getElementById('noQuizList');
+  if(!el)return;
+  var noQuiz=S.participants.filter(function(p){return!hasQuizResult(p.name,p.phone)});
+  var cntEl=document.getElementById('noQuizCnt');
+  if(cntEl)cntEl.textContent=noQuiz.length;
+  if(!noQuiz.length){el.innerHTML='<div style="color:var(--sub);text-align:center;padding:8px;font-size:.85em">全部已答题</div>';return}
+  el.innerHTML=noQuiz.map(function(p,i){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--card2);border-radius:6px;margin-bottom:4px"><div style="width:24px;height:24px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:.75em;font-weight:bold;flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1;font-size:.85em"><span style="font-weight:bold">'+p.name+'</span> <span style="color:var(--sub);font-size:.8em">'+maskPhoneQ(p.phone)+'</span>'+(p.team?' <span style="color:var(--pri-l);font-size:.78em">['+p.team+']</span>':'')+'</div></div>';
+  }).join('');
+}
+function exportNoQuizList(){
+  var noQuiz=S.participants.filter(function(p){return!hasQuizResult(p.name,p.phone)});
+  if(!noQuiz.length){toast('全部已答题，无需导出');return}
+  var rows=[['序号','姓名','手机号','发展战队']];
+  noQuiz.forEach(function(p,i){rows.push([i+1,p.name,p.phone,p.team||''])});
+  if(typeof XLSX==='undefined'){
+    var csv='\uFEFF'+rows.map(function(row){return row.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"'}).join(',')}).join('\n');
+    var b=new Blob([csv],{type:'text/csv;charset=utf-8'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='未答题人员_'+Date.now()+'.csv';a.click();URL.revokeObjectURL(a.href);
+  }else{
+    var wb=XLSX.utils.book_new();var ws=XLSX.utils.aoa_to_sheet(rows);XLSX.utils.book_append_sheet(wb,ws,'未答题人员');XLSX.writeFile(wb,'未答题人员_'+Date.now()+'.xlsx');
+  }
+  toast('已导出 '+noQuiz.length+' 条');
+}
 function filterParticipants(op){S._ptFilter=op;renderParticipants()}
 function renderParticipants(){
   const l=document.getElementById('ptList');
   const signed=S.participants.filter(p=>p.signed);
+  const quizCount=S.participants.filter(p=>hasQuizResult(p.name,p.phone)).length;
+  const noQuizCount=S.participants.length-quizCount;
   document.getElementById('totalCnt').textContent=S.participants.length;
   document.getElementById('signedCnt').textContent=signed.length;
+  var quizEl=document.getElementById('quizCnt');if(quizEl)quizEl.textContent=quizCount;
+  var noQuizEl=document.getElementById('noQuizCnt');if(noQuizEl)noQuizEl.textContent=noQuizCount;
+  // 渲染未答题列表
+  renderNoQuizList();
   // 按来源账号统计
   var byOp={};
   S.participants.forEach(function(p){var op=p.operator||'未知';if(!byOp[op])byOp[op]={total:0,signed:0};byOp[op].total++;if(p.signed)byOp[op].signed++});
@@ -1553,7 +1684,7 @@ function renderParticipants(){
   if(filterOp)list=list.filter(function(p){return(p.operator||'未知')===filterOp});
   if(!list.length){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px">'+(filterOp?'该来源账号暂无参与者':'暂无参与者')+'</div>';return}
   const colors=['#6c5ce7','#fd79a8','#fdcb6e','#00b894','#0984e3','#e17055'];
-  l.innerHTML=list.map(function(p,i){return '<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(p.won?'opacity:.5':'')+'"><div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;background:'+colors[i%colors.length]+';flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+(p.name||'未知')+(p.won?' <span style="color:var(--gold);font-size:.8em">已中奖</span>':'')+'</div><div style="font-size:.8em;color:var(--sub)">'+(p.phone||'')+(p.operator?' · 👤'+p.operator:'')+(p.registerTime?' · 登记'+fmt(p.registerTime):'')+(p.signed?' · ✅已签到':'')+(p.signTime?' · 签到'+fmt(p.signTime):'')+'</div></div><button class="btn btn-dng btn-sm" onclick="delParticipant(\''+p.id+'\')">✕</button></div>'}).join('')
+  l.innerHTML=list.map(function(p,i){return '<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(p.won?'opacity:.5':'')+'"><div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;background:'+colors[i%colors.length]+';flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+(p.name||'未知')+(p.team?' <span style="color:var(--pri-l);font-size:.8em">['+p.team+']</span>':'')+(p.won?' <span style="color:var(--gold);font-size:.8em">已中奖</span>':'')+'</div><div style="font-size:.8em;color:var(--sub)">'+(p.phone||'')+(p.operator?' · 👤'+p.operator:'')+(p.registerTime?' · 登记'+fmt(p.registerTime):'')+(p.signed?' · ✅已签到':'')+(p.signTime?' · 签到'+fmt(p.signTime):'')+(hasQuizResult(p.name,p.phone)?' · 🧠已答题':' · 🚫未答题')+'</div></div><button class="btn btn-dng btn-sm" onclick="delParticipant(\''+p.id+'\')">✕</button></div>'}).join('')
 }
 function delParticipant(id){S.participants=S.participants.filter(p=>p.id!==id);saveLocal();renderParticipants();broadcastConfig();toast('已删除')}
 function clearParticipants(){if(!S.participants.length){toast('暂无参与者');return}if(confirm('确定清空所有参与者？')){S.participants=[];saveLocal();renderParticipants();broadcastConfig();toast('已清空')}}
@@ -1624,12 +1755,13 @@ function copyAllLinks(){
 }
 
 // ========== 存储渲染 ==========
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[],lotteryRule:S.lotteryRule||{}}))}catch(e){}}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[],lotteryRule:S.lotteryRule||{}}))}catch(e){}}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
 function renderAll(){
   renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
-  document.getElementById('ltSignFailMsg').value=S.signFailMsg||'';document.getElementById('ltFlowInterval').value=S.flowInterval||0;
+  document.getElementById('ltSignFailMsg').value=S.signFailMsg||'';
+  var ltNqm=document.getElementById('ltSignFailNoQuizMsg');if(ltNqm)ltNqm.value=S.signFailNoQuizMsg||'';document.getElementById('ltFlowInterval').value=S.flowInterval||0;
   document.getElementById('scTitle').value=S.screen.title;document.getElementById('scTitleSize').value=S.screen.titleSize;document.getElementById('scTitleColor').value=S.screen.titleColor;document.getElementById('scBgUrl').value=S.screen.bgUrl||'';
   // 游戏设置
   var gc=S.gameConfig||{};
