@@ -229,7 +229,8 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 <script>
 let S={mqtt:null,topic:'',room:'',
   fields:[],prizes:[],signin:{enable:true},drawCount:1,signFailMsg:'签到失败！请检查您填写的姓名和手机号是否正确。',
-  voidedTickets:[],allParticipants:[],
+  signFailNoQuizMsg:'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',
+  voidedTickets:[],allParticipants:[],allQuizResults:[],
   signedIn:false,myName:'',myData:{},avatarData:'',
   danmakuSettings:{enable:true,anonymous:true},
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
@@ -282,7 +283,9 @@ function handleMsg(t,d){
   if(t.endsWith('config')){
     S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
     S.signFailMsg=d.signFailMsg||S.signFailMsg;
+    S.signFailNoQuizMsg=d.signFailNoQuizMsg||S.signFailNoQuizMsg;
     S.voidedTickets=d.voidedTickets||[];S.allParticipants=d.participants||[];
+    S.allQuizResults=d.quizResults||[];
     S.danmakuSettings=d.danmaku||{enable:true,anonymous:true};
     if(d.music)S.music=d.music;applyMusic();
     if(!S.signedIn)renderSignForm();
@@ -416,6 +419,22 @@ function doSignin(){
     });
     if(!matched){
       showFailModal(S.signFailMsg);
+      return;
+    }
+    // 校验是否已完成知识问答（姓名+手机号匹配答题记录）
+    if(S.allQuizResults&&S.allQuizResults.length){
+      var quizMatched=S.allQuizResults.find(function(qr){
+        var qrName=(qr.name||'').trim();
+        var qrPhone=qr.phone||'';
+        return qrName===sName&&qrPhone===sPhone;
+      });
+      if(!quizMatched){
+        showFailModal(S.signFailNoQuizMsg);
+        return;
+      }
+    }else{
+      // 无答题数据，提示需先答题
+      showFailModal(S.signFailNoQuizMsg);
       return;
     }
   }
