@@ -55,7 +55,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   <!-- 登记页 -->
   <div id="regPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
-      <div style="font-weight:bold;font-size:1.1em">📝 登记参与者 <span id="regUser" style="color:var(--gold);font-size:.85em"></span></div>
+      <div style="font-weight:bold;font-size:1.1em">📊 登记数据管理 <span id="regUser" style="color:var(--gold);font-size:.85em"></span></div>
       <div style="display:flex;gap:8px;align-items:center">
         <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="showStatsPage()">📊 统计</button>
@@ -69,24 +69,16 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div class="stat-item"><div class="stat-num" id="statTotal" style="color:var(--gold)">0</div><div class="stat-label">已登记</div></div>
       <div class="stat-item"><div class="stat-num" id="statSigned" style="color:var(--grn)">0</div><div class="stat-label">已签到</div></div>
       <div class="stat-item"><div class="stat-num" id="statQuiz" style="color:var(--pri-l)">0</div><div class="stat-label">已答题</div></div>
-      <div class="stat-item"><div class="stat-num" id="statMine" style="color:var(--gold)">0</div><div class="stat-label">我登记的</div></div>
+      <div class="stat-item"><div class="stat-num" id="statNoQuiz" style="color:var(--red)">0</div><div class="stat-label">未答题</div></div>
     </div>
 
-    <!-- 登记表单 -->
-    <div class="card" id="regCard">
-      <div style="font-weight:bold;margin-bottom:12px">➕ 新增登记</div>
-      <div id="regForm"></div>
-      <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em;margin-top:8px" onclick="submitRegister()">✅ 提交登记</button>
-      <button class="btn btn-out" style="width:100%;padding:10px;margin-top:8px" onclick="clearRegForm()">清空表单</button>
-    </div>
-
-    <!-- 最近登记 -->
-    <div class="card" id="recentCard">
+    <!-- 未答题人员列表 -->
+    <div class="card" id="noQuizCard">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-weight:bold">📋 最近登记</div>
-        <button class="btn btn-out" style="padding:4px 10px;font-size:.8em" onclick="exportMyRecords()">📥 导出</button>
+        <div style="font-weight:bold">🚫 未答题人员</div>
+        <button class="btn btn-out" style="padding:4px 10px;font-size:.8em" onclick="exportNoQuizList()">📥 导出</button>
       </div>
-      <div id="regList" style="max-height:300px;overflow-y:auto"></div>
+      <div id="noQuizList" style="max-height:200px;overflow-y:auto"></div>
     </div>
   </div>
 
@@ -115,8 +107,8 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
         <button class="btn btn-out" style="padding:4px 10px;font-size:.8em" onclick="exportAllStats()">📥 导出</button>
       </div>
       <div class="f-grp">
-        <label>按登记者筛选</label>
-        <select id="stFilterOp" onchange="renderStats()"><option value="">全部登记人</option></select>
+        <label>按来源筛选</label>
+        <select id="stFilterOp" onchange="renderStats()"><option value="">全部来源</option></select>
       </div>
       <!-- 状态筛选标签 -->
       <div class="tab-bar" style="margin-bottom:10px">
@@ -231,7 +223,6 @@ function handleMsg(t,d){
     // 存储答题详情
     S.allQuizResults=d.quizResults||[];
     updateStats();
-    if(S.currentUser)renderRegForm();
     if(!S.currentUser)tryAutoLogin();
   }
 }
@@ -255,17 +246,9 @@ function enterSystem(acc){
   document.getElementById('loginPage').style.display='none';
   document.getElementById('regPage').style.display='block';
   document.getElementById('regUser').textContent='('+acc.name+')';
-  const statsBtn=document.getElementById('statsBtn');
   const qrBtn=document.getElementById('qrBtn');
-  // 登记者和登记管理员都能看统计
-  if(statsBtn)statsBtn.style.display=canViewStats()?'inline-flex':'none';
   if(qrBtn)qrBtn.style.display=canQR()?'inline-flex':'none';
-  const regCard=document.getElementById('regCard');
-  const recentCard=document.getElementById('recentCard');
-  if(regCard)regCard.style.display=canReg()?'block':'none';
-  if(recentCard)recentCard.style.display=canReg()?'block':'none';
-  if(!canReg()&&canViewStats()){showStatsPage()}
-  else{renderRegForm();updateStats()}
+  updateStats();
   rememberLogin(acc);
 }
 function doLogin(){
@@ -290,7 +273,7 @@ function doLogout(){S.currentUser=null;try{localStorage.removeItem('cj_reg_'+S.r
 // ========== 页面切换 ==========
 function showStatsPage(){document.getElementById('regPage').style.display='none';document.getElementById('qrPage').style.display='none';document.getElementById('statsPage').style.display='block';updateStatsPage()}
 function showQRPage(){document.getElementById('regPage').style.display='none';document.getElementById('qrPage').style.display='block';generateQR()}
-function backToReg(){document.getElementById('qrPage').style.display='none';document.getElementById('statsPage').style.display='none';if(!canReg()&&canViewStats()){document.getElementById('statsPage').style.display='block'}else{document.getElementById('regPage').style.display='block'}}
+function backToReg(){document.getElementById('qrPage').style.display='none';document.getElementById('statsPage').style.display='none';document.getElementById('regPage').style.display='block';updateStats()}
 
 // ========== 登记表单 ==========
 function renderRegForm(){
@@ -376,36 +359,42 @@ function getQuizDetail(name,phone){
 function updateStats(){
   var total=S.allParticipants?S.allParticipants.length:0;
   var signed=S.allParticipants?S.allParticipants.filter(function(p){return p.signed}).length:0;
-  var mine=S.regList.length;
   var quizCount=0;
+  var noQuizCount=0;
   if(S.allParticipants&&S.allQuizResults){
     S.allParticipants.forEach(function(p){
       if(hasQuizResult(p.name,p.phone))quizCount++;
+      else noQuizCount++;
     });
+  }else{
+    noQuizCount=total;
   }
   document.getElementById('statTotal').textContent=total;
   document.getElementById('statSigned').textContent=signed;
   document.getElementById('statQuiz').textContent=quizCount;
-  document.getElementById('statMine').textContent=mine;
+  var nq=document.getElementById('statNoQuiz');if(nq)nq.textContent=noQuizCount;
+  // 渲染未答题人员列表
+  renderNoQuizListReg();
 }
 function updateStatsPage(){
-  // 登记者只看自己登记的数据，登记管理员/超管看全部
-  var allList=isStaff()?getMyParticipants():(S.allParticipants||[]);
+  // 所有用户都看全部数据
+  var allList=S.allParticipants||[];
   var total=allList.length;
   var signed=allList.filter(function(p){return p.signed}).length;
   var quizCount=allList.filter(function(p){return hasQuizResult(p.name,p.phone)}).length;
+  var noQuizCount=total-quizCount;
   document.getElementById('stTotal').textContent=total;
   document.getElementById('stSigned').textContent=signed;
   document.getElementById('stUnsigned').textContent=total-signed;
   document.getElementById('stQuiz').textContent=quizCount;
-  // 按登记者汇总（仅管理员/超管看全部汇总）
+  // 按来源汇总
   var byOp={};
   allList.forEach(function(p){var op=p.operator||'未知';if(!byOp[op])byOp[op]={total:0,signed:0,unsigned:0,quiz:0};byOp[op].total++;if(p.signed)byOp[op].signed++;else byOp[op].unsigned++;if(hasQuizResult(p.name,p.phone))byOp[op].quiz++});
   var sumEl=document.getElementById('stOpSummary');
   if(sumEl){
     var ops=Object.keys(byOp);
     if(!ops.length){sumEl.innerHTML='<div class="card" style="text-align:center;color:var(--sub);padding:20px;font-size:.9em">暂无数据</div>'}
-    else{sumEl.innerHTML='<div class="card"><div style="font-weight:bold;margin-bottom:10px;font-size:.95em">📋 按登记者汇总</div><div style="overflow-x:auto"><table style="width:100%;font-size:.85em;border-collapse:collapse"><thead><tr style="color:var(--sub);text-align:left;border-bottom:1px solid var(--bd)"><th style="padding:8px 4px">登记者</th><th style="text-align:center;padding:8px 4px">登记</th><th style="text-align:center;padding:8px 4px">签到</th><th style="text-align:center;padding:8px 4px">答题</th><th style="text-align:center;padding:8px 4px">未签</th></tr></thead><tbody>'+ops.map(function(op){var d=byOp[op];return '<tr style="border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer" onclick="filterByOp(\''+op.replace(/'/g,'\\\'')+'\')"><td style="padding:8px 4px;font-weight:bold">👤 '+op+'</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+d.total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+d.signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+d.quiz+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+d.unsigned+'</td></tr>'}).join('')+'<tr style="border-top:2px solid var(--bd);font-weight:bold"><td style="padding:8px 4px">合计</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+quizCount+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+(total-signed)+'</td></tr></tbody></table></div></div>'}
+    else{sumEl.innerHTML='<div class="card"><div style="font-weight:bold;margin-bottom:10px;font-size:.95em">📋 按来源汇总</div><div style="overflow-x:auto"><table style="width:100%;font-size:.85em;border-collapse:collapse"><thead><tr style="color:var(--sub);text-align:left;border-bottom:1px solid var(--bd)"><th style="padding:8px 4px">来源</th><th style="text-align:center;padding:8px 4px">登记</th><th style="text-align:center;padding:8px 4px">签到</th><th style="text-align:center;padding:8px 4px">答题</th><th style="text-align:center;padding:8px 4px">未签</th></tr></thead><tbody>'+ops.map(function(op){var d=byOp[op];return '<tr style="border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer" onclick="filterByOp(\''+op.replace(/'/g,'\\\'')+'\')"><td style="padding:8px 4px;font-weight:bold">👤 '+op+'</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+d.total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+d.signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+d.quiz+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+d.unsigned+'</td></tr>'}).join('')+'<tr style="border-top:2px solid var(--bd);font-weight:bold"><td style="padding:8px 4px">合计</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+quizCount+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+(total-signed)+'</td></tr></tbody></table></div></div>'}
   }
   // 筛选下拉
   var opsMap={};
@@ -413,7 +402,7 @@ function updateStatsPage(){
   var sel=document.getElementById('stFilterOp');
   var cur=sel.value;
   var opKeys=Object.keys(opsMap);
-  sel.innerHTML='<option value="">全部登记人</option>'+opKeys.map(function(op){return '<option value="'+op+'">'+op+'</option>'}).join('');
+  sel.innerHTML='<option value="">全部来源</option>'+opKeys.map(function(op){return '<option value="'+op+'">'+op+'</option>'}).join('');
   if(cur)sel.value=cur;
   renderStats();
 }
@@ -435,7 +424,7 @@ function setStatFilter(filter){
 function renderStats(){
   var sel=document.getElementById('stFilterOp');
   var filterOp=sel?sel.value:'';
-  var allList=isStaff()?getMyParticipants():(S.allParticipants||[]);
+  var allList=S.allParticipants||[];
   var list=allList.filter(function(p){
     if(filterOp&&(p.operator||'未知')!==filterOp)return false;
     var f=S._statFilter||'all';
@@ -464,8 +453,9 @@ function renderStats(){
         quizInfo=' · 答对'+qd.correctCount+'/'+qd.totalCount+' ('+acc+'%) · '+(qd.totalTimeMs/1000).toFixed(1)+'s';
       }
     }
+    var teamInfo=p.team?' · ['+p.team+']':'';
     var regTime=p.registerTime?fmt(p.registerTime):'';
-    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="showDetail(\''+((p.name||'').replace(/'/g,'\\\''))+'\',\''+((p.phone||'').replace(/'/g,'\\\''))+'\')"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((p.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+p.name+' '+st+' '+quizBadge+'</div><div style="font-size:.75em;color:var(--sub)">手机号:'+maskPhone(p.phone)+quizInfo+'</div><div style="font-size:.72em;color:var(--sub)">登记人:'+(p.operator||'未知')+' · '+regTime+'</div></div><div style="color:var(--sub);font-size:1.2em">›</div></div>';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px;cursor:pointer" onclick="showDetail(\''+((p.name||'').replace(/'/g,'\\\''))+'\',\''+((p.phone||'').replace(/'/g,'\\\''))+'\')"><div style="width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.8em;font-weight:bold">'+((p.name||'?')[0])+'</div><div style="flex:1;font-size:.9em"><div style="font-weight:bold">'+p.name+' '+st+' '+quizBadge+'</div><div style="font-size:.75em;color:var(--sub)">手机号:'+maskPhone(p.phone)+quizInfo+teamInfo+'</div><div style="font-size:.72em;color:var(--sub)">登记人:'+(p.operator||'未知')+' · '+regTime+'</div></div><div style="color:var(--sub);font-size:1.2em">›</div></div>';
   }).join('');
 }
 
@@ -482,6 +472,7 @@ function showDetail(name,phone){
   html+='<div style="color:var(--sub);line-height:1.8">';
   html+='<div>姓名：<b style="color:#fff">'+(name||'')+'</b></div>';
   html+='<div>手机号：<b style="color:#fff">'+maskPhone(phone)+'</b></div>';
+  if(p&&p.team)html+='<div>发展战队：<b style="color:#fff">'+p.team+'</b></div>';
   if(p&&p.operator)html+='<div>登记人：<b style="color:#fff">'+p.operator+'</b></div>';
   if(p&&p.registerTime)html+='<div>登记时间：<b style="color:#fff">'+fmt(p.registerTime)+'</b></div>';
   if(p){
@@ -520,6 +511,25 @@ function showDetail(name,phone){
 }
 function closeDetail(){document.getElementById('detailModal').style.display='none'}
 
+// ========== 未答题人员 ==========
+function renderNoQuizListReg(){
+  var el=document.getElementById('noQuizList');
+  if(!el)return;
+  var noQuiz=(S.allParticipants||[]).filter(function(p){return!hasQuizResult(p.name,p.phone)});
+  if(!noQuiz.length){el.innerHTML='<div style="color:var(--sub);text-align:center;padding:8px;font-size:.85em">全部已答题</div>';return}
+  el.innerHTML=noQuiz.map(function(p){
+    return '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--card2);border-radius:6px;margin-bottom:4px"><div style="width:24px;height:24px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:.75em;font-weight:bold;flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1;font-size:.85em"><span style="font-weight:bold">'+p.name+'</span> <span style="color:var(--sub);font-size:.8em">'+maskPhone(p.phone)+'</span>'+(p.team?' <span style="color:var(--pri-l);font-size:.78em">['+p.team+']</span>':'')+'</div></div>';
+  }).join('');
+}
+function exportNoQuizList(){
+  var noQuiz=(S.allParticipants||[]).filter(function(p){return!hasQuizResult(p.name,p.phone)});
+  if(!noQuiz.length){toast('全部已答题，无需导出');return}
+  var csv='\uFEFF序号,姓名,手机号,发展战队\n';
+  noQuiz.forEach(function(p,i){csv+=(i+1)+','+(p.name||'')+','+(p.phone||'')+','+(p.team||'')+'\n'});
+  var b=new Blob([csv],{type:'text/csv;charset=utf-8'});var l=document.createElement('a');l.href=URL.createObjectURL(b);l.download='未答题人员_'+Date.now()+'.csv';l.click();URL.revokeObjectURL(l.href);
+  toast('已导出 '+noQuiz.length+' 条');
+}
+
 // ========== 导出 ==========
 function exportMyRecords(){
   if(!S.regList.length){toast('暂无记录');return}
@@ -532,9 +542,9 @@ function exportMyRecords(){
   toast('已导出');
 }
 function exportAllStats(){
-  var allList=isStaff()?getMyParticipants():(S.allParticipants||[]);
+  var allList=S.allParticipants||[];
   if(!allList.length){toast('暂无数据');return}
-  var csv='\uFEFF序号,姓名,手机号,登记人,登记时间,签到状态,签到时间,是否答题,答对题数,总题数,正确率,答题用时(秒)\n';
+  var csv='\uFEFF序号,姓名,手机号,发展战队,登记人,登记时间,签到状态,签到时间,是否答题,答对题数,总题数,正确率,答题用时(秒)\n';
   allList.forEach(function(p,i){
     var qd=getQuizDetail(p.name,p.phone);
     var quizDone=qd?'是':'否';
@@ -542,7 +552,7 @@ function exportAllStats(){
     var total=qd?qd.totalCount:'';
     var acc=qd&&qd.totalCount>0?Math.round(qd.correctCount/qd.totalCount*100):'';
     var quizTime=qd?(qd.totalTimeMs/1000).toFixed(2):'';
-    csv+=(i+1)+','+(p.name||'')+','+(p.phone||'')+','+(p.operator||'')+','+(p.registerTime?fmt(p.registerTime):'')+','+(p.signed?'已签到':'未签到')+','+(p.signTime?fmt(p.signTime):'')+','+quizDone+','+correct+','+total+','+acc+','+quizTime+'\n';
+    csv+=(i+1)+','+(p.name||'')+','+(p.phone||'')+','+(p.team||'')+','+(p.operator||'')+','+(p.registerTime?fmt(p.registerTime):'')+','+(p.signed?'已签到':'未签到')+','+(p.signTime?fmt(p.signTime):'')+','+quizDone+','+correct+','+total+','+acc+','+quizTime+'\n';
   });
   var b=new Blob([csv],{type:'text/csv;charset=utf-8'});var l=document.createElement('a');l.href=URL.createObjectURL(b);l.download='登记统计_'+Date.now()+'.csv';l.click();URL.revokeObjectURL(l.href);
   toast('已导出 '+allList.length+' 条');
