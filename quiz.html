@@ -191,19 +191,6 @@ function submitReg(){
 
   const fullPhone=phonePre+'XXXX'+phoneSuf;
 
-  // 与登记/签到信息校验（姓名和手机号匹配）
-  if(S.allParticipants&&S.allParticipants.length){
-    const matched=S.allParticipants.find(function(p){
-      var pName=(p.name||'').trim();
-      var pPhone=p.phone||'';
-      return pName===name && pPhone===fullPhone;
-    });
-    if(!matched){
-      toast('校验失败：姓名和手机号与登记/签到信息不匹配');
-      return;
-    }
-  }
-
   S.quizUserInfo={name:name,gender:gender,phone:fullPhone,phonePre:phonePre,phoneSuf:phoneSuf};
 
   // 发送登记信息到后台
