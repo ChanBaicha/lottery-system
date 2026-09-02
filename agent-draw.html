@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>智能体抽奖</title>
+<title>天翼AI智能体 · 大屏抽奖</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Microsoft YaHei',sans-serif;background:#0a0e27;color:#fff;min-height:100vh;overflow-x:hidden}
@@ -20,6 +20,61 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
 .stat-item{flex:1;min-width:80px;text-align:center;padding:14px 8px;background:var(--card);border-radius:12px;border:1px solid var(--bd)}
 .stat-num{font-size:1.6em;font-weight:bold}
 .stat-label{font-size:.75em;color:var(--sub);margin-top:4px}
+
+/* ========== 大屏模式 ========== */
+body.bigscreen{background:linear-gradient(135deg,#0a0e27 0%,#1a1040 40%,#0d1a3a 70%,#0a0e27 100%);overflow-y:auto}
+body.bigscreen::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(108,92,231,.15),transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(253,121,168,.1),transparent 50%);pointer-events:none;z-index:0}
+body.bigscreen #app{position:relative;z-index:1;max-width:1400px;padding:20px 28px 40px}
+
+/* 大屏标题区 */
+.bs-header{text-align:center;padding:18px 0 14px;position:relative}
+.bs-title{font-size:3.2em;font-weight:900;letter-spacing:6px;background:linear-gradient(135deg,#fdcb6e 0%,#fd79a8 30%,#a29bfe 60%,#74b9ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-shadow:none;animation:titleGlow 3s ease-in-out infinite alternate;line-height:1.2}
+@keyframes titleGlow{from{filter:drop-shadow(0 0 6px rgba(253,203,110,.3))}to{filter:drop-shadow(0 0 18px rgba(253,203,110,.6))}}
+.bs-subtitle{font-size:1.05em;color:var(--sub);letter-spacing:4px;margin-top:4px}
+.bs-header-line{width:60%;max-width:500px;height:2px;margin:10px auto 0;background:linear-gradient(90deg,transparent,var(--pri),var(--gold),var(--pri),transparent)}
+
+/* 顶部工具栏 */
+.top-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+/* 全屏按钮 */
+.fs-btn{position:fixed;top:16px;right:16px;z-index:9000;width:46px;height:46px;border-radius:12px;background:rgba(22,27,60,.8);border:1px solid var(--bd);color:var(--sub);cursor:pointer;font-size:1.3em;display:flex;align-items:center;justify-content:center;transition:.2s;backdrop-filter:blur(8px)}
+.fs-btn:hover{background:var(--pri);color:#fff;border-color:var(--pri);transform:scale(1.05)}
+.fs-btn:active{transform:scale(.95)}
+
+/* 音乐控制栏 */
+.music-bar{position:fixed;bottom:16px;left:16px;z-index:9000;display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:24px;background:rgba(22,27,60,.85);border:1px solid var(--bd);backdrop-filter:blur(8px);font-size:.82em;color:var(--sub);transition:.2s;max-width:340px}
+.music-bar:hover{border-color:var(--pri)}
+.music-play-btn{width:34px;height:34px;border-radius:50%;background:var(--pri);color:#fff;cursor:pointer;font-size:1em;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s}
+.music-play-btn:hover{background:var(--pri-l);transform:scale(1.05)}
+.music-play-btn.playing{background:var(--grn)}
+.music-info{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.music-info .music-name{color:#fff;font-weight:bold;font-size:.88em}
+.music-info .music-status{font-size:.72em;color:var(--sub)}
+.music-vol{width:60px;height:4px;-webkit-appearance:none;appearance:none;background:var(--card2);border-radius:2px;cursor:pointer;flex-shrink:0}
+.music-vol::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;background:var(--gold);cursor:pointer}
+.music-more-btn{width:30px;height:30px;border-radius:8px;background:transparent;border:1px solid var(--bd);color:var(--sub);cursor:pointer;font-size:.9em;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s}
+.music-more-btn:hover{background:var(--card2);color:#fff}
+
+/* 音乐面板（展开） */
+.music-panel{position:fixed;bottom:62px;left:16px;z-index:9000;width:320px;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;backdrop-filter:blur(12px);display:none;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.music-panel.show{display:block;animation:slideUp .2s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.music-panel-title{font-size:.9em;font-weight:bold;color:#fff;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.music-preset-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.music-preset-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--card2);cursor:pointer;transition:.15s;font-size:.82em}
+.music-preset-item:hover{background:rgba(108,92,231,.3)}
+.music-preset-item.active{background:rgba(108,92,231,.3);border:1px solid var(--pri)}
+.music-preset-item .preset-icon{font-size:1.1em;flex-shrink:0}
+.music-preset-item .preset-name{flex:1;color:#fff}
+.music-preset-item .preset-tag{font-size:.68em;color:var(--sub);padding:2px 6px;border-radius:8px;background:rgba(255,255,255,.05)}
+.music-divider{height:1px;background:var(--bd);margin:10px 0}
+.music-upload-area{border:2px dashed var(--bd);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:.2s}
+.music-upload-area:hover{border-color:var(--pri);background:rgba(108,92,231,.05)}
+.music-upload-area .upload-icon{font-size:1.8em;margin-bottom:4px}
+.music-upload-area .upload-text{font-size:.78em;color:var(--sub)}
+.music-upload-area .upload-hint{font-size:.68em;color:var(--sub);margin-top:2px;opacity:.7}
+.music-current{font-size:.78em;color:var(--sub);margin-top:8px;padding:6px 10px;border-radius:8px;background:var(--card2);display:flex;align-items:center;gap:6px}
+.music-current .current-name{color:var(--gold);font-weight:bold;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* 智能体动画 */
 .agent-avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--pri),var(--acc));display:flex;align-items:center;justify-content:center;font-size:2em;flex-shrink:0;position:relative}
@@ -72,20 +127,75 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
 .rule-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
 .rule-row>div{flex:1;min-width:120px}
 
+/* 大屏模式统计放大 */
+body.bigscreen .stat-num{font-size:2.2em}
+body.bigscreen .stat-item{padding:18px 10px}
+body.bigscreen .stat-label{font-size:.85em}
+body.bigscreen .step-pill{padding:8px 18px;font-size:.88em}
+body.bigscreen .card{padding:24px}
+body.bigscreen .rule-config input,body.bigscreen .rule-config select{padding:12px 14px;font-size:1em}
+body.bigscreen .btn-gold{padding:16px;font-size:1.25em}
+body.bigscreen .log-stream{max-height:400px}
+body.bigscreen .log-item{font-size:.95em;padding:10px 14px}
+body.bigscreen .winner-name{font-size:2.5em}
+body.bigscreen .winner-avatar{width:90px;height:90px;font-size:2.5em}
+body.bigscreen .winner-detail{font-size:1em}
+body.bigscreen .digit-box{width:44px;height:44px;font-size:1.5em}
+body.bigscreen .candidate-chip{padding:10px 20px;font-size:.95em}
+
 /* 进度条 */
 .progress-track{height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:8px 0}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--pri),var(--gold));transition:width .5s ease;border-radius:3px}
 </style>
 </head>
-<body>
-<div id="app" style="max-width:900px;margin:0 auto;padding:16px;min-height:100vh">
-  <!-- 顶部 -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
+<body class="bigscreen">
+<!-- 全屏按钮 -->
+<button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="全屏/退出全屏">⛶</button>
+
+<!-- 音乐控制栏 -->
+<div class="music-bar" id="musicBar">
+  <div class="music-play-btn" id="musicPlayBtn" onclick="togglePlayMusic()">▶</div>
+  <div class="music-info">
+    <div class="music-name" id="musicName">未选择音乐</div>
+    <div class="music-status" id="musicStatus">点击右侧按钮选择</div>
+  </div>
+  <input type="range" class="music-vol" id="musicVol" min="0" max="100" value="40" oninput="setMusicVol(this.value)">
+  <button class="music-more-btn" id="musicMoreBtn" onclick="toggleMusicPanel()">🎵</button>
+</div>
+
+<!-- 音乐面板 -->
+<div class="music-panel" id="musicPanel">
+  <div class="music-panel-title">🎵 背景音乐</div>
+  <div class="music-preset-list" id="musicPresetList"></div>
+  <div class="music-divider"></div>
+  <div class="music-upload-area" onclick="document.getElementById('musicFileInput').click()">
+    <div class="upload-icon">📁</div>
+    <div class="upload-text">点击上传自定义音乐</div>
+    <div class="upload-hint">支持 MP3 / WAV / OGG 格式</div>
+  </div>
+  <input type="file" id="musicFileInput" accept="audio/*" style="display:none" onchange="uploadMusic(this)">
+  <div class="music-current" id="musicCurrent" style="display:none">
+    <span>🎶</span>
+    <span class="current-name" id="musicCurrentName"></span>
+    <span style="font-size:.72em;color:var(--grn)" id="musicCurrentTag"></span>
+  </div>
+</div>
+
+<div id="app" style="max-width:1400px;margin:0 auto;padding:20px 28px 80px;min-height:100vh">
+  <!-- 大屏标题 -->
+  <div class="bs-header">
+    <div class="bs-title">天翼AI智能体</div>
+    <div class="bs-subtitle">AI Smart Agent Lottery System</div>
+    <div class="bs-header-line"></div>
+  </div>
+
+  <!-- 顶部状态栏 -->
+  <div class="top-bar" style="margin-bottom:16px">
     <div style="display:flex;align-items:center;gap:12px">
-      <div class="agent-avatar" id="agentIcon">🤖</div>
+      <div class="agent-avatar" id="agentIcon" style="width:48px;height:48px;font-size:1.5em">🤖</div>
       <div>
-        <div style="font-weight:bold;font-size:1.3em">智能体抽奖引擎</div>
-        <div style="font-size:.8em;color:var(--sub)">AI Rule-Based Lottery System</div>
+        <div style="font-weight:bold;font-size:1.1em">智能体抽奖引擎</div>
+        <div style="font-size:.75em;color:var(--sub)">AI Rule-Based Lottery</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
@@ -568,6 +678,185 @@ function resetEngine(){
 
 // ========== 工具 ==========
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+
+// ========== 大屏统计放大 ==========
+function applyBigscreenStats(){
+  document.querySelectorAll('.stat-num').forEach(function(el){el.style.fontSize='2.2em'});
+  document.querySelectorAll('.stat-item').forEach(function(el){el.style.padding='18px 10px'});
+  document.querySelectorAll('.stat-label').forEach(function(el){el.style.fontSize='.85em'});
+}
+
+// ========== 全屏控制 ==========
+function toggleFullscreen(){
+  var el=document.documentElement;
+  if(!document.fullscreenElement&&!document.webkitFullscreenElement&&!document.mozFullScreenElement){
+    if(el.requestFullscreen)el.requestFullscreen();
+    else if(el.webkitRequestFullscreen)el.webkitRequestFullscreen();
+    else if(el.mozRequestFullScreen)el.mozRequestFullScreen();
+    else if(el.msRequestFullscreen)el.msRequestFullscreen();
+    document.getElementById('fsBtn').textContent='eita';
+    document.getElementById('fsBtn').style.fontSize='1.1em';
+  }else{
+    if(document.exitFullscreen)document.exitFullscreen();
+    else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
+    else if(document.mozCancelFullScreen)document.mozCancelFullScreen();
+    else if(document.msExitFullscreen)document.msExitFullscreen();
+    document.getElementById('fsBtn').textContent='ffa';
+  }
+}
+document.addEventListener('fullscreenchange',function(){
+  var btn=document.getElementById('fsBtn');
+  if(document.fullscreenElement){
+    btn.textContent='\u2716';btn.style.fontSize='1.1em';
+  }else{
+    btn.textContent='\u26F6';
+  }
+});
+document.addEventListener('webkitfullscreenchange',function(){
+  var btn=document.getElementById('fsBtn');
+  if(document.webkitFullscreenElement){
+    btn.textContent='\u2716';btn.style.fontSize='1.1em';
+  }else{
+    btn.textContent='\u26F6';
+  }
+});
+
+// ========== 音乐系统 ==========
+var MUSIC={
+  audio:null,
+  currentSrc:'',
+  currentName:'',
+  currentType:'',
+  isPlaying:false,
+  presets:[
+    {name:'科技感电子',url:'https://cdn.pixabay.com/download/audio/2022/03/15/audio_945ef41be1.mp3',icon:'🌐',tag:'推荐'},
+    {name:'史诗震撼',url:'https://cdn.pixabay.com/download/audio/2021/11/23/audio_64de79e8e8.mp3',icon:'⚔️',tag:'抽奖'},
+    {name:'轻松欢快',url:'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d68bb0b6e4.mp3',icon:'🎈',tag:'暖场'},
+    {name:'悬疑紧张',url:'https://cdn.pixabay.com/download/audio/2022/10/25/audio_easy-going-melody-105bpm-12232.mp3',icon:'⏳',tag:'等待'},
+    {name:'胜利庆祝',url:'https://cdn.pixabay.com/download/audio/2023/06/19/audio_57c70e0ebe.mp3',icon:'🏆',tag:'中奖'}
+  ]
+};
+function initMusic(){
+  MUSIC.audio=new Audio();
+  MUSIC.audio.loop=true;
+  MUSIC.audio.volume=0.4;
+  MUSIC.audio.addEventListener('play',function(){
+    MUSIC.isPlaying=true;
+    var btn=document.getElementById('musicPlayBtn');
+    btn.textContent='\u23F8';btn.classList.add('playing');
+    document.getElementById('musicStatus').textContent='正在播放';
+  });
+  MUSIC.audio.addEventListener('pause',function(){
+    MUSIC.isPlaying=false;
+    var btn=document.getElementById('musicPlayBtn');
+    btn.textContent='\u25B6';btn.classList.remove('playing');
+    document.getElementById('musicStatus').textContent='已暂停';
+  });
+  MUSIC.audio.addEventListener('error',function(){
+    MUSIC.isPlaying=false;
+    var btn=document.getElementById('musicPlayBtn');
+    btn.textContent='\u25B6';btn.classList.remove('playing');
+    document.getElementById('musicStatus').textContent='加载失败，请重试';
+  });
+  MUSIC.audio.addEventListener('waiting',function(){
+    document.getElementById('musicStatus').textContent='缓冲中...';
+  });
+  MUSIC.audio.addEventListener('canplay',function(){
+    if(MUSIC.isPlaying)document.getElementById('musicStatus').textContent='正在播放';
+  });
+  renderMusicPresets();
+}
+function renderMusicPresets(){
+  var box=document.getElementById('musicPresetList');
+  box.innerHTML=MUSIC.presets.map(function(p,i){
+    return '<div class="music-preset-item" data-idx="'+i+'" onclick="selectPresetMusic('+i+')">'+
+      '<span class="preset-icon">'+p.icon+'</span>'+
+      '<span class="preset-name">'+p.name+'</span>'+
+      '<span class="preset-tag">'+p.tag+'</span>'+
+    '</div>';
+  }).join('');
+}
+function selectPresetMusic(idx){
+  var p=MUSIC.presets[idx];
+  if(!p)return;
+  MUSIC.currentSrc=p.url;
+  MUSIC.currentName=p.name;
+  MUSIC.currentType='preset';
+  MUSIC.audio.src=p.url;
+  MUSIC.audio.play().catch(function(e){
+    toast('音乐加载中，请稍后重试');
+    document.getElementById('musicStatus').textContent='点击播放按钮重试';
+  });
+  document.getElementById('musicName').textContent=p.name;
+  document.querySelectorAll('.music-preset-item').forEach(function(el,i){
+    el.classList.toggle('active',i===idx);
+  });
+  showMusicCurrent(p.name,p.tag);
+}
+function togglePlayMusic(){
+  if(!MUSIC.audio)return;
+  if(!MUSIC.currentSrc){
+    selectPresetMusic(0);
+    return;
+  }
+  if(MUSIC.isPlaying){
+    MUSIC.audio.pause();
+  }else{
+    MUSIC.audio.play().catch(function(e){
+      toast('播放失败，请重新选择音乐');
+    });
+  }
+}
+function setMusicVol(v){
+  if(MUSIC.audio)MUSIC.audio.volume=v/100;
+}
+function toggleMusicPanel(){
+  var panel=document.getElementById('musicPanel');
+  panel.classList.toggle('show');
+}
+function uploadMusic(input){
+  var file=input.files[0];
+  if(!file)return;
+  if(file.size>10*1024*1024){
+    toast('文件过大，请选择10MB以内的音频文件');
+    input.value='';
+    return;
+  }
+  var url=URL.createObjectURL(file);
+  MUSIC.currentSrc=url;
+  MUSIC.currentName=file.name.replace(/\.[^.]+$/,'');
+  MUSIC.currentType='custom';
+  MUSIC.audio.src=url;
+  MUSIC.audio.play().catch(function(e){
+    toast('播放失败，请重试');
+  });
+  document.getElementById('musicName').textContent=MUSIC.currentName;
+  document.querySelectorAll('.music-preset-item').forEach(function(el){el.classList.remove('active')});
+  showMusicCurrent(MUSIC.currentName,'自定义');
+  toast('已加载: '+MUSIC.currentName);
+  input.value='';
+}
+function showMusicCurrent(name,tag){
+  var box=document.getElementById('musicCurrent');
+  document.getElementById('musicCurrentName').textContent=name;
+  document.getElementById('musicCurrentTag').textContent=tag;
+  box.style.display='flex';
+}
+// 点击页面其他区域关闭音乐面板
+document.addEventListener('click',function(e){
+  var panel=document.getElementById('musicPanel');
+  var bar=document.getElementById('musicBar');
+  if(panel.classList.contains('show')&&!panel.contains(e.target)&&!bar.contains(e.target)){
+    panel.classList.remove('show');
+  }
+});
+
+// ========== 初始化大屏 ==========
+window.addEventListener('DOMContentLoaded',function(){
+  initMusic();
+  applyBigscreenStats();
+});
+
 </script>
 </body>
 </html>
