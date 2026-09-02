@@ -34,6 +34,20 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
 .stat-num{font-size:1.6em;font-weight:bold}
 .stat-label{font-size:.75em;color:var(--sub);margin-top:4px}
 .round-badge{display:inline-block;padding:4px 14px;border-radius:20px;background:var(--pri);color:#fff;font-size:.85em;font-weight:bold}
+.round-badge.best{background:var(--gold);color:#333}
+.rule-tip{background:linear-gradient(135deg,rgba(108,92,231,.15),rgba(162,155,254,.1));border:1px solid rgba(108,92,231,.3);border-radius:12px;padding:14px 16px;margin-bottom:14px;font-size:.82em;line-height:1.7;color:var(--pri-l)}
+.rule-tip b{color:var(--gold)}
+.round-history{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.round-pill{padding:6px 14px;border-radius:20px;background:var(--card2);border:1px solid var(--bd);font-size:.8em;cursor:default;transition:.2s}
+.round-pill.best{border-color:var(--gold);background:rgba(253,203,110,.15);color:var(--gold);font-weight:bold}
+.round-pill.current{border-color:var(--pri);background:rgba(108,92,231,.2);color:var(--pri-l)}
+.data-breakdown{background:var(--card2);border-radius:12px;padding:16px;margin-top:14px;border:1px solid rgba(253,203,110,.2)}
+.data-breakdown-title{font-size:.85em;font-weight:bold;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.data-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03);font-size:.8em}
+.data-row:last-child{border-bottom:none}
+.data-row .label{color:var(--sub)}
+.data-row .value{color:#fff;font-weight:bold;font-family:monospace}
+.best-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:12px;background:var(--gold);color:#333;font-size:.75em;font-weight:bold;margin-left:8px}
 </style>
 </head>
 <body>
@@ -45,6 +59,9 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
       <div style="display:flex;gap:8px;align-items:center">
         <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
       </div>
+    </div>
+    <div class="rule-tip">
+      📌 <b>答题规则：</b>每人最多可参与 <b>3次</b> 知识问答，系统将自动取 <b>3次中最好的一次成绩</b> 作为最终结果。请认真作答，争取最佳成绩！
     </div>
     <div class="card">
       <div style="font-weight:bold;margin-bottom:12px">请填写以下信息参与知识问答</div>
@@ -59,7 +76,7 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
 
   <!-- 答题页 -->
   <div id="quizPage" style="display:none;padding:16px;max-width:600px;margin:0 auto;min-height:100vh">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:10px">
         <span class="round-badge" id="roundBadge">第1轮</span>
         <span style="font-size:.85em;color:var(--sub)" id="roundInfo"></span>
@@ -69,6 +86,10 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
         <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="backToReg()">← 返回</button>
       </div>
     </div>
+    <div class="rule-tip" style="margin-bottom:12px;padding:10px 14px">
+      💡 当前第 <b id="tipRound">1</b> 轮答题（共 <b>3</b> 轮机会），系统取 <b>最好成绩</b> 为最终结果
+    </div>
+    <div id="roundHistoryBox" style="display:none;margin-bottom:12px"></div>
     <div class="progress-bar"><div class="progress-fill" id="progBar" style="width:0%"></div></div>
     <div class="card" id="questionCard">
       <div style="font-size:.85em;color:var(--sub);margin-bottom:8px" id="qIndex">第 1 题</div>
@@ -85,18 +106,32 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
       <div style="font-size:3em;margin-bottom:8px">🎉</div>
       <h1 style="font-size:1.5em;margin-bottom:8px">答题完成！</h1>
     </div>
-    <div class="stat-box">
-      <div class="stat-item"><div class="stat-num" id="rCorrect" style="color:var(--grn)">0</div><div class="stat-label">答对题数</div></div>
-      <div class="stat-item"><div class="stat-num" id="rTotal" style="color:var(--gold)">0</div><div class="stat-label">总题数</div></div>
-      <div class="stat-item"><div class="stat-num" id="rAccuracy" style="color:var(--pri-l)">0%</div><div class="stat-label">正确率</div></div>
-      <div class="stat-item"><div class="stat-num" id="rTotalTime" style="color:var(--acc)">0.00s</div><div class="stat-label">总用时</div></div>
+    <div class="rule-tip" style="text-align:center">
+      📌 本轮成绩已提交！您共参与 <b id="rRoundsDone">1</b> 次答题，系统取 <b>最好成绩</b> 作为最终结果
+    </div>
+    <div id="bestResultBox" style="margin-bottom:14px">
+      <div class="stat-box">
+        <div class="stat-item"><div class="stat-num" id="rCorrect" style="color:var(--grn)">0</div><div class="stat-label">答对题数</div></div>
+        <div class="stat-item"><div class="stat-num" id="rTotal" style="color:var(--gold)">0</div><div class="stat-label">总题数</div></div>
+        <div class="stat-item"><div class="stat-num" id="rAccuracy" style="color:var(--pri-l)">0%</div><div class="stat-label">正确率</div></div>
+        <div class="stat-item"><div class="stat-num" id="rTotalTime" style="color:var(--acc)">0.00s</div><div class="stat-label">总用时</div></div>
+      </div>
+    </div>
+    <!-- 各轮次对比 -->
+    <div class="card" id="roundCompareCard" style="display:none">
+      <div style="font-weight:bold;margin-bottom:12px">📊 各轮次成绩对比</div>
+      <div id="roundCompareList"></div>
     </div>
     <div class="card">
-      <div style="font-weight:bold;margin-bottom:12px">📋 答题明细</div>
+      <div style="font-weight:bold;margin-bottom:12px">📋 答题明细（最佳轮次）</div>
       <div id="detailList" style="max-height:400px;overflow-y:auto"></div>
     </div>
+    <div id="dataBreakdownBox" class="data-breakdown" style="display:none">
+      <div class="data-breakdown-title">🔍 您的数字拆解数据（已提交至抽奖系统）</div>
+      <div id="dataBreakdownList"></div>
+    </div>
     <div style="display:flex;gap:10px;margin-top:14px">
-      <button class="btn btn-pri" style="flex:1;padding:14px;font-size:1em" id="againBtn" onclick="startQuiz()" style="display:none">🔄 再来一轮</button>
+      <button class="btn btn-pri" style="flex:1;padding:14px;font-size:1em" id="againBtn" onclick="startNextRound()">🔄 再来一轮</button>
       <button class="btn btn-out" style="flex:1;padding:14px;font-size:1em" onclick="backToReg()">← 返回登记</button>
     </div>
   </div>
@@ -111,16 +146,45 @@ let S={
   quizConfig:null,quizFields:[],
   allParticipants:[],
   // 答题状态
-  questions:[],currentQ:0,currentRound:1,totalRounds:1,
+  questions:[],currentQ:0,currentRound:1,maxRounds:3,
   answers:[],allRoundResults:[],
   quizUserInfo:null,
   qStartTime:0,totalStartTime:0,
   _retryTimer:null
 };
+const MAX_ROUNDS=3;
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
 function fmtTime(ms){return(ms/1000).toFixed(2)}
 function maskPhone(p){if(!p)return'';return p.substr(0,3)+'XXXX'+p.substr(-4)}
+
+// ========== 数字拆解 ==========
+function extractDigits(str){
+  if(!str)return[];
+  return String(str).replace(/\D/g,'').split('').map(function(d){return parseInt(d)});
+}
+function digitSum(str){
+  return extractDigits(str).reduce(function(a,b){return a+b},0);
+}
+function buildDataBreakdown(name,phone,ticket){
+  var phoneDigits=extractDigits(phone);
+  var ticketDigits=extractDigits(ticket||'');
+  var nameDigits=extractDigits(name);
+  var allDigits=phoneDigits.concat(ticketDigits);
+  var totalSum=allDigits.reduce(function(a,b){return a+b},0);
+  return {
+    name:name,
+    phone:phone,
+    phoneDigits:phoneDigits,
+    phoneSum:phoneDigits.reduce(function(a,b){return a+b},0),
+    ticketDigits:ticketDigits,
+    ticketSum:ticketDigits.reduce(function(a,b){return a+b},0),
+    allDigits:allDigits,
+    totalSum:totalSum,
+    isLucky:(totalSum===5),
+    timestamp:Date.now()
+  };
+}
 
 // ========== 初始化 ==========
 (function init(){
@@ -173,6 +237,9 @@ function backToReg(){
   document.getElementById('resultPage').style.display='none';
   document.getElementById('regPage').style.display='block';
   S.currentRound=1;S.allRoundResults=[];
+  // 恢复登记页的规则提示
+  var tipRound=document.getElementById('tipRound');
+  if(tipRound)tipRound.textContent='1';
 }
 
 // ========== 登记提交 ==========
@@ -206,8 +273,8 @@ function submitReg(){
     return;
   }
 
-  S.totalRounds=S.quizConfig.rounds||1;
   S.currentRound=1;
+  S.allRoundResults=[];
   startQuiz();
 }
 
@@ -223,7 +290,6 @@ function startQuiz(){
   S.questions=shuffled.slice(0,count);
   S.currentQ=0;
   S.answers=[];
-  S.currentRound=S.currentRound||1;
   S.qStartTime=Date.now();
   S.totalStartTime=Date.now();
 
@@ -231,10 +297,40 @@ function startQuiz(){
   document.getElementById('resultPage').style.display='none';
   document.getElementById('quizPage').style.display='block';
   document.getElementById('roundBadge').textContent='第'+S.currentRound+'轮';
-  document.getElementById('roundInfo').textContent='共'+S.totalRounds+'轮';
+  document.getElementById('roundInfo').textContent='共'+MAX_ROUNDS+'轮机会';
+  document.getElementById('tipRound').textContent=S.currentRound;
+
+  // 渲染历史轮次
+  renderRoundHistory();
 
   renderQuestion();
   startTimer();
+}
+
+function renderRoundHistory(){
+  var box=document.getElementById('roundHistoryBox');
+  if(!S.allRoundResults.length){box.style.display='none';return}
+  box.style.display='block';
+  var html='<div style="font-size:.78em;color:var(--sub);margin-bottom:6px">已完成轮次：</div><div class="round-history">';
+  S.allRoundResults.forEach(function(r){
+    var isBest=isBestRound(r);
+    html+='<div class="round-pill'+(isBest?' best':'')+'">第'+r.round+'轮: '+r.correctCount+'/'+r.totalCount+' ('+r.accuracy+'%)'+(isBest?' ⭐':'')+'</div>';
+  });
+  html+='<div class="round-pill current">第'+S.currentRound+'轮（进行中）</div>';
+  html+='</div>';
+  box.innerHTML=html;
+}
+
+function isBestRound(r){
+  if(!S.allRoundResults.length)return false;
+  var best=S.allRoundResults[0];
+  for(var i=1;i<S.allRoundResults.length;i++){
+    var cur=S.allRoundResults[i];
+    if(cur.correctCount>best.correctCount||(cur.correctCount===best.correctCount&&cur.totalTimeMs<best.totalTimeMs)){
+      best=cur;
+    }
+  }
+  return r.round===best.round;
 }
 
 var _timerInterval=null;
@@ -342,7 +438,13 @@ function finishRound(){
 
   S.allRoundResults.push(roundResult);
 
-  // 发送结果到后台
+  // 找最佳轮次
+  var bestRound=getBestRound();
+
+  // 即时构建数字拆解数据
+  var breakdown=buildDataBreakdown(S.quizUserInfo.name,S.quizUserInfo.phone,'');
+
+  // 发送结果到后台（包含拆解数据和最佳成绩）
   S.mqtt.publish(S.topic+'quiz_result',JSON.stringify({
     type:'quiz_result',
     user:S.quizUserInfo,
@@ -351,33 +453,69 @@ function finishRound(){
     correctCount:correctCount,
     totalCount:S.questions.length,
     totalTimeMs:totalTime,
-    time:Date.now()
+    time:Date.now(),
+    // 新增：本轮成绩和最佳成绩信息
+    roundResult:roundResult,
+    bestRound:bestRound,
+    allRoundCount:S.allRoundResults.length,
+    bestCorrectCount:bestRound.correctCount,
+    bestAccuracy:bestRound.accuracy,
+    bestTotalTimeMs:bestRound.totalTimeMs,
+    // 新增：数字拆解数据
+    dataBreakdown:breakdown
   }));
 
   showResults();
+}
+
+function getBestRound(){
+  if(!S.allRoundResults.length)return null;
+  var best=S.allRoundResults[0];
+  for(var i=1;i<S.allRoundResults.length;i++){
+    var cur=S.allRoundResults[i];
+    // 优先比正确数，其次比用时
+    if(cur.correctCount>best.correctCount||(cur.correctCount===best.correctCount&&cur.totalTimeMs<best.totalTimeMs)){
+      best=cur;
+    }
+  }
+  return best;
 }
 
 function showResults(){
   document.getElementById('quizPage').style.display='none';
   document.getElementById('resultPage').style.display='block';
 
-  // 汇总所有轮次
-  var allAnswers=[];
-  var totalCorrect=0,totalCount=0,totalTimeMs=0;
-  S.allRoundResults.forEach(function(r){
-    allAnswers=allAnswers.concat(r.answers);
-    totalCorrect+=r.correctCount;
-    totalCount+=r.totalCount;
-    totalTimeMs+=r.totalTimeMs;
-  });
+  var best=getBestRound();
 
-  document.getElementById('rCorrect').textContent=totalCorrect;
-  document.getElementById('rTotal').textContent=totalCount;
-  document.getElementById('rAccuracy').textContent=totalCount>0?(totalCorrect/totalCount*100).toFixed(0)+'%':'0%';
-  document.getElementById('rTotalTime').textContent=fmtTime(totalTimeMs)+'s';
+  // 显示最佳成绩
+  document.getElementById('rCorrect').textContent=best.correctCount;
+  document.getElementById('rTotal').textContent=best.totalCount;
+  document.getElementById('rAccuracy').textContent=best.totalCount>0?(best.correctCount/best.totalCount*100).toFixed(0)+'%':'0%';
+  document.getElementById('rTotalTime').textContent=fmtTime(best.totalTimeMs)+'s';
+  document.getElementById('rRoundsDone').textContent=S.allRoundResults.length;
 
-  // 渲染明细
-  var html=allAnswers.map(function(a,i){
+  // 各轮次对比
+  var compareCard=document.getElementById('roundCompareCard');
+  var compareList=document.getElementById('roundCompareList');
+  if(S.allRoundResults.length>1){
+    compareCard.style.display='block';
+    var html=S.allRoundResults.map(function(r){
+      var isBest=r.round===best.round;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card2);border-radius:8px;margin-bottom:6px;'+(isBest?'border:1px solid var(--gold)':'')+'">'+
+        '<div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:.85em;flex-shrink:0;'+(isBest?'background:var(--gold);color:#333':'background:var(--pri);color:#fff')+'">'+r.round+'</div>'+
+        '<div style="flex:1;font-size:.9em">'+
+          '<div style="font-weight:bold'+(isBest?';color:var(--gold)':'')+'">第'+r.round+'轮'+(isBest?' ⭐ 最佳':'')+'</div>'+
+          '<div style="font-size:.8em;color:var(--sub)">答对 '+r.correctCount+'/'+r.totalCount+' · 正确率 '+r.accuracy+'% · 用时 '+r.totalTimeStr+'s</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    compareList.innerHTML=html;
+  }else{
+    compareCard.style.display='none';
+  }
+
+  // 渲染最佳轮次明细
+  var html=best.answers.map(function(a,i){
     var icon=a.correct?'✅':'❌';
     var color=a.correct?'var(--grn)':'var(--red)';
     return '<div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--card2);border-radius:8px;margin-bottom:6px">'+
@@ -392,25 +530,39 @@ function showResults(){
   }).join('');
   document.getElementById('detailList').innerHTML=html;
 
-  // 是否可再玩
-  if(S.currentRound<S.totalRounds){
-    var againBtn=document.getElementById('againBtn');
+  // 显示数字拆解数据
+  var breakdown=buildDataBreakdown(S.quizUserInfo.name,S.quizUserInfo.phone,'');
+  var bdBox=document.getElementById('dataBreakdownBox');
+  var bdList=document.getElementById('dataBreakdownList');
+  bdBox.style.display='block';
+  var bdHtml='';
+  bdHtml+='<div class="data-row"><span class="label">手机号</span><span class="value">'+maskPhone(breakdown.phone)+'</span></div>';
+  bdHtml+='<div class="data-row"><span class="label">手机号数字拆解</span><span class="value">['+breakdown.phoneDigits.join(', ')+']</span></div>';
+  bdHtml+='<div class="data-row"><span class="label">手机号数字之和</span><span class="value" style="color:var(--gold)">'+breakdown.phoneSum+'</span></div>';
+  bdHtml+='<div class="data-row"><span class="label">全部数字之和</span><span class="value" style="color:'+(breakdown.totalSum===5?'var(--grn)':'var(--acc)')+';font-size:1.1em">'+breakdown.totalSum+(breakdown.totalSum===5?' 🎯 命中抽奖规则!':'')+'</span></div>';
+  bdList.innerHTML=bdHtml;
+
+  // 按钮状态
+  var againBtn=document.getElementById('againBtn');
+  if(S.currentRound<MAX_ROUNDS){
     againBtn.style.display='block';
-    againBtn.textContent='🔄 再来一轮（'+(S.currentRound+1)+'/'+S.totalRounds+'）';
-    againBtn.onclick=function(){
-      S.currentRound++;
-      startQuiz();
-    };
+    againBtn.textContent='🔄 再来一轮（'+(S.currentRound+1)+'/'+MAX_ROUNDS+'）';
+    againBtn.style.background='var(--pri)';
+    againBtn.style.color='#fff';
   }else{
-    var againBtn=document.getElementById('againBtn');
     againBtn.style.display='block';
-    againBtn.textContent='🔄 重新开始';
-    againBtn.onclick=function(){
-      S.currentRound=1;
-      S.allRoundResults=[];
-      startQuiz();
-    };
+    againBtn.textContent='✅ 已完成全部3轮答题';
+    againBtn.style.background='var(--grn)';
+    againBtn.style.color='#fff';
+    againBtn.style.pointerEvents='none';
+    againBtn.style.opacity='0.7';
   }
+}
+
+function startNextRound(){
+  if(S.currentRound>=MAX_ROUNDS)return;
+  S.currentRound++;
+  startQuiz();
 }
 </script>
 </body>
