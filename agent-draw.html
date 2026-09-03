@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -360,115 +360,108 @@ function pinyinFirst(name){
 // ========== 现场前X大姓（常用版）==========
 var TOP_SURNAMES_LIST=['王','张','李','刘','陈','杨','黄','赵','周','吴','徐','孙','马','朱','胡','郭','何','高','林','罗','郑','梁','宋','谢','唐','许','韩','冯','邓','曹','彭','曾','汪','董','袁','潘','蒋','蔡','戴','夏','钟','汪','田','方','任','卢','姚','谭','廖','范','白','邹','邱','秦','侯','龙','盛','段','雷','汤','章','鲁','薛','叶','阎','余','丁','沈','蔡','魏','贾','路','姜','崔','牛','卫','傅','安','乔','于','单','管','石','米','柏','水','窦','章','云','苏','潘','葛','奚','范','彭','郎','鲁','韦','昌','马','苗','凤','花','方','俞','任','袁','柳','鲍','史','唐','费','廉','岑','薛','雷','贺','倪','汤','滕','殷','罗','毕','郝','邬','安','常','乐','于','时','傅','皮','卞','齐','康','伍','余','元','卜','顾','孟','平','黄','和','穆','萧','尹','姚','邵','湛','汪','祁','毛','禹','狄','米','贝','明','臧','计','伏','成','戴','谈','宋','茅','庞','纪','舒','董','梁','杜','阮','蓝','闵','席','季','麻','强','贾','路','娄','危','江','童','颜','郭','梅','盛','林','刁','钟','徐','邱','骆','高','夏','蔡','田','樊','胡','凌','霍','虞','万','支','柯','昝','管','卢','莫','经','房','裘','缪','干','解','应','宗','丁','宣','贲','邓','郁','单','杭','洪','包','诸','左','石','崔','吉','钮','龚','程','嵇','邢','滑','裴','陆','荣','翁','荀','羊','於','惠','甄','曲','家','封','芮','羿','储','靳','汲','邴','糜','松','井','段','富','巫','乌','焦','巴','弓','牧','隗','山','谷','车','侯','宓','蓬','全','郗','班','仰','秋','仲','伊','宫','宁','仇','栾','暴','甘','钭','厉','戎','祖','武','符','刘','景','詹','束','龙','叶','幸','司','韶','郜','黎','蓟','薄','印','宿','白','怀','蒲','邰','从','鄂','索','咸','籍','赖','卓','蔺','屠','蒙','池','乔','阴','胥','能','苍','双','闻','莘','党','翟','谭','贡','劳','逄','姬','申','扶','堵','冉','宰','郦','雍','却','桑','桂','濮','牛','寿','通','边','扈','燕','冀','浦','尚','农','温','别','庄','晏','柴','瞿','阎','充','慕','连','茹','习','宦','艾','鱼','容','向','古','易','慎','戈','廖','庾','终','暨','居','衡','步','都','耿','满','弘','匡','国','文','寇','广','禄','阙','东','欧','殳','沃','利','蔚','越','夔','隆','师','巩','厍','聂','晁','勾','敖','融','冷','訾','辛','阚','那','简','饶','空','曾','毋','沙'];
 
-// ========== 天选规则定义（32条）==========
+// ========== 天选规则定义（28条）==========
 var RULES=[
-  // 宽泛
-  {id:1,name:'号码第X位为偶数',cat:'宽泛',pType:'number',pLabel:'X（第几位）',fields:['phone'],
-   test:function(d,p){var ph=d.phone||'';var i=ph.length-parseInt(p);if(i<0||i>=ph.length)return false;return parseInt(ph[i])%2===0},
-   desc:function(p){return'号码倒数第'+p+'位为偶数'}},
-  {id:2,name:'号码第X位为奇数',cat:'宽泛',pType:'number',pLabel:'X（第几位）',fields:['phone'],
-   test:function(d,p){var ph=d.phone||'';var i=ph.length-parseInt(p);if(i<0||i>=ph.length)return false;return parseInt(ph[i])%2!==0},
-   desc:function(p){return'号码倒数第'+p+'位为奇数'}},
-  {id:3,name:'姓名笔画数为偶数',cat:'宽泛',pType:'none',pLabel:'',fields:['name'],
-   test:function(d){return d.stroke%2===0},
-   desc:function(){return'姓名笔画数为偶数'}},
-  {id:4,name:'号码后四位数字之和为偶数',cat:'宽泛',pType:'none',pLabel:'',fields:['phone'],
-   test:function(d){return d.last4Sum%2===0},
-   desc:function(){return'号码后四位之和为偶数'}},
-  {id:5,name:'号码中含有数字X',cat:'宽泛',pType:'number',pLabel:'X（数字0-9）',fields:['phone'],
-   test:function(d,p){return(d.phone||'').indexOf(p)>=0},
-   desc:function(p){return'号码中含有数字'+p}},
-  {id:6,name:'姓名拼音首字母在A至X之间',cat:'宽泛',pType:'text',pLabel:'X（首字母上限）',fields:['name'],
-   test:function(d,p){var pl=(p||'').toUpperCase();return d.pinyinFirst>='A'&&d.pinyinFirst<=pl},
-   desc:function(p){return'拼音首字母在A至'+p+'之间'}},
-  // 较宽泛
-  {id:7,name:'号码尾号为X/Y/Z之一',cat:'较宽泛',pType:'text',pLabel:'X;Y;Z（分号或逗号分隔）',fields:['phone'],
-   test:function(d,p){var ph=d.phone||'';if(!ph.length)return false;var last=ph[ph.length-1];var opts=(p||'').split(/[;,\s、]/).map(function(s){return s.trim()});return opts.indexOf(last)>=0},
-   desc:function(p){return'号码尾号为'+p+'之一'}},
-  {id:8,name:'姓名笔画数≥X画',cat:'较宽泛',pType:'number',pLabel:'X（笔画数）',fields:['name'],
-   test:function(d,p){return d.stroke>=parseInt(p)},
-   desc:function(p){return'姓名笔画数≥'+p+'画'}},
-  {id:9,name:'号码后四位数字之和≥X',cat:'较宽泛',pType:'number',pLabel:'X（和值）',fields:['phone'],
-   test:function(d,p){return d.last4Sum>=parseInt(p)},
-   desc:function(p){return'号码后四位之和≥'+p}},
-  {id:10,name:'号码后四位含相邻连号',cat:'较宽泛',pType:'none',pLabel:'',fields:['phone'],
-   test:function(d){var s=d.last4Str;if(!s)return false;for(var i=0;i<s.length-1;i++){if(parseInt(s[i+1])-parseInt(s[i])===1)return true}return false},
-   desc:function(){return'号码后四位含相邻连号'}},
-  {id:11,name:'姓氏属现场前X大姓',cat:'较宽泛',pType:'number',pLabel:'X（排名）',fields:['name'],
-   test:function(d,p){var sn=d.name?d.name[0]:'';var n=parseInt(p);var list=TOP_SURNAMES_LIST.slice(0,n);return list.indexOf(sn)>=0},
-   desc:function(p){return'姓氏属现场前'+p+'大姓'}},
-  {id:12,name:'号码后四位中含数字X',cat:'较宽泛',pType:'number',pLabel:'X（数字0-9）',fields:['phone'],
-   test:function(d,p){return d.last4Str.indexOf(p)>=0},
-   desc:function(p){return'号码后四位含数字'+p}},
-  {id:13,name:'号码前三位为现场前X号段',cat:'较宽泛',pType:'number',pLabel:'X（排名）',fields:['phone'],
-   test:function(d,p){var pre=(d.phone||'').substr(0,3);if(!pre)return false;var n=parseInt(p);var seen={};var allPre=S.eligiblePool.map(function(e){return(e.phone||'').substr(0,3)}).filter(function(s){return s.length===3});allPre.forEach(function(s){seen[s]=(seen[s]||0)+1});var sorted=Object.keys(seen).sort(function(a,b){return seen[b]-seen[a]});var top=sorted.slice(0,n);return top.indexOf(pre)>=0},
-   desc:function(p){return'号段属现场前'+p+'号段'}},
-  // 较精准
-  {id:14,name:'号码第X位与第X+1位相同',cat:'较精准',pType:'number',pLabel:'X（第几位）',fields:['phone'],
-   test:function(d,p){var ph=d.phone||'';var i=ph.length-parseInt(p);if(i<0||i+1>=ph.length)return false;return ph[i]===ph[i+1]},
-   desc:function(p){return'号码倒数第'+p+'位与第'+(parseInt(p)+1)+'位相同'}},
-  {id:15,name:'姓名笔画数=号码后四位之和',cat:'较精准',pType:'none',pLabel:'',fields:['name','phone'],
-   test:function(d){return d.stroke===d.last4Sum},
-   desc:function(){return'姓名笔画数=号码后四位之和'}},
-  {id:16,name:'号码后四位含X连号',cat:'较精准',pType:'number',pLabel:'X（连号长度）',fields:['phone'],
-   test:function(d,p){var n=parseInt(p);var s=d.last4Str;if(!s||s.length<n)return false;for(var i=0;i<=s.length-n;i++){var ok=true;for(var j=0;j<n-1;j++){if(parseInt(s[i+j+1])-parseInt(s[i+j])!==1){ok=false;break}}if(ok)return true}return false},
-   desc:function(p){return'号码后四位含'+p+'连号'}},
-  {id:17,name:'号码后四位含三连号',cat:'较精准',pType:'none',pLabel:'',fields:['phone'],
-   test:function(d){var s=d.last4Str;if(!s||s.length<3)return false;for(var i=0;i<=s.length-3;i++){if(parseInt(s[i+1])-parseInt(s[i])===1&&parseInt(s[i+2])-parseInt(s[i+1])===1)return true}return false},
-   desc:function(){return'号码后四位含三连号'}},
-  {id:18,name:'姓名两个字笔画数相同',cat:'较精准',pType:'none',pLabel:'',fields:['name'],
-   test:function(d){if(!d.name||d.name.length<2)return false;var s1=SC[d.name[0]]||0;var s2=SC[d.name[1]]||0;return s1>0&&s1===s2},
-   desc:function(){return'姓名两字笔画数相同'}},
-  {id:19,name:'姓名笔画数为全场之最',cat:'较精准',pType:'none',pLabel:'',fields:['name'],
-   test:function(d){if(!S.eligiblePool.length)return false;var max=0;S.eligiblePool.forEach(function(e){if(e.stroke>max)max=e.stroke});return d.stroke===max&&d.stroke>0},
-   desc:function(){return'姓名笔画数为全场之最'}},
-  {id:20,name:'号码后四位全由偶/奇数组成',cat:'较精准',pType:'select',pLabel:'',pOptions:['全偶','全奇'],fields:['phone'],
-   test:function(d,p){var s=d.last4Str;if(!s||s.length<4)return false;if(p==='全偶'){return s.split('').every(function(c){return parseInt(c)%2===0})}else{return s.split('').every(function(c){return parseInt(c)%2!==0})}},
-   desc:function(p){return'号码后四位全'+p+'数组成'}},
-  // 精准
-  {id:21,name:'号码后四位之和=答题得分',cat:'精准',pType:'none',pLabel:'',fields:['phone','quiz'],
-   test:function(d){return d.last4Sum>0&&d.last4Sum===d.quizScore},
-   desc:function(){return'号码后四位之和=答题得分'}},
-  {id:22,name:'答题秒数后2位=答题得分',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
-   test:function(d){return d.timeLast2===d.quizScore},
-   desc:function(){return'答题秒数后2位=答题得分'}},
-  {id:23,name:'答题秒数后2位为偶数',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
-   test:function(d){return d.timeLast2%2===0},
-   desc:function(){return'答题秒数后2位为偶数'}},
-  {id:24,name:'答题得分≥X分',cat:'精准',pType:'number',pLabel:'X（分数）',fields:['quiz'],
-   test:function(d,p){return d.quizScore>=parseInt(p)},
-   desc:function(p){return'答题得分≥'+p+'分'}},
-  {id:25,name:'答题秒数后2位≥X',cat:'精准',pType:'number',pLabel:'X（数值）',fields:['quiz'],
-   test:function(d,p){return d.timeLast2>=parseInt(p)},
-   desc:function(p){return'答题秒数后2位≥'+p}},
-  {id:26,name:'答题秒数后2位≤X',cat:'精准',pType:'number',pLabel:'X（数值）',fields:['quiz'],
-   test:function(d,p){return d.timeLast2<=parseInt(p)},
-   desc:function(p){return'答题秒数后2位≤'+p}},
-  {id:27,name:'答题得分≥平均分+X',cat:'精准',pType:'number',pLabel:'X（加分值）',fields:['quiz'],
-   test:function(d,p){if(!S.eligiblePool.length)return false;var sum=0;S.eligiblePool.forEach(function(e){sum+=e.quizScore});var avg=sum/S.eligiblePool.length;return d.quizScore>=avg+parseInt(p)},
-   desc:function(p){return'答题得分≥平均分+'+p}},
-  {id:28,name:'答题秒数后2位为质数',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
-   test:function(d){return isPrime(d.timeLast2)},
-   desc:function(){return'答题秒数后2位为质数'}},
-  {id:29,name:'答题秒数后2位=号码后2位',cat:'精准',pType:'none',pLabel:'',fields:['quiz','phone'],
-   test:function(d){return d.timeLast2===d.phoneLast2},
-   desc:function(){return'答题秒数后2位=号码后2位'}},
-  {id:30,name:'答题秒数后2位为整十',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
-   test:function(d){return d.timeLast2>=10&&d.timeLast2%10===0},
-   desc:function(){return'答题秒数后2位为整十'}},
-  {id:31,name:'答题得分个位为X',cat:'精准',pType:'number',pLabel:'X（个位0-9）',fields:['quiz'],
-   test:function(d,p){return d.quizScore%10===parseInt(p)},
-   desc:function(p){return'答题得分个位为'+p}},
-  {id:32,name:'答题秒数后2位为AA型',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
-   test:function(d){var s=String(d.timeLast2);return s.length===2&&s[0]===s[1]},
-   desc:function(){return'答题秒数后2位为AA型'}}
+  // A. 姓名笔画维度（4条）
+  {id:1,name:'姓名总笔画 mod 2',cat:'宽泛',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['name'],
+   test:function(d,p){return d.stroke%2===(p==='偶'?0:1)},
+   desc:function(p){return'姓名总笔画除以2余'+p}},
+  {id:2,name:'姓名总笔画 mod 3',cat:'宽泛',pType:'select',pLabel:'',pOptions:['0','1','2'],fields:['name'],
+   test:function(d,p){return d.stroke%3===parseInt(p)},
+   desc:function(p){return'姓名总笔画除以3余'+p}},
+  {id:3,name:'姓名首字笔画 mod 3',cat:'宽泛',pType:'select',pLabel:'',pOptions:['0','1','2'],fields:['name'],
+   test:function(d,p){return d.strokeSurname%3===parseInt(p)},
+   desc:function(p){return'姓氏笔画除以3余'+p}},
+  {id:4,name:'姓名笔画各位数之和 mod 2',cat:'宽泛',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['name'],
+   test:function(d,p){return digitRoot(d.stroke)%2===(p==='偶'?0:1)},
+   desc:function(p){return'姓名笔画数字根除以2余'+p}},
+  // B. 手机号码维度（5条）
+  {id:5,name:'手机号全部数字之和 mod 2',cat:'宽泛',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['phone'],
+   test:function(d,p){return d.phoneSum%2===(p==='偶'?0:1)},
+   desc:function(p){return'手机号数字之和除以2余'+p}},
+  {id:6,name:'手机号全部数字之和 mod 3',cat:'宽泛',pType:'select',pLabel:'',pOptions:['0','1','2'],fields:['phone'],
+   test:function(d,p){return d.phoneSum%3===parseInt(p)},
+   desc:function(p){return'手机号数字之和除以3余'+p}},
+  {id:7,name:'手机号后四位之和 mod 3',cat:'宽泛',pType:'select',pLabel:'',pOptions:['0','1','2'],fields:['phone'],
+   test:function(d,p){return d.last4Sum%3===parseInt(p)},
+   desc:function(p){return'手机后四位之和除以3余'+p}},
+  {id:8,name:'手机号前三位号段之和 mod 2',cat:'宽泛',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['phone'],
+   test:function(d,p){return d.phonePrefixSum%2===(p==='偶'?0:1)},
+   desc:function(p){return'手机前三位之和除以2余'+p}},
+  {id:9,name:'手机末位与倒数第N位之差 mod 3',cat:'宽泛',pType:'text',pLabel:'N,余数(如2,0)',fields:['phone'],
+   test:function(d,p){var parts=(p||'').split(',');var n=parseInt(parts[0])||2;var mod=parseInt(parts[1])!==undefined?parseInt(parts[1]):0;var ph=d.phone||'';if(ph.length<n)return false;var diff=Math.abs(parseInt(ph[ph.length-1])-parseInt(ph[ph.length-n]));return diff%3===mod},
+   desc:function(p){var parts=(p||'').split(',');return'手机末位与倒数第'+(parts[0]||2)+'位之差 mod 3 = '+(parts[1]||0)}},
+  // C. 答题维度（4条）
+  {id:10,name:'答题用时(秒) mod 2',cat:'较宽泛',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['quiz'],
+   test:function(d,p){return d.timeSec%2===(p==='偶'?0:1)},
+   desc:function(p){return'答题用时(秒)除以2余'+p}},
+  {id:11,name:'答题用时(秒) mod 3',cat:'较宽泛',pType:'select',pLabel:'',pOptions:['0','1','2'],fields:['quiz'],
+   test:function(d,p){return d.timeSec%3===parseInt(p)},
+   desc:function(p){return'答题用时(秒)除以3余'+p}},
+  {id:12,name:'答题秒数各位数之和 mod 2',cat:'较宽泛',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['quiz'],
+   test:function(d,p){return digitRoot(d.timeSec)%2===(p==='偶'?0:1)},
+   desc:function(p){return'答题秒数数字根除以2余'+p}},
+  {id:13,name:'答题得分 mod 3',cat:'较宽泛',pType:'select',pLabel:'',pOptions:['0','1','2'],fields:['quiz'],
+   test:function(d,p){return d.quizScore%3===parseInt(p)},
+   desc:function(p){return'答题得分除以3余'+p}},
+  // D. 跨维度运算（5条）
+  {id:14,name:'(笔画+手机数字和) mod 3',cat:'较精准',pType:'select',pLabel:'',pOptions:['0','1','2'],fields:['name','phone'],
+   test:function(d,p){return (d.stroke+d.phoneSum)%3===parseInt(p)},
+   desc:function(p){return'(姓名笔画+手机数字和)除以3余'+p}},
+  {id:15,name:'(笔画+答题秒数) mod 2',cat:'较精准',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['name','quiz'],
+   test:function(d,p){return (d.stroke+d.timeSec)%2===(p==='偶'?0:1)},
+   desc:function(p){return'(姓名笔画+答题秒数)除以2余'+p}},
+  {id:16,name:'(手机后四位和+答题秒后2位) mod 3',cat:'较精准',pType:'select',pLabel:'',pOptions:['0','1','2'],fields:['phone','quiz'],
+   test:function(d,p){return (d.last4Sum+d.timeLast2)%3===parseInt(p)},
+   desc:function(p){return'(手机后四位和+答题秒后2位)除以3余'+p}},
+  {id:17,name:'(笔画×手机末位+答题得分) mod 2',cat:'较精准',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['name','phone','quiz'],
+   test:function(d,p){var last=parseInt((d.phone||'').slice(-1))||0;return (d.stroke*last+d.quizScore)%2===(p==='偶'?0:1)},
+   desc:function(p){return'(笔画×手机末位+答题得分)除以2余'+p}},
+  {id:18,name:'三维叠加(mod3和=指定值)',cat:'较精准',pType:'select',pLabel:'',pOptions:['0','1','2','3','4','5','6'],fields:['name','phone','quiz'],
+   test:function(d,p){var v=(d.stroke%3)+(d.phoneSum%3)+(d.timeSec%3);return v===parseInt(p)},
+   desc:function(p){return'笔画mod3+手机和mod3+秒数mod3 = '+p}},
+  // E. 综合概率型（2条）
+  {id:19,name:'(笔画+手机数字和+答题秒数) mod 5',cat:'精准',pType:'select',pLabel:'',pOptions:['0','1','2','3','4'],fields:['name','phone','quiz'],
+   test:function(d,p){return (d.stroke+d.phoneSum+d.timeSec)%5===parseInt(p)},
+   desc:function(p){return'(笔画+手机数字和+答题秒数)除以5余'+p}},
+  {id:20,name:'(笔画+手机数字和+答题秒数+答题得分) mod 2',cat:'精准',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['name','phone','quiz'],
+   test:function(d,p){return (d.stroke+d.phoneSum+d.timeSec+d.quizScore)%2===(p==='偶'?0:1)},
+   desc:function(p){return'(笔画+手机和+秒数+得分)除以2余'+p}},
+  // F. 数字根规则——一直相加到个位数（7条）
+  {id:21,name:'姓名笔画数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['name'],
+   test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});return opts.indexOf(digitRoot(d.stroke))>=0},
+   desc:function(p){return'姓名笔画一直相加到个位数 = '+p+'之一'}},
+  {id:22,name:'姓氏笔画数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['name'],
+   test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});return opts.indexOf(digitRoot(d.strokeSurname))>=0},
+   desc:function(p){return'姓氏笔画一直相加到个位数 = '+p+'之一'}},
+  {id:23,name:'名字笔画数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['name'],
+   test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});return opts.indexOf(digitRoot(d.strokeGivenName))>=0},
+   desc:function(p){return'名字笔画一直相加到个位数 = '+p+'之一'}},
+  {id:24,name:'手机后四位数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['phone'],
+   test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});return opts.indexOf(digitRoot(d.last4Sum))>=0},
+   desc:function(p){return'手机后四位一直相加到个位数 = '+p+'之一'}},
+  {id:25,name:'姓名笔画+手机后四位数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['name','phone'],
+   test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});return opts.indexOf(digitRoot(d.stroke+d.last4Sum))>=0},
+   desc:function(p){return'(姓名笔画+手机后四位)一直相加到个位数 = '+p+'之一'}},
+  {id:26,name:'姓笔画×名笔画数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['name'],
+   test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});var product=d.strokeSurname*d.strokeGivenName;return opts.indexOf(digitRoot(product))>=0},
+   desc:function(p){return'(姓笔画×名笔画)一直相加到个位数 = '+p+'之一'}},
+  {id:27,name:'手机全部数字数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['phone'],
+   test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});return opts.indexOf(digitRoot(d.phoneSum))>=0},
+   desc:function(p){return'手机全部数字一直相加到个位数 = '+p+'之一'}},
+  // G. 趣味彩蛋（1条）
+  {id:28,name:'四维度联合数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['name','phone','quiz'],
+   test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});var total=d.stroke+d.phoneSum+d.timeSec+d.quizScore;return opts.indexOf(digitRoot(total))>=0},
+   desc:function(p){return'(笔画+手机和+答题秒数+得分)一直相加到个位数 = '+p+'之一'}}
 ];
-var CAT_COLORS={'宽泛':'#00b894','较宽泛':'#0984e3','较精准':'#fd79a8','精准':'#e17055'};
+var CAT_COLORS={'宽泛':'#00b894','较宽泛':'#0984e3','较精准':'#fd79a8','精准':'#e17055','数字根':'#a29bfe'};
 
 // ========== 辅助函数 ==========
 function isPrime(n){if(n<2)return false;for(var i=2;i<=Math.sqrt(n);i++){if(n%i===0)return false}return true}
 function getLast4(phone){var ph=(phone||'').replace(/\D/g,'');return ph.length>=4?ph.substr(-4):ph}
 function getPhoneLast2(phone){var ph=(phone||'').replace(/\D/g,'');return ph.length>=2?parseInt(ph.substr(-2)):0}
+// 数字根：一直相加直到个位数
+function digitRoot(n){n=Math.abs(n||0);while(n>=10){var s=0;while(n>0){s+=n%10;n=Math.floor(n/10)}n=s}return n}
 
 // 预计算参与者数据
 function preCalcParticipant(p){
@@ -478,6 +471,14 @@ function preCalcParticipant(p){
   var sc=strokeCount(p.name||'');
   var pf=pinyinFirst(p.name||'');
   var phLast2=getPhoneLast2(phone);
+  // 拆分姓笔画和名笔画
+  var nameStr=p.name||'';
+  var strokeSurname=nameStr.length>0?(SC[nameStr[0]]||strokeCount(nameStr[0])):0;
+  var strokeGivenName=nameStr.length>1?strokeCount(nameStr.substr(1)):0;
+  // 手机号全部数字之和
+  var phoneSum=0;for(var i=0;i<phone.length;i++){phoneSum+=parseInt(phone[i])||0}
+  // 手机号前三位之和
+  var phonePrefixSum=0;for(var i=0;i<Math.min(3,phone.length);i++){phonePrefixSum+=parseInt(phone[i])||0}
   // quiz数据
   var qr=S.quizMap[(p.name||'')+'|'+(p.phone||'')];
   var quizScore=qr?qr.correctCount||0:0;
@@ -488,8 +489,9 @@ function preCalcParticipant(p){
   return{
     name:p.name||'',phone:phone,signed:p.signed||false,won:p.won||false,prizeId:p.prizeId||null,
     team:p.team||'',avatar:p.avatar||'',
-    stroke:sc,pinyinFirst:pf,
+    stroke:sc,strokeSurname:strokeSurname,strokeGivenName:strokeGivenName,pinyinFirst:pf,
     last4Str:last4Str,last4Sum:last4Sum,phoneLast2:phLast2,
+    phoneSum:phoneSum,phonePrefixSum:phonePrefixSum,
     quizScore:quizScore,quizTotal:quizTotal,timeMs:timeMs,timeSec:timeSec,timeLast2:timeLast2
   }
 }
