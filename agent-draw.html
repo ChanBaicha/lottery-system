@@ -3,731 +3,963 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<title>天翼AI智能体 · 大屏抽奖</title>
+<title>天翼AI智能体 · 天选抽奖</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Microsoft YaHei',sans-serif;background:#0a0e27;color:#fff;min-height:100vh;overflow-x:hidden}
 input,button,select,textarea{font-family:inherit;outline:none;border:none}
 :root{--pri:#6c5ce7;--pri-l:#a29bfe;--acc:#fd79a8;--gold:#fdcb6e;--grn:#00b894;--red:#e17055;--blue:#0984e3;--card:#161b3c;--card2:#1e2550;--sub:#a0a8c8;--bd:rgba(255,255,255,.1)}
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--pri);border-radius:2px}
-.btn{padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.95em;transition:.2s;display:inline-flex;align-items:center;gap:6px;justify-content:center}
-.btn-pri{background:var(--pri);color:#fff}.btn-pri:active{background:#5a4bd1}
-.btn-out{background:transparent;border:1px solid var(--bd);color:var(--sub)}.btn-out:active{border-color:var(--pri);color:#fff}
-.btn-suc{background:var(--grn);color:#fff}.btn-dng{background:var(--red);color:#fff}
-.btn-gold{background:var(--gold);color:#333;font-weight:bold}
-.card{background:var(--card);border-radius:16px;padding:20px;margin-bottom:14px;border:1px solid var(--bd)}
-.stat-box{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.stat-item{flex:1;min-width:80px;text-align:center;padding:14px 8px;background:var(--card);border-radius:12px;border:1px solid var(--bd)}
-.stat-num{font-size:1.6em;font-weight:bold}
-.stat-label{font-size:.75em;color:var(--sub);margin-top:4px}
-
-/* ========== 大屏模式 ========== */
-body.bigscreen{background:linear-gradient(135deg,#0a0e27 0%,#1a1040 40%,#0d1a3a 70%,#0a0e27 100%);overflow-y:auto}
-body.bigscreen::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(108,92,231,.15),transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(253,121,168,.1),transparent 50%);pointer-events:none;z-index:0}
-body.bigscreen #app{position:relative;z-index:1;max-width:1400px;padding:20px 28px 40px}
-
-/* 大屏标题区 */
-.bs-header{text-align:center;padding:18px 0 14px;position:relative}
-.bs-title{font-size:3.2em;font-weight:900;letter-spacing:6px;background:linear-gradient(135deg,#fdcb6e 0%,#fd79a8 30%,#a29bfe 60%,#74b9ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-shadow:none;animation:titleGlow 3s ease-in-out infinite alternate;line-height:1.2}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(108,92,231,.15),transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(253,121,168,.1),transparent 50%);pointer-events:none;z-index:0}
+#app{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:14px 22px 16px;min-height:100vh;display:flex;flex-direction:column}
+.bs-header{text-align:center;padding:8px 0 8px}
+.bs-title{font-size:2.6em;font-weight:900;letter-spacing:6px;background:linear-gradient(135deg,#fdcb6e 0%,#fd79a8 30%,#a29bfe 60%,#74b9ff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:titleGlow 3s ease-in-out infinite alternate;line-height:1.2}
 @keyframes titleGlow{from{filter:drop-shadow(0 0 6px rgba(253,203,110,.3))}to{filter:drop-shadow(0 0 18px rgba(253,203,110,.6))}}
-.bs-subtitle{font-size:1.05em;color:var(--sub);letter-spacing:4px;margin-top:4px}
-.bs-header-line{width:60%;max-width:500px;height:2px;margin:10px auto 0;background:linear-gradient(90deg,transparent,var(--pri),var(--gold),var(--pri),transparent)}
-
-/* 顶部工具栏 */
-.top-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-
-/* 全屏按钮 */
-.fs-btn{position:fixed;top:16px;right:16px;z-index:9000;width:46px;height:46px;border-radius:12px;background:rgba(22,27,60,.8);border:1px solid var(--bd);color:var(--sub);cursor:pointer;font-size:1.3em;display:flex;align-items:center;justify-content:center;transition:.2s;backdrop-filter:blur(8px)}
-.fs-btn:hover{background:var(--pri);color:#fff;border-color:var(--pri);transform:scale(1.05)}
-.fs-btn:active{transform:scale(.95)}
-
-/* 音乐控制栏 */
-.music-bar{position:fixed;bottom:16px;left:16px;z-index:9000;display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:24px;background:rgba(22,27,60,.85);border:1px solid var(--bd);backdrop-filter:blur(8px);font-size:.82em;color:var(--sub);transition:.2s;max-width:340px}
-.music-bar:hover{border-color:var(--pri)}
-.music-play-btn{width:34px;height:34px;border-radius:50%;background:var(--pri);color:#fff;cursor:pointer;font-size:1em;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s}
-.music-play-btn:hover{background:var(--pri-l);transform:scale(1.05)}
+.bs-header-line{width:50%;max-width:500px;height:2px;margin:6px auto 0;background:linear-gradient(90deg,transparent,var(--pri),var(--gold),var(--pri),transparent)}
+.fs-btn{position:fixed;top:14px;right:14px;z-index:9000;width:42px;height:42px;border-radius:12px;background:rgba(22,27,60,.8);border:1px solid var(--bd);color:var(--sub);cursor:pointer;font-size:1.2em;display:flex;align-items:center;justify-content:center;transition:.2s;backdrop-filter:blur(8px)}
+.fs-btn:hover{background:var(--pri);color:#fff}
+.main-content{display:flex;gap:14px;flex:1;min-height:0;margin-bottom:10px}
+.left-panel{width:44%;display:flex;flex-direction:column;gap:10px}
+.right-panel{width:56%;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--bd)}
+.act-count-box{background:linear-gradient(135deg,rgba(108,92,231,.2),rgba(253,203,110,.1));border:1px solid rgba(253,203,110,.3);border-radius:14px;padding:18px;text-align:center}
+.act-count-label{font-size:.85em;color:var(--sub);letter-spacing:2px;margin-bottom:4px}
+.act-count-num{font-size:2.8em;font-weight:bold;color:var(--gold);line-height:1}
+.act-count-sub{font-size:.75em;color:var(--sub);margin-top:4px}
+.rule-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rule-select{flex:0 0 200px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.88em;cursor:pointer}
+.rule-param{flex:1;min-width:80px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.88em}
+.rule-param::placeholder{color:var(--sub)}
+.btn-exec{padding:9px 18px;border-radius:10px;background:var(--gold);color:#333;font-weight:bold;cursor:pointer;font-size:.9em;white-space:nowrap}
+.btn-exec:active{transform:scale(.97)}
+.rule-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.rule-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);font-size:.82em}
+.rule-item .rule-tag{padding:2px 8px;border-radius:8px;background:var(--pri);color:#fff;font-size:.76em;white-space:nowrap}
+.rule-item .rule-cat{padding:2px 8px;border-radius:8px;font-size:.72em;white-space:nowrap}
+.rule-item .rule-desc{flex:1;color:var(--sub)}
+.rule-item .rule-del{width:26px;height:26px;border-radius:8px;background:var(--red);color:#fff;cursor:pointer;font-size:.82em;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.btn-add-rule{padding:8px 14px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--sub);cursor:pointer;font-size:.85em;transition:.2s;margin-top:6px;width:100%}
+.btn-add-rule:hover{border-color:var(--pri);color:var(--pri-l)}
+.lucky-area{flex:1;display:flex;flex-direction:column;min-height:0}
+.lucky-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.lucky-title{font-size:1.1em;font-weight:bold;color:var(--gold)}
+.lucky-count{font-size:.82em;color:var(--sub);padding:3px 10px;border-radius:16px;background:var(--card2)}
+.lucky-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;max-height:calc(100vh - 380px)}
+.lucky-item{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:12px;background:var(--card2);border:1px solid var(--bd);transition:.2s}
+.lucky-item:hover{border-color:var(--gold);background:rgba(253,203,110,.08)}
+.lucky-rank{width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:.85em;flex-shrink:0}
+.lucky-rank.top1{background:var(--gold);color:#333}
+.lucky-rank.top2{background:#c0c0c0;color:#333}
+.lucky-rank.top3{background:#cd7f32;color:#333}
+.lucky-info{flex:1;min-width:0}
+.lucky-name{font-weight:bold;font-size:.92em}
+.lucky-detail{font-size:.76em;color:var(--sub);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lucky-tag{padding:2px 8px;border-radius:8px;background:rgba(0,184,148,.15);color:var(--grn);font-size:.72em;white-space:nowrap}
+.lucky-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--sub);font-size:.9em;text-align:center}
+.bottom-bar{display:flex;gap:10px;align-items:center}
+.bottom-bar .card{flex:1;display:flex;align-items:center;gap:12px;padding:10px 16px}
+.btn-danmaku{padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;cursor:pointer;font-size:.88em;display:flex;align-items:center;gap:5px}
+.btn-game{padding:8px 16px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--red));color:#333;font-weight:bold;cursor:pointer;font-size:.88em;display:flex;align-items:center;gap:5px}
+.bottom-label{font-size:.8em;color:var(--sub);flex:1}
+.bottom-status{font-size:.76em;color:var(--grn);padding:2px 8px;border-radius:8px;background:rgba(0,184,148,.1)}
+.music-bar{position:fixed;bottom:12px;left:12px;z-index:9000;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:24px;background:rgba(22,27,60,.85);border:1px solid var(--bd);backdrop-filter:blur(8px);font-size:.8em;color:var(--sub);max-width:320px}
+.music-play-btn{width:30px;height:30px;border-radius:50%;background:var(--pri);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .music-play-btn.playing{background:var(--grn)}
 .music-info{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.music-info .music-name{color:#fff;font-weight:bold;font-size:.88em}
-.music-info .music-status{font-size:.72em;color:var(--sub)}
-.music-vol{width:60px;height:4px;-webkit-appearance:none;appearance:none;background:var(--card2);border-radius:2px;cursor:pointer;flex-shrink:0}
-.music-vol::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;background:var(--gold);cursor:pointer}
-.music-more-btn{width:30px;height:30px;border-radius:8px;background:transparent;border:1px solid var(--bd);color:var(--sub);cursor:pointer;font-size:.9em;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.2s}
-.music-more-btn:hover{background:var(--card2);color:#fff}
-
-/* 音乐面板（展开） */
-.music-panel{position:fixed;bottom:62px;left:16px;z-index:9000;width:320px;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px;backdrop-filter:blur(12px);display:none;box-shadow:0 8px 32px rgba(0,0,0,.4)}
-.music-panel.show{display:block;animation:slideUp .2s ease}
-@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.music-panel-title{font-size:.9em;font-weight:bold;color:#fff;margin-bottom:10px;display:flex;align-items:center;gap:6px}
-.music-preset-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
-.music-preset-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--card2);cursor:pointer;transition:.15s;font-size:.82em}
+.music-info .music-name{color:#fff;font-weight:bold;font-size:.85em}
+.music-info .music-status{font-size:.7em;color:var(--sub)}
+.music-vol{width:50px;height:4px;-webkit-appearance:none;background:var(--card2);border-radius:2px;cursor:pointer;flex-shrink:0}
+.music-vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--gold);cursor:pointer}
+.music-more-btn{width:28px;height:28px;border-radius:8px;background:transparent;border:1px solid var(--bd);color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.music-panel{position:fixed;bottom:54px;left:12px;z-index:9000;width:300px;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;display:none;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.music-panel.show{display:block}
+.music-panel-title{font-size:.88em;font-weight:bold;color:#fff;margin-bottom:8px}
+.music-preset-list{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.music-preset-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;background:var(--card2);cursor:pointer;font-size:.8em}
 .music-preset-item:hover{background:rgba(108,92,231,.3)}
 .music-preset-item.active{background:rgba(108,92,231,.3);border:1px solid var(--pri)}
-.music-preset-item .preset-icon{font-size:1.1em;flex-shrink:0}
-.music-preset-item .preset-name{flex:1;color:#fff}
-.music-preset-item .preset-tag{font-size:.68em;color:var(--sub);padding:2px 6px;border-radius:8px;background:rgba(255,255,255,.05)}
-.music-divider{height:1px;background:var(--bd);margin:10px 0}
-.music-upload-area{border:2px dashed var(--bd);border-radius:12px;padding:14px;text-align:center;cursor:pointer;transition:.2s}
-.music-upload-area:hover{border-color:var(--pri);background:rgba(108,92,231,.05)}
-.music-upload-area .upload-icon{font-size:1.8em;margin-bottom:4px}
-.music-upload-area .upload-text{font-size:.78em;color:var(--sub)}
-.music-upload-area .upload-hint{font-size:.68em;color:var(--sub);margin-top:2px;opacity:.7}
-.music-current{font-size:.78em;color:var(--sub);margin-top:8px;padding:6px 10px;border-radius:8px;background:var(--card2);display:flex;align-items:center;gap:6px}
+.music-divider{height:1px;background:var(--bd);margin:8px 0}
+.music-upload-area{border:2px dashed var(--bd);border-radius:12px;padding:12px;text-align:center;cursor:pointer}
+.music-upload-area:hover{border-color:var(--pri)}
+.music-upload-area .upload-text{font-size:.76em;color:var(--sub)}
+.music-current{font-size:.76em;color:var(--sub);margin-top:6px;padding:5px 10px;border-radius:8px;background:var(--card2);display:flex;align-items:center;gap:6px}
 .music-current .current-name{color:var(--gold);font-weight:bold;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-/* 智能体动画 */
-.agent-avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--pri),var(--acc));display:flex;align-items:center;justify-content:center;font-size:2em;flex-shrink:0;position:relative}
-.agent-avatar.thinking{animation:pulse 1.2s ease-in-out infinite}
-@keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(108,92,231,.4)}50%{transform:scale(1.08);box-shadow:0 0 0 12px rgba(108,92,231,0)}}
-.agent-avatar.done{background:linear-gradient(135deg,var(--grn),var(--gold))}
-.agent-avatar.error{background:linear-gradient(135deg,var(--red),var(--gold))}
-
-/* 日志流 */
-.log-stream{max-height:320px;overflow-y:auto;padding:4px 0}
-.log-item{display:flex;align-items:flex-start;gap:10px;padding:8px 12px;margin-bottom:4px;border-radius:8px;background:var(--card2);font-size:.85em;animation:slideIn .3s ease}
-@keyframes slideIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
-.log-icon{font-size:1.1em;flex-shrink:0;margin-top:1px}
-.log-text{flex:1;line-height:1.5}
-.log-time{font-size:.72em;color:var(--sub);flex-shrink:0;margin-top:2px}
-
-/* 步骤指示器 */
-.step-flow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
-.step-pill{padding:6px 14px;border-radius:20px;background:var(--card2);border:1px solid var(--bd);font-size:.78em;color:var(--sub);transition:.3s}
-.step-pill.active{border-color:var(--pri);background:rgba(108,92,231,.2);color:var(--pri-l)}
-.step-pill.done{border-color:var(--grn);background:rgba(0,184,148,.15);color:var(--grn)}
-.step-pill.fail{border-color:var(--red);background:rgba(225,112,85,.15);color:var(--red)}
-
-/* 候选人滚动展示 */
-.candidate-scroll{display:flex;gap:8px;overflow:hidden;white-space:nowrap;padding:12px 0;mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent)}
-.candidate-chip{padding:8px 16px;border-radius:20px;background:var(--card2);border:1px solid var(--bd);font-size:.85em;flex-shrink:0;transition:.2s}
-.candidate-chip.hit{border-color:var(--gold);background:rgba(253,203,110,.15);color:var(--gold);font-weight:bold;transform:scale(1.05)}
-.candidate-chip.miss{opacity:.4}
-.candidate-chip.winner{border-color:var(--grn);background:rgba(0,184,148,.2);color:var(--grn);font-weight:bold;animation:bounce .5s ease}
-@keyframes bounce{0%{transform:scale(.8)}50%{transform:scale(1.15)}100%{transform:scale(1.05)}}
-
-/* 中奖结果 */
-.winner-card{background:linear-gradient(135deg,rgba(253,203,110,.15),rgba(0,184,148,.1));border:2px solid var(--gold);border-radius:20px;padding:24px;text-align:center;animation:zoomIn .5s ease}
-@keyframes zoomIn{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
-.winner-avatar{width:72px;height:72px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:2em;font-weight:bold;color:#333;margin:0 auto 12px}
-.winner-name{font-size:1.8em;font-weight:bold;color:var(--gold);margin-bottom:6px}
-.winner-detail{font-size:.85em;color:var(--sub);line-height:1.8}
-
-/* 数字拆解可视化 */
-.digit-viz{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px 0}
-.digit-box{width:36px;height:36px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-size:1.2em;font-weight:bold;font-family:monospace;transition:.3s}
-.digit-box.from-phone{border-color:var(--blue);color:var(--blue)}
-.digit-box.from-ticket{border-color:var(--acc);color:var(--acc)}
-.digit-box.sum-target{border-color:var(--gold);background:rgba(253,203,110,.15);color:var(--gold)}
-
-/* 规则配置 */
-.rule-config{background:var(--card2);border-radius:12px;padding:16px;margin-bottom:14px}
-.rule-config label{display:block;font-size:.82em;color:var(--sub);margin-bottom:4px}
-.rule-config input,.rule-config select{width:100%;padding:10px 12px;border-radius:8px;background:var(--card);border:1px solid var(--bd);color:#fff;font-size:.9em}
-.rule-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px}
-.rule-row>div{flex:1;min-width:120px}
-
-/* 大屏模式统计放大 */
-body.bigscreen .stat-num{font-size:2.2em}
-body.bigscreen .stat-item{padding:18px 10px}
-body.bigscreen .stat-label{font-size:.85em}
-body.bigscreen .step-pill{padding:8px 18px;font-size:.88em}
-body.bigscreen .card{padding:24px}
-body.bigscreen .rule-config input,body.bigscreen .rule-config select{padding:12px 14px;font-size:1em}
-body.bigscreen .btn-gold{padding:16px;font-size:1.25em}
-body.bigscreen .log-stream{max-height:400px}
-body.bigscreen .log-item{font-size:.95em;padding:10px 14px}
-body.bigscreen .winner-name{font-size:2.5em}
-body.bigscreen .winner-avatar{width:90px;height:90px;font-size:2.5em}
-body.bigscreen .winner-detail{font-size:1em}
-body.bigscreen .digit-box{width:44px;height:44px;font-size:1.5em}
-body.bigscreen .candidate-chip{padding:10px 20px;font-size:.95em}
-
-/* 进度条 */
-.progress-track{height:6px;background:var(--card2);border-radius:3px;overflow:hidden;margin:8px 0}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--pri),var(--gold));transition:width .5s ease;border-radius:3px}
+#danmakuLayer{position:fixed;top:0;left:0;width:100%;height:100%;z-index:50;pointer-events:none;overflow:hidden}
+.dm-item{position:absolute;white-space:nowrap;font-weight:bold;text-shadow:1px 1px 3px rgba(0,0,0,.8);animation:dmScroll linear forwards}
+.dm-item.dm-top{left:50%;transform:translateX(-50%);animation:dmFade linear forwards}
+.dm-item.dm-bottom{left:50%;transform:translateX(-50%);animation:dmFade linear forwards}
+@keyframes dmScroll{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
+@keyframes dmFade{from{opacity:0}to{opacity:1}}
+.dm-avatar{display:inline-block;width:1.6em;height:1.6em;border-radius:50%;overflow:hidden;vertical-align:middle;margin-right:6px;background:rgba(255,255,255,.15)}
+.dm-avatar img{width:100%;height:100%;object-fit:cover}
+.dm-nick{font-weight:bold;margin-right:4px;opacity:.9}
+#gameOverlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:150;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.9)}
+#gameOverlay.show{display:flex}
+.game-header{position:absolute;top:30px;left:50%;transform:translateX(-50%);text-align:center;z-index:10}
+.game-title{font-size:2.5em;font-weight:bold;margin-bottom:8px}
+.game-desc{color:var(--gold);font-size:1.1em}
+.game-close{position:absolute;top:20px;right:20px;padding:10px 24px;border-radius:20px;background:var(--red);color:#fff;cursor:pointer;font-size:1em;z-index:20}
+#gameCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
+.game-result{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:30;display:none}
+.game-result.show{display:block}
+.game-result h2{font-size:3em;margin-bottom:16px}
+.game-result .rank{font-size:1.3em;margin:6px 0;padding:6px 20px;border-radius:12px}
+.confetti{position:fixed;width:10px;height:10px;top:-10px;z-index:9999;pointer-events:none;animation:cfall linear forwards}
+@keyframes cfall{to{top:110vh;transform:rotate(720deg)}}
+#toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:8px 22px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.88em;opacity:0;transition:.3s;pointer-events:none}
+.mqtt-status{display:flex;align-items:center;gap:4px;font-size:.72em;padding:3px 10px;border-radius:16px;background:rgba(255,255,255,.05)}
+.mqtt-dot{width:6px;height:6px;border-radius:50%;background:#555;transition:.3s}
+.mqtt-dot.online{background:var(--grn);box-shadow:0 0 6px var(--grn)}
+.mqtt-dot.offline{background:var(--red)}
+.mqtt-dot.connecting{background:var(--gold);animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.top-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 </style>
 </head>
-<body class="bigscreen">
-<!-- 全屏按钮 -->
-<button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="全屏/退出全屏">⛶</button>
-
-<!-- 音乐控制栏 -->
+<body>
+<button class="fs-btn" id="fsBtn" onclick="toggleFullscreen()" title="全屏">⛶</button>
+<div id="danmakuLayer"></div>
+<div id="app">
+  <div class="bs-header">
+    <div class="bs-title">天翼AI智能体</div>
+    <div class="bs-header-line"></div>
+  </div>
+  <div class="top-bar">
+    <div style="display:flex;align-items:center;gap:8px;font-size:.82em;color:var(--sub)">
+      <span style="font-size:1.3em">🤖</span>
+      <span style="font-weight:bold;color:#fff">天选规则引擎</span>
+    </div>
+    <div class="mqtt-status"><div class="mqtt-dot connecting" id="mDot"></div><span id="mText">连接中</span></div>
+  </div>
+  <div class="main-content">
+    <div class="left-panel">
+      <div class="act-count-box">
+        <div class="act-count-label">活动人数</div>
+        <div class="act-count-num" id="actCount">0</div>
+        <div class="act-count-sub">已签到 · 已答题 · 未中奖</div>
+      </div>
+      <div class="card" style="flex:1;overflow-y:auto">
+        <div style="font-weight:bold;margin-bottom:10px;font-size:.95em">📋 天选规则配置</div>
+        <div class="rule-row">
+          <select class="rule-select" id="ruleSelect" onchange="onRuleSelectChange()"></select>
+          <input class="rule-param" id="ruleParam" placeholder="参数值">
+          <button class="btn-exec" onclick="executeRule()">规则执行</button>
+        </div>
+        <div class="rule-list" id="ruleList"></div>
+        <button class="btn-add-rule" onclick="addRuleOnly()">＋ 增加规则</button>
+      </div>
+    </div>
+    <div class="right-panel">
+      <div class="card lucky-area">
+        <div class="lucky-header">
+          <div class="lucky-title">🍀 幸运候选</div>
+          <div class="lucky-count" id="luckyCount">0 人</div>
+        </div>
+        <div class="lucky-list" id="luckyList">
+          <div class="lucky-empty">添加并执行天选规则后<br>命中全部规则的人员将显示在此</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <div class="card">
+      <button class="btn-danmaku" onclick="toggleDanmaku()">💬 弹幕互动</button>
+      <span class="bottom-label">点击开启/关闭弹幕滚动</span>
+      <span class="bottom-status" id="dmStatus">弹幕已开启</span>
+    </div>
+    <div class="card">
+      <button class="btn-game" onclick="openGameMenu()">🎮 互动游戏</button>
+      <span class="bottom-label">摇一摇 / 反应速度 / 趣味抢答</span>
+      <span class="bottom-status" id="gameStatus">就绪</span>
+    </div>
+  </div>
+</div>
 <div class="music-bar" id="musicBar">
   <div class="music-play-btn" id="musicPlayBtn" onclick="togglePlayMusic()">▶</div>
-  <div class="music-info">
-    <div class="music-name" id="musicName">未选择音乐</div>
-    <div class="music-status" id="musicStatus">点击右侧按钮选择</div>
-  </div>
+  <div class="music-info"><div class="music-name" id="musicName">未选择音乐</div><div class="music-status" id="musicStatus">点击右侧选择</div></div>
   <input type="range" class="music-vol" id="musicVol" min="0" max="100" value="40" oninput="setMusicVol(this.value)">
-  <button class="music-more-btn" id="musicMoreBtn" onclick="toggleMusicPanel()">🎵</button>
+  <button class="music-more-btn" onclick="toggleMusicPanel()">🎵</button>
 </div>
-
-<!-- 音乐面板 -->
 <div class="music-panel" id="musicPanel">
   <div class="music-panel-title">🎵 背景音乐</div>
   <div class="music-preset-list" id="musicPresetList"></div>
   <div class="music-divider"></div>
   <div class="music-upload-area" onclick="document.getElementById('musicFileInput').click()">
-    <div class="upload-icon">📁</div>
-    <div class="upload-text">点击上传自定义音乐</div>
-    <div class="upload-hint">支持 MP3 / WAV / OGG 格式</div>
+    <div class="upload-text">📁 点击上传自定义音乐</div>
   </div>
   <input type="file" id="musicFileInput" accept="audio/*" style="display:none" onchange="uploadMusic(this)">
   <div class="music-current" id="musicCurrent" style="display:none">
-    <span>🎶</span>
-    <span class="current-name" id="musicCurrentName"></span>
-    <span style="font-size:.72em;color:var(--grn)" id="musicCurrentTag"></span>
+    <span>🎶</span><span class="current-name" id="musicCurrentName"></span><span style="font-size:.7em;color:var(--grn)" id="musicCurrentTag"></span>
   </div>
 </div>
-
-<div id="app" style="max-width:1400px;margin:0 auto;padding:20px 28px 80px;min-height:100vh">
-  <!-- 大屏标题 -->
-  <div class="bs-header">
-    <div class="bs-title">天翼AI智能体</div>
-    <div class="bs-subtitle">AI Smart Agent Lottery System</div>
-    <div class="bs-header-line"></div>
-  </div>
-
-  <!-- 顶部状态栏 -->
-  <div class="top-bar" style="margin-bottom:16px">
-    <div style="display:flex;align-items:center;gap:12px">
-      <div class="agent-avatar" id="agentIcon" style="width:48px;height:48px;font-size:1.5em">🤖</div>
-      <div>
-        <div style="font-weight:bold;font-size:1.1em">智能体抽奖引擎</div>
-        <div style="font-size:.75em;color:var(--sub)">AI Rule-Based Lottery</div>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText">连接中</span></div>
-      <button class="btn btn-out" style="padding:6px 12px;font-size:.8em" onclick="resetEngine()">重置</button>
-    </div>
-  </div>
-
-  <!-- 统计概览 -->
-  <div class="stat-box" id="overviewStats">
-    <div class="stat-item"><div class="stat-num" id="sTotal" style="color:var(--gold)">0</div><div class="stat-label">总参与者</div></div>
-    <div class="stat-item"><div class="stat-num" id="sSigned" style="color:var(--grn)">0</div><div class="stat-label">已签到</div></div>
-    <div class="stat-item"><div class="stat-num" id="sQuiz" style="color:var(--pri-l)">0</div><div class="stat-label">已答题</div></div>
-    <div class="stat-item"><div class="stat-num" id="sEligible" style="color:var(--acc)">0</div><div class="stat-label">抽奖候选</div></div>
-  </div>
-
-  <!-- 步骤流程指示 -->
-  <div class="step-flow" id="stepFlow">
-    <div class="step-pill" id="step1">① 数据加载</div>
-    <div class="step-pill" id="step2">② 筛选签到</div>
-    <div class="step-pill" id="step3">③ 校验答题</div>
-    <div class="step-pill" id="step4">④ 排除中奖</div>
-    <div class="step-pill" id="step5">⑤ 数字运算</div>
-    <div class="step-pill" id="step6">⑥ 命中抽取</div>
-    <div class="step-pill" id="step7">⑦ 结果呈现</div>
-  </div>
-
-  <!-- 规则配置区 -->
-  <div class="card" id="ruleConfigCard">
-    <div style="font-weight:bold;margin-bottom:12px">📋 抽奖规则配置</div>
-    <div class="rule-config">
-      <div class="rule-row">
-        <div><label>数字运算规则</label><input id="ruleCalc" placeholder="如：全部数字相加等于5" value="全部数字相加等于5"></div>
-        <div><label>中奖人数</label><input id="ruleWinCount" type="number" value="1" min="1" style="width:80px"></div>
-      </div>
-      <div class="rule-row">
-        <div><label>筛选条件</label>
-          <select id="ruleFilter">
-            <option value="all" selected>已签到 + 已答题 + 未中奖</option>
-            <option value="signed">仅已签到</option>
-            <option value="quiz">仅已答题</option>
-            <option value="none">不筛选</option>
-          </select>
-        </div>
-        <div><label>抽取方式</label>
-          <select id="ruleMode">
-            <option value="match" selected>规则匹配（满足条件的全部命中）</option>
-            <option value="random">规则筛选后随机抽取</option>
-            <option value="best">取答题成绩最佳</option>
-          </select>
-        </div>
-      </div>
-    </div>
-    <button class="btn btn-gold" style="width:100%;padding:14px;font-size:1.1em" id="runBtn" onclick="runLottery()">🚀 启动智能体抽奖</button>
-  </div>
-
-  <!-- 候选人滚动展示区 -->
-  <div class="card" id="candidateCard" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div style="font-weight:bold">🎯 候选人池</div>
-      <div style="font-size:.82em;color:var(--sub)" id="candidateCount">0 人</div>
-    </div>
-    <div class="candidate-scroll" id="candidateScroll"></div>
-  </div>
-
-  <!-- 智能体日志流 -->
-  <div class="card" id="logCard" style="display:none">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-      <div class="agent-avatar thinking" id="agentLogIcon" style="width:40px;height:40px;font-size:1.3em">🤖</div>
-      <div>
-        <div style="font-weight:bold;font-size:.95em">智能体分析中...</div>
-        <div style="font-size:.78em;color:var(--sub)" id="agentStatus">正在处理数据</div>
-      </div>
-    </div>
-    <div class="progress-track"><div class="progress-fill" id="logProgress" style="width:0%"></div></div>
-    <div class="log-stream" id="logStream"></div>
-  </div>
-
-  <!-- 中奖结果区 -->
-  <div id="resultArea" style="display:none"></div>
+<div id="gameOverlay">
+  <div class="game-header"><div class="game-title" id="gameTitle"></div><div class="game-desc" id="gameDesc"></div></div>
+  <button class="game-close" onclick="closeGame()">✕ 退出游戏</button>
+  <canvas id="gameCanvas"></canvas>
+  <div class="game-result" id="gameResult"></div>
 </div>
-
-<div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
+<div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-let S={
+// ========== State ==========
+var S={
   mqtt:null,topic:'',room:'',
-  configReceived:false,
-  allParticipants:[],
-  allQuizResults:[],
-  lotteryRule:null,
-  isRunning:false,
-  _retryTimer:null
+  participants:[],quizResults:[],quizMap:{},
+  eligiblePool:[],
+  addedRules:[],
+  ruleSeq:0,
+  luckyList:[],
+  danmakuOn:true,
+  gameRunning:false,
+  isDrawing:false
 };
-function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
-function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
-function maskPhone(p){if(!p)return'';return p.substr(0,3)+'XXXX'+p.substr(-4)}
-function fmtTime(ms){return(ms/1000).toFixed(2)+'s'}
+var SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
+var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
+var _sb=null,_cloudFlag=false;
+var gameCanvas,gameCtx;
 
-// ========== 工具：数字拆解 ==========
-function extractDigits(str){if(!str)return[];return String(str).replace(/\D/g,'').split('').map(function(d){return parseInt(d)})}
-function digitSum(arr){return arr.reduce(function(a,b){return a+b},0)}
+// ========== Utils ==========
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+function toast(m,d){d=d||2000;var t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(function(){t.style.opacity='0'},d)}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function maskPhone(p){if(!p)return'';return p.substr(0,3)+'****'+p.substr(-4)}
+
+// ========== 姓名笔画字典（常用字）==========
+var SC={
+'一':1,'二':2,'三':3,'四':5,'五':4,'六':4,'七':2,'八':2,'九':2,'十':2,
+'百':6,'千':3,'万':3,'亿':3,'零':13,'两':7,'双':4,'个':3,'人':2,'大':3,'小':3,
+'上':3,'下':3,'中':4,'不':4,'也':3,'之':3,'与':3,'和':8,'或':8,'若':8,
+'山':3,'水':4,'天':4,'地':6,'日':4,'月':4,'星':9,'云':4,'风':4,'雨':8,
+'花':7,'草':9,'木':4,'林':8,'森':12,'石':5,'金':8,'银':11,'铁':10,'玉':5,
+'王':4,'张':7,'李':7,'刘':6,'陈':7,'杨':7,'黄':11,'赵':9,'周':8,'吴':7,
+'徐':10,'孙':6,'马':3,'朱':6,'胡':9,'郭':10,'何':7,'高':10,'林':8,'罗':8,
+'郑':8,'梁':11,'宋':7,'谢':12,'唐':10,'许':6,'韩':12,'冯':5,'邓':4,'曹':11,
+'彭':12,'曾':12,'汪':7,'董':12,'袁':10,'潘':15,'蒋':12,'蔡':14,'戴':17,'夏':10,
+'钟':9,'江':6,'田':5,'方':4,'石':5,'任':6,'卢':5,'姚':9,'谭':14,'廖':14,
+'范':8,'樊':15,'白':5,'邹':7,'邱':12,'秦':10,'侯':9,'龙':5,'盛':11,'段':9,
+'雷':13,'汤':6,'章':11,'鲁':12,'薛':16,'叶':5,'阎':11,'余':7,'丁':2,'邓':4,
+'沈':7,'蔡':14,'魏':17,'贾':10,'路':13,'姜':9,'崔':11,'牛':4,'卫':3,'傅':12,
+'安':6,'乔':6,'于':3,'单':8,'管':14,'石':5,'米':6,'柏':9,'水':4,'窦':10,
+'章':11,'云':4,'苏':7,'潘':15,'葛':12,'奚':10,'范':8,'彭':12,'郎':8,'鲁':12,
+'韦':4,'昌':8,'马':3,'苗':8,'凤':4,'花':7,'方':4,'俞':9,'任':6,'袁':10,
+'柳':9,'鲍':13,'史':5,'唐':10,'费':9,'廉':13,'岑':7,'薛':16,'雷':13,'贺':9,
+'倪':10,'汤':6,'滕':15,'殷':10,'罗':8,'毕':6,'郝':12,'邬':12,'安':6,'常':11,
+'乐':5,'于':3,'时':7,'傅':12,'皮':5,'卞':4,'齐':14,'康':11,'伍':6,'余':7,
+'元':4,'卜':2,'顾':21,'孟':8,'平':5,'黄':11,'和':8,'穆':16,'萧':11,'尹':4,
+'姚':9,'邵':7,'湛':12,'汪':7,'祁':6,'毛':4,'禹':9,'狄':7,'米':6,'贝':4,
+'明':8,'臧':14,'计':4,'伏':6,'成':6,'戴':17,'谈':10,'宋':7,'茅':8,'庞':8,
+'纪':9,'舒':12,'董':12,'梁':11,'杜':7,'阮':12,'蓝':13,'闵':9,'席':10,'季':8,
+'麻':11,'强':12,'贾':10,'路':13,'娄':9,'危':6,'江':6,'童':12,'颜':15,'郭':10,
+'梅':11,'盛':11,'林':8,'刁':2,'钟':9,'徐':10,'邱':12,'骆':14,'高':10,'夏':10,
+'蔡':14,'田':5,'樊':15,'胡':9,'凌':10,'霍':16,'虞':13,'万':3,'支':4,'柯':9,
+'昝':9,'管':14,'卢':5,'莫':10,'经':8,'房':8,'裘':13,'缪':14,'干':3,'解':13,
+'应':7,'宗':8,'丁':2,'宣':9,'贲':9,'邓':4,'郁':8,'单':8,'杭':8,'洪':9,
+'包':5,'诸':10,'左':5,'石':5,'崔':11,'吉':6,'钮':9,'龚':11,'程':12,'嵇':12,
+'邢':6,'滑':13,'裴':14,'陆':7,'荣':9,'翁':10,'荀':9,'羊':6,'於':8,'惠':12,
+'甄':13,'曲':6,'家':10,'封':9,'芮':7,'羿':9,'储':12,'靳':13,'汲':7,'邴':7,
+'糜':17,'松':8,'井':4,'段':9,'富':12,'巫':7,'乌':4,'焦':12,'巴':4,'弓':3,
+'牧':8,'隗':11,'山':3,'谷':7,'车':4,'侯':9,'宓':8,'蓬':13,'全':6,'郗':10,
+'班':10,'仰':6,'秋':9,'仲':6,'伊':6,'宫':9,'宁':5,'仇':4,'栾':10,'暴':15,
+'甘':5,'钭':9,'厉':5,'戎':6,'祖':9,'武':8,'符':11,'刘':6,'景':12,'詹':13,
+'束':7,'龙':5,'叶':5,'幸':8,'司':5,'韶':14,'郜':9,'黎':15,'蓟':13,'薄':16,
+'印':5,'宿':11,'白':5,'怀':7,'蒲':14,'邰':12,'从':4,'鄂':11,'索':10,'咸':9,
+'籍':20,'赖':13,'卓':8,'蔺':14,'屠':11,'蒙':13,'池':6,'乔':6,'阴':6,'胥':9,
+'能':10,'苍':7,'双':4,'闻':9,'莘':13,'党':10,'翟':14,'谭':14,'贡':7,'劳':12,
+'逄':10,'姬':10,'申':5,'扶':7,'堵':11,'冉':5,'宰':10,'郦':9,'雍':13,'却':7,
+'桑':10,'桂':10,'濮':14,'牛':4,'寿':7,'通':10,'边':5,'扈':11,'燕':16,'冀':11,
+'浦':10,'尚':8,'农':6,'温':12,'别':7,'庄':6,'晏':10,'柴':10,'瞿':18,'阎':11,
+'充':6,'慕':14,'连':7,'茹':12,'习':3,'宦':9,'艾':5,'鱼':8,'容':10,'向':6,
+'古':5,'易':8,'慎':13,'戈':4,'廖':14,'庾':12,'终':8,'暨':14,'居':8,'衡':16,
+'步':7,'都':10,'耿':10,'满':13,'弘':5,'匡':6,'国':8,'文':4,'寇':11,'广':3,
+'禄':12,'阙':13,'东':5,'欧':8,'殳':4,'沃':8,'利':7,'蔚':14,'越':12,'夔':21,
+'隆':11,'师':6,'巩':7,'厍':6,'聂':10,'晁':10,'勾':4,'敖':10,'融':16,'冷':7,
+'訾':13,'辛':7,'阚':14,'那':6,'简':13,'饶':12,'空':8,'曾':12,'毋':4,'沙':7
+};
+function strokeCount(name){
+  if(!name)return 0;
+  var sum=0;
+  for(var i=0;i<name.length;i++){
+    var c=name[i];
+    if(SC[c]){sum+=SC[c]}
+    else{sum+=Math.max(1,Math.min(30,Math.round((c.charCodeAt(0)-0x4e00)/1000)+8))}
+  }
+  return sum
+}
+
+// ========== 拼音首字母字典（常用字）==========
+var PF={
+'阿':'A','艾':'A','安':'A','敖':'A','傲':'A','奥':'A',
+'巴':'B','白':'B','柏':'B','班':'B','包':'B','鲍':'B','贝':'B','毕':'B','卞':'B','边':'B','卞':'B','别':'B','邴':'B','薄':'B','卜':'B','步':'B',
+'蔡':'C','曹':'C','岑':'C','柴':'C','常':'C','昌':'C','长':'C','陈':'C','成':'C','程':'C','池':'C','迟':'C','仇':'C','初':'C','褚':'C','楚':'C','崔':'C','春':'C',
+'戴':'D','代':'D','邓':'D','狄':'D','丁':'D','董':'D','杜':'D','段':'D','东':'D','都':'D','单':'D','党':'D','岛':'D','德':'D','帝':'D','丁':'D','定':'D','董':'D','独':'D','堵':'D','杜':'D','端':'D','段':'D','顿':'D',
+'鄂':'E','恩':'E','尔':'E',
+'范':'F','方':'F','房':'F','费':'F','丰':'F','封':'F','冯':'F','凤':'F','奉':'F','扶':'F','符':'F','福':'F','傅':'F','付':'F','伏':'F','父':'F',
+'甘':'G','高':'G','戈':'G','葛':'G','耿':'G','龚':'G','宫':'G','巩':'G','勾':'G','苟':'G','古':'G','谷':'G','顾':'G','管':'G','郭':'G','国':'G','桂':'G',
+'哈':'H','海':'H','韩':'H','杭':'H','郝':'H','何':'H','和':'H','贺':'H','赫':'H','衡':'H','洪':'H','侯':'H','胡':'H','花':'H','华':'H','怀':'H','黄':'H','霍':'H','惠':'H',
+'嵇':'J','吉':'J','籍':'J','计':'J','纪':'J','季':'J','贾':'J','江':'J','姜':'J','蒋':'J','焦':'J','金':'J','靳':'J','景':'J','经':'J','居':'J','鞠':'J','巨':'J','瞿':'J',
+'阚':'K','康':'K','柯':'K','孔':'K','寇':'K',
+'赖':'L','蓝':'L','劳':'L','雷':'L','黎':'L','李':'L','连':'L','廉':'L','梁':'L','林':'L','辽':'L','廖':'L','凌':'L','刘':'L','柳':'L','龙':'L','娄':'L','卢':'L','鲁':'L','陆':'L','吕':'L','栾':'L','罗':'L','骆':'L',
+'马':'M','麻':'M','满':'M','毛':'M','茅':'M','梅':'M','孟':'M','苗':'M','闵':'M','明':'M','莫':'M','慕':'M','穆':'M','倪':'M',
+'倪':'N','宁':'N','牛':'N',
+'潘':'P','裴':'P','彭':'P','皮':'P','蒲':'P','浦':'P','蒲':'P',
+'戚':'Q','祁':'Q','齐':'Q','钱':'Q','强':'Q','乔':'Q','秦':'Q','邱':'Q','裘':'Q','仇':'Q','屈':'Q','全':'Q','饶':'R','任':'R','荣':'R','茹':'R','芮':'R','桑':'S','沙':'S','商':'S','邵':'S','沈':'S','盛':'S','施':'S','石':'S','史':'S','时':'S','舒':'S','宋':'S','苏':'S','孙':'S','宿':'S','谭':'T','汤':'T','唐':'T','陶':'T','滕':'T','田':'T','童':'T','万':'W','汪':'W','王':'W','危':'W','韦':'W','魏':'W','温':'W','文':'W','翁':'W','沃':'W','巫':'W','吴':'W','武':'W','伍':'W','奚':'X','席':'X','夏':'X','鲜':'X','向':'X','项':'X','萧':'X','谢':'X','辛':'X','邢':'X','徐':'X','许':'X','薛':'X','宣':'X','荀':'X','闫':'Y','颜':'Y','阎':'Y','燕':'Y','杨':'Y','姚':'Y','姚':'Y','叶':'Y','殷':'Y','尹':'Y','应':'Y','雍':'Y','于':'Y','俞':'Y','余':'Y','虞':'Y','袁':'Y','岳':'Y','臧':'Z','曾':'Z','詹':'Z','张':'Z','章':'Z','赵':'Z','甄':'Z','郑':'Z','支':'Z','钟':'Z','仲':'Z','周':'Z','朱':'Z','诸':'Z','祝':'Z','竺':'Z','庄':'Z','卓':'Z','邹':'Z','左':'Z','祖':'Z','宗':'Z','糜':'M','习':'X'
+};
+function pinyinFirst(name){
+  if(!name||!name.length)return '';
+  var first=name[0];
+  if(PF[first])return PF[first];
+  return first;
+}
+
+// ========== 现场前X大姓（常用版）==========
+var TOP_SURNAMES_LIST=['王','张','李','刘','陈','杨','黄','赵','周','吴','徐','孙','马','朱','胡','郭','何','高','林','罗','郑','梁','宋','谢','唐','许','韩','冯','邓','曹','彭','曾','汪','董','袁','潘','蒋','蔡','戴','夏','钟','汪','田','方','任','卢','姚','谭','廖','范','白','邹','邱','秦','侯','龙','盛','段','雷','汤','章','鲁','薛','叶','阎','余','丁','沈','蔡','魏','贾','路','姜','崔','牛','卫','傅','安','乔','于','单','管','石','米','柏','水','窦','章','云','苏','潘','葛','奚','范','彭','郎','鲁','韦','昌','马','苗','凤','花','方','俞','任','袁','柳','鲍','史','唐','费','廉','岑','薛','雷','贺','倪','汤','滕','殷','罗','毕','郝','邬','安','常','乐','于','时','傅','皮','卞','齐','康','伍','余','元','卜','顾','孟','平','黄','和','穆','萧','尹','姚','邵','湛','汪','祁','毛','禹','狄','米','贝','明','臧','计','伏','成','戴','谈','宋','茅','庞','纪','舒','董','梁','杜','阮','蓝','闵','席','季','麻','强','贾','路','娄','危','江','童','颜','郭','梅','盛','林','刁','钟','徐','邱','骆','高','夏','蔡','田','樊','胡','凌','霍','虞','万','支','柯','昝','管','卢','莫','经','房','裘','缪','干','解','应','宗','丁','宣','贲','邓','郁','单','杭','洪','包','诸','左','石','崔','吉','钮','龚','程','嵇','邢','滑','裴','陆','荣','翁','荀','羊','於','惠','甄','曲','家','封','芮','羿','储','靳','汲','邴','糜','松','井','段','富','巫','乌','焦','巴','弓','牧','隗','山','谷','车','侯','宓','蓬','全','郗','班','仰','秋','仲','伊','宫','宁','仇','栾','暴','甘','钭','厉','戎','祖','武','符','刘','景','詹','束','龙','叶','幸','司','韶','郜','黎','蓟','薄','印','宿','白','怀','蒲','邰','从','鄂','索','咸','籍','赖','卓','蔺','屠','蒙','池','乔','阴','胥','能','苍','双','闻','莘','党','翟','谭','贡','劳','逄','姬','申','扶','堵','冉','宰','郦','雍','却','桑','桂','濮','牛','寿','通','边','扈','燕','冀','浦','尚','农','温','别','庄','晏','柴','瞿','阎','充','慕','连','茹','习','宦','艾','鱼','容','向','古','易','慎','戈','廖','庾','终','暨','居','衡','步','都','耿','满','弘','匡','国','文','寇','广','禄','阙','东','欧','殳','沃','利','蔚','越','夔','隆','师','巩','厍','聂','晁','勾','敖','融','冷','訾','辛','阚','那','简','饶','空','曾','毋','沙'];
+
+// ========== 天选规则定义（32条）==========
+var RULES=[
+  // 宽泛
+  {id:1,name:'号码第X位为偶数',cat:'宽泛',pType:'number',pLabel:'X（第几位）',fields:['phone'],
+   test:function(d,p){var ph=d.phone||'';var i=parseInt(p)-1;if(i<0||i>=ph.length)return false;return parseInt(ph[i])%2===0},
+   desc:function(p){return'号码第'+p+'位为偶数'}},
+  {id:2,name:'号码第X位为奇数',cat:'宽泛',pType:'number',pLabel:'X（第几位）',fields:['phone'],
+   test:function(d,p){var ph=d.phone||'';var i=parseInt(p)-1;if(i<0||i>=ph.length)return false;return parseInt(ph[i])%2!==0},
+   desc:function(p){return'号码第'+p+'位为奇数'}},
+  {id:3,name:'姓名笔画数为偶数',cat:'宽泛',pType:'none',pLabel:'',fields:['name'],
+   test:function(d){return d.stroke%2===0},
+   desc:function(){return'姓名笔画数为偶数'}},
+  {id:4,name:'号码后四位数字之和为偶数',cat:'宽泛',pType:'none',pLabel:'',fields:['phone'],
+   test:function(d){return d.last4Sum%2===0},
+   desc:function(){return'号码后四位之和为偶数'}},
+  {id:5,name:'号码中含有数字X',cat:'宽泛',pType:'number',pLabel:'X（数字0-9）',fields:['phone'],
+   test:function(d,p){return(d.phone||'').indexOf(p)>=0},
+   desc:function(p){return'号码中含有数字'+p}},
+  {id:6,name:'姓名拼音首字母在A至X之间',cat:'宽泛',pType:'text',pLabel:'X（首字母上限）',fields:['name'],
+   test:function(d,p){var pl=(p||'').toUpperCase();return d.pinyinFirst>='A'&&d.pinyinFirst<=pl},
+   desc:function(p){return'拼音首字母在A至'+p+'之间'}},
+  // 较宽泛
+  {id:7,name:'号码尾号为X/Y/Z之一',cat:'较宽泛',pType:'text',pLabel:'X,Y,Z（逗号分隔）',fields:['phone'],
+   test:function(d,p){var ph=d.phone||'';if(!ph.length)return false;var last=ph[ph.length-1];var opts=(p||'').split(/[,\s,、]/).map(function(s){return s.trim()});return opts.indexOf(last)>=0},
+   desc:function(p){return'号码尾号为'+p+'之一'}},
+  {id:8,name:'姓名笔画数≥X画',cat:'较宽泛',pType:'number',pLabel:'X（笔画数）',fields:['name'],
+   test:function(d,p){return d.stroke>=parseInt(p)},
+   desc:function(p){return'姓名笔画数≥'+p+'画'}},
+  {id:9,name:'号码后四位数字之和≥X',cat:'较宽泛',pType:'number',pLabel:'X（和值）',fields:['phone'],
+   test:function(d,p){return d.last4Sum>=parseInt(p)},
+   desc:function(p){return'号码后四位之和≥'+p}},
+  {id:10,name:'号码后四位含相邻连号',cat:'较宽泛',pType:'none',pLabel:'',fields:['phone'],
+   test:function(d){var s=d.last4Str;if(!s)return false;for(var i=0;i<s.length-1;i++){if(parseInt(s[i+1])-parseInt(s[i])===1)return true}return false},
+   desc:function(){return'号码后四位含相邻连号'}},
+  {id:11,name:'姓氏属现场前X大姓',cat:'较宽泛',pType:'number',pLabel:'X（排名）',fields:['name'],
+   test:function(d,p){var sn=d.name?d.name[0]:'';var n=parseInt(p);var list=TOP_SURNAMES_LIST.slice(0,n);return list.indexOf(sn)>=0},
+   desc:function(p){return'姓氏属现场前'+p+'大姓'}},
+  {id:12,name:'号码后四位中含数字X',cat:'较宽泛',pType:'number',pLabel:'X（数字0-9）',fields:['phone'],
+   test:function(d,p){return d.last4Str.indexOf(p)>=0},
+   desc:function(p){return'号码后四位含数字'+p}},
+  {id:13,name:'号码前三位为现场前X号段',cat:'较宽泛',pType:'number',pLabel:'X（排名）',fields:['phone'],
+   test:function(d,p){var pre=(d.phone||'').substr(0,3);if(!pre)return false;var n=parseInt(p);var seen={};var allPre=S.eligiblePool.map(function(e){return(e.phone||'').substr(0,3)}).filter(function(s){return s.length===3});allPre.forEach(function(s){seen[s]=(seen[s]||0)+1});var sorted=Object.keys(seen).sort(function(a,b){return seen[b]-seen[a]});var top=sorted.slice(0,n);return top.indexOf(pre)>=0},
+   desc:function(p){return'号段属现场前'+p+'号段'}},
+  // 较精准
+  {id:14,name:'号码第X位与第X+1位相同',cat:'较精准',pType:'number',pLabel:'X（第几位）',fields:['phone'],
+   test:function(d,p){var ph=d.phone||'';var i=parseInt(p)-1;if(i<0||i+1>=ph.length)return false;return ph[i]===ph[i+1]},
+   desc:function(p){return'号码第'+p+'位与第'+(parseInt(p)+1)+'位相同'}},
+  {id:15,name:'姓名笔画数=号码后四位之和',cat:'较精准',pType:'none',pLabel:'',fields:['name','phone'],
+   test:function(d){return d.stroke===d.last4Sum},
+   desc:function(){return'姓名笔画数=号码后四位之和'}},
+  {id:16,name:'号码后四位含X连号',cat:'较精准',pType:'number',pLabel:'X（连号长度）',fields:['phone'],
+   test:function(d,p){var n=parseInt(p);var s=d.last4Str;if(!s||s.length<n)return false;for(var i=0;i<=s.length-n;i++){var ok=true;for(var j=0;j<n-1;j++){if(parseInt(s[i+j+1])-parseInt(s[i+j])!==1){ok=false;break}}if(ok)return true}return false},
+   desc:function(p){return'号码后四位含'+p+'连号'}},
+  {id:17,name:'号码后四位含三连号',cat:'较精准',pType:'none',pLabel:'',fields:['phone'],
+   test:function(d){var s=d.last4Str;if(!s||s.length<3)return false;for(var i=0;i<=s.length-3;i++){if(parseInt(s[i+1])-parseInt(s[i])===1&&parseInt(s[i+2])-parseInt(s[i+1])===1)return true}return false},
+   desc:function(){return'号码后四位含三连号'}},
+  {id:18,name:'姓名两个字笔画数相同',cat:'较精准',pType:'none',pLabel:'',fields:['name'],
+   test:function(d){if(!d.name||d.name.length<2)return false;var s1=SC[d.name[0]]||0;var s2=SC[d.name[1]]||0;return s1>0&&s1===s2},
+   desc:function(){return'姓名两字笔画数相同'}},
+  {id:19,name:'姓名笔画数为全场之最',cat:'较精准',pType:'none',pLabel:'',fields:['name'],
+   test:function(d){if(!S.eligiblePool.length)return false;var max=0;S.eligiblePool.forEach(function(e){if(e.stroke>max)max=e.stroke});return d.stroke===max&&d.stroke>0},
+   desc:function(){return'姓名笔画数为全场之最'}},
+  {id:20,name:'号码后四位全由偶/奇数组成',cat:'较精准',pType:'select',pLabel:'',pOptions:['全偶','全奇'],fields:['phone'],
+   test:function(d,p){var s=d.last4Str;if(!s||s.length<4)return false;if(p==='全偶'){return s.split('').every(function(c){return parseInt(c)%2===0})}else{return s.split('').every(function(c){return parseInt(c)%2!==0})}},
+   desc:function(p){return'号码后四位全'+p+'数组成'}},
+  // 精准
+  {id:21,name:'号码后四位之和=答题得分',cat:'精准',pType:'none',pLabel:'',fields:['phone','quiz'],
+   test:function(d){return d.last4Sum>0&&d.last4Sum===d.quizScore},
+   desc:function(){return'号码后四位之和=答题得分'}},
+  {id:22,name:'答题秒数后2位=答题得分',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
+   test:function(d){return d.timeLast2===d.quizScore},
+   desc:function(){return'答题秒数后2位=答题得分'}},
+  {id:23,name:'答题秒数后2位为偶数',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
+   test:function(d){return d.timeLast2%2===0},
+   desc:function(){return'答题秒数后2位为偶数'}},
+  {id:24,name:'答题得分≥X分',cat:'精准',pType:'number',pLabel:'X（分数）',fields:['quiz'],
+   test:function(d,p){return d.quizScore>=parseInt(p)},
+   desc:function(p){return'答题得分≥'+p+'分'}},
+  {id:25,name:'答题秒数后2位≥X',cat:'精准',pType:'number',pLabel:'X（数值）',fields:['quiz'],
+   test:function(d,p){return d.timeLast2>=parseInt(p)},
+   desc:function(p){return'答题秒数后2位≥'+p}},
+  {id:26,name:'答题秒数后2位≤X',cat:'精准',pType:'number',pLabel:'X（数值）',fields:['quiz'],
+   test:function(d,p){return d.timeLast2<=parseInt(p)},
+   desc:function(p){return'答题秒数后2位≤'+p}},
+  {id:27,name:'答题得分≥平均分+X',cat:'精准',pType:'number',pLabel:'X（加分值）',fields:['quiz'],
+   test:function(d,p){if(!S.eligiblePool.length)return false;var sum=0;S.eligiblePool.forEach(function(e){sum+=e.quizScore});var avg=sum/S.eligiblePool.length;return d.quizScore>=avg+parseInt(p)},
+   desc:function(p){return'答题得分≥平均分+'+p}},
+  {id:28,name:'答题秒数后2位为质数',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
+   test:function(d){return isPrime(d.timeLast2)},
+   desc:function(){return'答题秒数后2位为质数'}},
+  {id:29,name:'答题秒数后2位=号码后2位',cat:'精准',pType:'none',pLabel:'',fields:['quiz','phone'],
+   test:function(d){return d.timeLast2===d.phoneLast2},
+   desc:function(){return'答题秒数后2位=号码后2位'}},
+  {id:30,name:'答题秒数后2位为整十',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
+   test:function(d){return d.timeLast2>=10&&d.timeLast2%10===0},
+   desc:function(){return'答题秒数后2位为整十'}},
+  {id:31,name:'答题得分个位为X',cat:'精准',pType:'number',pLabel:'X（个位0-9）',fields:['quiz'],
+   test:function(d,p){return d.quizScore%10===parseInt(p)},
+   desc:function(p){return'答题得分个位为'+p}},
+  {id:32,name:'答题秒数后2位为AA型',cat:'精准',pType:'none',pLabel:'',fields:['quiz'],
+   test:function(d){var s=String(d.timeLast2);return s.length===2&&s[0]===s[1]},
+   desc:function(){return'答题秒数后2位为AA型'}}
+];
+var CAT_COLORS={'宽泛':'#00b894','较宽泛':'#0984e3','较精准':'#fd79a8','精准':'#e17055'};
+
+// ========== 辅助函数 ==========
+function isPrime(n){if(n<2)return false;for(var i=2;i<=Math.sqrt(n);i++){if(n%i===0)return false}return true}
+function getLast4(phone){var ph=(phone||'').replace(/\D/g,'');return ph.length>=4?ph.substr(-4):ph}
+function getPhoneLast2(phone){var ph=(phone||'').replace(/\D/g,'');return ph.length>=2?parseInt(ph.substr(-2)):0}
+
+// 预计算参与者数据
+function preCalcParticipant(p){
+  var phone=(p.phone||'').replace(/\D/g,'');
+  var last4Str=getLast4(phone);
+  var last4Sum=last4Str?last4Str.split('').reduce(function(a,b){return a+parseInt(b)},0):0;
+  var sc=strokeCount(p.name||'');
+  var pf=pinyinFirst(p.name||'');
+  var phLast2=getPhoneLast2(phone);
+  // quiz数据
+  var qr=S.quizMap[(p.name||'')+'|'+(p.phone||'')];
+  var quizScore=qr?qr.correctCount||0:0;
+  var quizTotal=qr?qr.totalCount||0:0;
+  var timeMs=qr?qr.totalTimeMs||0:0;
+  var timeSec=Math.floor(timeMs/1000);
+  var timeLast2=timeSec%100;
+  return{
+    name:p.name||'',phone:phone,signed:p.signed||false,won:p.won||false,prizeId:p.prizeId||null,
+    team:p.team||'',avatar:p.avatar||'',
+    stroke:sc,pinyinFirst:pf,
+    last4Str:last4Str,last4Sum:last4Sum,phoneLast2:phLast2,
+    quizScore:quizScore,quizTotal:quizTotal,timeMs:timeMs,timeSec:timeSec,timeLast2:timeLast2
+  }
+}
 
 // ========== 初始化 ==========
 (function init(){
-  const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
+  var p=new URLSearchParams(location.search);
+  S.room=p.get('room')||'demo';
+  S.topic='cj2026/'+S.room+'/';
+  gameCanvas=document.getElementById('gameCanvas');
+  gameCtx=gameCanvas.getContext('2d');
+  resizeGameCanvas();
+  window.addEventListener('resize',resizeGameCanvas);
+  renderRuleSelect();
   connectMQTT();
+  initCloud();
+  initMusic();
 })();
+
+function resizeGameCanvas(){if(gameCanvas){gameCanvas.width=window.innerWidth;gameCanvas.height=window.innerHeight}}
+
+// ========== Supabase 云端 ==========
+function initCloud(){
+  try{
+    if(typeof supabase==='undefined'){console.warn('supabase-js 未加载');return}
+    _sb=supabase.createClient(SB_URL,SB_KEY);
+    cloudPull();
+    _sb.channel('ad-cfg-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'room_data',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        if(payload.new&&payload.new.data)applyCloudConfig(payload.new.data);
+      })
+      .subscribe();
+    _sb.channel('ad-pt-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'participants',filter:'room=eq.'+S.room},function(){
+        if(_cloudFlag)return;
+        cloudPull();
+      })
+      .subscribe();
+    _sb.channel('ad-qr-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'quiz_results',filter:'room=eq.'+S.room},function(){
+        if(_cloudFlag)return;
+        cloudPull();
+      })
+      .subscribe();
+  }catch(e){console.warn('云端初始化失败',e)}
+}
+function cloudPull(){
+  if(!_sb)return;
+  _sb.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
+    if(res.error){console.warn('配置拉取失败',res.error.message);return}
+    if(res.data&&res.data.data){_cloudFlag=true;applyCloudConfig(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
+  });
+  _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
+    if(pr.error){console.warn('参与者拉取失败',pr.error.message);return}
+    if(pr.data){
+      _cloudFlag=true;
+      S.participants=pr.data.map(function(r){var d=r.data||{};if(!d.id)d.id=r.pid;return d});
+      setTimeout(function(){_cloudFlag=false},500);
+    }
+    updatePool();
+  });
+  _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
+    if(qr.error){console.warn('答题拉取失败',qr.error.message);return}
+    if(qr.data){
+      _cloudFlag=true;
+      S.quizResults=qr.data.map(function(r){return r.data||{}});
+      buildQuizMap();
+      setTimeout(function(){_cloudFlag=false},500);
+    }
+    updatePool();
+  });
+}
+function applyCloudConfig(d){
+  if(!d||typeof d!=='object')return;
+  if(d.danmaku)S.danmakuOn=d.danmaku.enable!==false;
+  updateDanmakuStatus();
+}
+function buildQuizMap(){
+  S.quizMap={};
+  S.quizResults.forEach(function(q){
+    var key=(q.name||'')+'|'+(q.phone||'');
+    if(!S.quizMap[key]||q.round>S.quizMap[key].round){
+      S.quizMap[key]=q;
+    }
+  });
+}
+function updatePool(){
+  buildQuizMap();
+  S.eligiblePool=S.participants.filter(function(p){
+    return p.signed&&!p.won;
+  }).filter(function(p){
+    return S.quizMap[(p.name||'')+'|'+(p.phone||'')];
+  }).map(preCalcParticipant);
+  document.getElementById('actCount').textContent=S.eligiblePool.length;
+  if(S.addedRules.length)executeAllRules();
+}
 
 // ========== MQTT ==========
 function connectMQTT(){
-  const cid='agentdraw_'+uid();
+  var cid='agentdraw_'+uid();
   try{
     S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
-    S.mqtt.on('connect',()=>{
+    S.mqtt.on('connect',function(){
       updateMqtt('online');
       S.mqtt.subscribe(S.topic+'config');
       S.mqtt.subscribe(S.topic+'lottery_result');
+      S.mqtt.subscribe(S.topic+'draw_cmd');
+      S.mqtt.subscribe(S.topic+'game_cmd');
+      S.mqtt.subscribe(S.topic+'shake_data');
+      S.mqtt.subscribe(S.topic+'reaction_click');
+      S.mqtt.subscribe(S.topic+'quiz_answer');
+      S.mqtt.subscribe(S.topic+'danmaku_show');
+      S.mqtt.subscribe(S.topic+'avatar_update');
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'agent-draw',time:Date.now()}));
-      if(S._retryTimer)clearInterval(S._retryTimer);
-      S._retryTimer=setInterval(()=>{
-        if(S.mqtt&&S.mqtt.connected&&!S.configReceived){
-          S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'agent-draw',time:Date.now()}));
-        }else if(S.configReceived&&S._retryTimer){
-          clearInterval(S._retryTimer);S._retryTimer=null;
-        }
-      },5000);
     });
-    S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
-    S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
+    S.mqtt.on('message',function(t,m){try{var d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
+    S.mqtt.on('error',function(){updateMqtt('offline')});
+    S.mqtt.on('reconnect',function(){updateMqtt('connecting')});
+    S.mqtt.on('close',function(){updateMqtt('offline')});
   }catch(e){updateMqtt('offline')}
 }
-function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
+function updateMqtt(s){var d=document.getElementById('mDot'),t=document.getElementById('mText');d.className='mqtt-dot '+s;t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
 function handleMsg(t,d){
   if(t.endsWith('config')){
-    S.configReceived=true;
-    S.allParticipants=d.participants||[];
-    S.allQuizResults=d.quizResults||[];
-    S.lotteryRule=d.lotteryRule||null;
-    updateOverview();
+    if(d.participants)S.participants=d.participants;
+    if(d.quizResults){S.quizResults=d.quizResults;buildQuizMap()}
+    updatePool();
+  }else if(t.endsWith('draw_cmd')){
+    if(d.action==='start')startDraw();
+  }else if(t.endsWith('danmaku_show')){
+    showDanmaku(d.text,d.name,d.avatar,d.color);
+  }else if(t.endsWith('shake_data')){
+    shakePlayers[d.name]=(shakePlayers[d.name]||0)+(d.count||1);
+  }else if(t.endsWith('reaction_click')&&reactionState==='go'){
+    if(!reactionPlayers[d.name])reactionPlayers[d.name]=Date.now()-reactionTime;
+  }else if(t.endsWith('quiz_answer')){
+    if(!quizState.answers[d.name])quizState.answers[d.name]=d.answer;
   }
 }
 
-// ========== 概览统计 ==========
-function updateOverview(){
-  var total=S.allParticipants.length;
-  var signed=S.allParticipants.filter(function(p){return p.signed}).length;
-  var quizSet={};
-  S.allQuizResults.forEach(function(q){quizSet[(q.name||'')+'|'+(q.phone||'')]=true});
-  var quiz=S.allParticipants.filter(function(p){return quizSet[(p.name||'')+'|'+(p.phone||'')]}).length;
-  var eligible=S.allParticipants.filter(function(p){
-    return p.signed&&!p.won&&quizSet[(p.name||'')+'|'+(p.phone||'')];
-  }).length;
-  document.getElementById('sTotal').textContent=total;
-  document.getElementById('sSigned').textContent=signed;
-  document.getElementById('sQuiz').textContent=quiz;
-  document.getElementById('sEligible').textContent=eligible;
-}
-
-// ========== 步骤指示 ==========
-function setStep(idx,state){
-  var el=document.getElementById('step'+idx);
-  if(!el)return;
-  el.classList.remove('active','done','fail');
-  if(state)el.classList.add(state);
-}
-function resetSteps(){for(var i=1;i<=7;i++)setStep(i,'')}
-
-// ========== 日志系统 ==========
-function addLog(icon,text){
-  var stream=document.getElementById('logStream');
-  var item=document.createElement('div');
-  item.className='log-item';
-  var now=new Date();
-  var ts=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0');
-  item.innerHTML='<div class="log-icon">'+icon+'</div><div class="log-text">'+text+'</div><div class="log-time">'+ts+'</div>';
-  stream.appendChild(item);
-  stream.scrollTop=stream.scrollHeight;
-}
-function setAgentStatus(text){document.getElementById('agentStatus').textContent=text}
-function setProgress(pct){document.getElementById('logProgress').style.width=pct+'%'}
-
-// ========== 数字运算匹配 ==========
-function matchRule(p,ruleDesc){
-  if(!ruleDesc)return true;
-  var pc=p.preCalc;
-  if(!pc){
-    // 即时计算
-    var digits=extractDigits(p.phone);
-    pc={totalSum:digitSum(digits),allEven:digitSum(digits)%2===0};
-  }
-  var d=ruleDesc;
-  // 全部数字相加等于N
-  var m=d.match(/全部.*(?:数字)?.*(?:相加|和).*(?:等于|为|是)\s*(\d+)/);
-  if(m)return pc.totalSum===parseInt(m[1]);
-  // 全部数字相加为偶/奇
-  if(/全部.*(?:数字)?.*(?:相加|和).*(?:偶|双)/.test(d))return pc.allEven;
-  if(/全部.*(?:数字)?.*(?:相加|和).*(?:奇|单)/.test(d))return !pc.allEven;
-  return true;
-}
-
-// ========== 核心：智能体抽奖流程 ==========
-async function runLottery(){
-  if(S.isRunning)return;
-  S.isRunning=true;
-
-  var ruleCalc=document.getElementById('ruleCalc').value.trim();
-  var winCount=parseInt(document.getElementById('ruleWinCount').value)||1;
-  var filterMode=document.getElementById('ruleFilter').value;
-  var drawMode=document.getElementById('ruleMode').value;
-
-  // UI 初始化
-  document.getElementById('runBtn').disabled=true;
-  document.getElementById('runBtn').textContent='⏳ 抽奖进行中...';
-  document.getElementById('logCard').style.display='block';
-  document.getElementById('candidateCard').style.display='block';
-  document.getElementById('resultArea').style.display='none';
-  document.getElementById('logStream').innerHTML='';
-  document.getElementById('agentLogIcon').className='agent-avatar thinking';
-  document.getElementById('agentLogIcon').textContent='🤖';
-  resetSteps();
-  setStep(1,'active');
-  setProgress(5);
-
-  var t0=Date.now();
-  addLog('📡','智能体正在连接数据源...');
-
-  await sleep(300);
-
-  // === Step 1: 数据加载 ===
-  setAgentStatus('正在加载参与者与答题数据');
-  var allList=S.allParticipants.slice();
-  addLog('📊','已加载 '+allList.length+' 名参与者数据');
-  await sleep(200);
-  addLog('🧠','已加载 '+S.allQuizResults.length+' 条答题记录（含多轮最佳成绩）');
-  setStep(1,'done');
-  setStep(2,'active');
-  setProgress(15);
-
-  await sleep(300);
-
-  // === Step 2: 签到筛选 ===
-  setAgentStatus('正在筛选已签到人员');
-  var signedList=allList;
-  if(filterMode==='all'||filterMode==='signed'){
-    signedList=allList.filter(function(p){return p.signed});
-    var removedSign=allList.length-signedList.length;
-    addLog('✅','签到筛选：'+signedList.length+' 人已签到'+(removedSign>0?'（淘汰 '+removedSign+' 人未签到）':''));
-  }else{
-    addLog('⏭️','跳过签到筛选');
-  }
-  setStep(2,'done');
-  setStep(3,'active');
-  setProgress(30);
-
-  await sleep(300);
-
-  // === Step 3: 答题校验 ===
-  setAgentStatus('正在校验知识问答完成情况');
-  var quizSet={};
-  S.allQuizResults.forEach(function(q){quizSet[(q.name||'')+'|'+(q.phone||'')]=q});
-  var quizList=signedList;
-  if(filterMode==='all'||filterMode==='quiz'){
-    quizList=signedList.filter(function(p){return quizSet[(p.name||'')+'|'+(p.phone||'')]});
-    var removedQuiz=signedList.length-quizList.length;
-    addLog('🧠','答题校验：'+quizList.length+' 人已完成知识问答'+(removedQuiz>0?'（淘汰 '+removedQuiz+' 人未答题）':''));
-  }else{
-    addLog('⏭️','跳过答题校验');
-  }
-  setStep(3,'done');
-  setStep(4,'active');
-  setProgress(45);
-
-  await sleep(300);
-
-  // === Step 4: 排除已中奖 ===
-  setAgentStatus('正在排除已中奖人员');
-  var notWonList=quizList;
-  if(filterMode==='all'){
-    notWonList=quizList.filter(function(p){return !p.won});
-    var removedWon=quizList.length-notWonList.length;
-    addLog('🏆','排除已中奖：'+notWonList.length+' 人为有效候选'+(removedWon>0?'（排除 '+removedWon+' 人已中奖）':''));
-  }
-  setStep(4,'done');
-  setStep(5,'active');
-  setProgress(60);
-
-  await sleep(300);
-
-  // 展示候选人池
-  renderCandidates(notWonList);
-  document.getElementById('candidateCount').textContent=notWonList.length+' 人';
-  await sleep(500);
-
-  // === Step 5: 数字运算 ===
-  setAgentStatus('正在执行数字运算规则：'+ruleCalc);
-  addLog('🔢','开始执行数字运算规则：「'+ruleCalc+'」');
-  await sleep(300);
-
-  var matched=notWonList.filter(function(p){
-    var hit=matchRule(p,ruleCalc);
-    var pc=p.preCalc||{};
-    var sum=pc.totalSum||0;
-    if(hit){
-      addLog('🎯','<b style="color:var(--gold)">'+p.name+'</b>（'+maskPhone(p.phone)+'）数字之和='+sum+' ✅ 命中');
-    }
-    return hit;
+// ========== 规则管理 ==========
+function renderRuleSelect(){
+  var sel=document.getElementById('ruleSelect');
+  var html='<option value="">-- 选择天选规则 --</option>';
+  var lastCat='';
+  RULES.forEach(function(r){
+    if(r.cat!==lastCat){html+='<optgroup label="'+r.cat+'">';lastCat=r.cat}
+    html+='<option value="'+r.id+'">'+r.name+'</option>';
   });
-  
-  if(matched.length===0){
-    addLog('❌','数字运算规则未命中任何候选人');
-  }else{
-    addLog('✅','数字运算完成：'+matched.length+' 人命中规则');
-  }
-  setStep(5,'done');
-  setStep(6,'active');
-  setProgress(75);
-
-  await sleep(500);
-
-  // === Step 6: 命中抽取 ===
-  setAgentStatus('正在进行最终抽取');
-  var winners=[];
-  if(drawMode==='match'){
-    // 规则匹配：满足条件的全部命中
-    winners=matched.slice(0,winCount);
-    if(matched.length>winCount){
-      // 如果命中多于需要人数，随机选取
-      addLog('🎲','命中 '+matched.length+' 人超出中奖名额 '+winCount+'，随机抽取...');
-      winners=[];
-      var pool=matched.slice();
-      for(var i=0;i<Math.min(winCount,pool.length);i++){
-        var idx=Math.floor(Math.random()*pool.length);
-        winners.push(pool.splice(idx,1)[0]);
-      }
-    }
-  }else if(drawMode==='random'){
-    // 规则筛选后随机抽取
-    var pool2=matched.length?matched:notWonList;
-    addLog('🎲','从 '+(pool2.length)+' 名候选中随机抽取 '+winCount+' 人');
-    winners=[];
-    var p2=pool2.slice();
-    for(var i=0;i<Math.min(winCount,p2.length);i++){
-      var idx2=Math.floor(Math.random()*p2.length);
-      winners.push(p2.splice(idx2,1)[0]);
-    }
-  }else if(drawMode==='best'){
-    // 取答题成绩最佳
-    var scoreboard=notWonList.map(function(p){
-      var q=quizSet[(p.name||'')+'|'+(p.phone||'')];
-      return{p:p,correct:q?q.correctCount:0,time:q?q.totalTimeMs:999999999};
-    }).sort(function(a,b){return b.correct-a.correct||(a.time-b.time)});
-    winners=scoreboard.slice(0,winCount).map(function(s){return s.p});
-    addLog('🏆','按答题成绩最佳选取：'+winners.map(function(w){return w.name}).join('、'));
-  }
-
-  // 标记候选人状态
-  renderCandidateResult(notWonList,winners);
-
-  setStep(6,'done');
-  setStep(7,'active');
-  setProgress(90);
-
-  await sleep(500);
-
-  // === Step 7: 结果呈现 ===
-  setAgentStatus('正在生成抽奖结果');
-  var totalTime=Date.now()-t0;
-  addLog('🎉','抽奖完成！耗时 '+totalTime+'ms');
-
-  // 广播中奖结果
-  if(S.mqtt&&S.mqtt.connected&&winners.length){
-    S.mqtt.publish(S.topic+'lottery_result',JSON.stringify({
-      winners:winners.map(function(w){return{name:w.name,prize:'智能体抽奖'}}),
-      time:Date.now()
-    }));
-    addLog('📡','中奖结果已广播至全部终端');
-  }
-
-  setStep(7,'done');
-  setProgress(100);
-  document.getElementById('agentLogIcon').className='agent-avatar done';
-  document.getElementById('agentLogIcon').textContent='✅';
-  setAgentStatus('抽奖完成');
-
-  // 渲染中奖结果
-  renderWinners(winners,ruleCalc,totalTime);
-
-  // 恢复按钮
-  document.getElementById('runBtn').disabled=false;
-  document.getElementById('runBtn').textContent='🚀 再次启动抽奖';
-  S.isRunning=false;
+  html+='</optgroup>';
+  sel.innerHTML=html;
 }
-
-// ========== 候选人展示 ==========
-function renderCandidates(list){
-  var scroll=document.getElementById('candidateScroll');
-  if(!list.length){scroll.innerHTML='<div style="color:var(--sub);padding:12px;font-size:.85em">无符合条件的候选人</div>';return}
-  scroll.innerHTML=list.map(function(p){
-    var pc=p.preCalc||{};
-    var sum=pc.totalSum||0;
-    return '<div class="candidate-chip" data-name="'+p.name+'">'+p.name+' (Σ='+sum+')</div>';
+function onRuleSelectChange(){
+  var id=parseInt(document.getElementById('ruleSelect').value);
+  var rule=RULES.find(function(r){return r.id===id});
+  var paramInput=document.getElementById('ruleParam');
+  if(!rule){paramInput.placeholder='参数值';paramInput.style.display='';return}
+  if(rule.pType==='none'){paramInput.style.display='none'}
+  else if(rule.pType==='select'){
+    paramInput.style.display='none';
+    var oldSel=document.getElementById('ruleParamSelect');
+    if(oldSel)oldSel.remove();
+    var sel=document.createElement('select');
+    sel.id='ruleParamSelect';
+    sel.className='rule-param';
+    sel.style.flex='1';
+    rule.pOptions.forEach(function(opt){var o=document.createElement('option');o.value=opt;o.textContent=opt;sel.appendChild(o)});
+    paramInput.parentNode.insertBefore(sel,paramInput);
+  }else{
+    paramInput.style.display='';
+    paramInput.placeholder=rule.pLabel||'参数值';
+    var oldSel=document.getElementById('ruleParamSelect');
+    if(oldSel)oldSel.remove();
+  }
+}
+function getRuleParam(){
+  var id=parseInt(document.getElementById('ruleSelect').value);
+  var rule=RULES.find(function(r){return r.id===id});
+  if(!rule)return'';
+  if(rule.pType==='none')return'';
+  if(rule.pType==='select'){
+    var sel=document.getElementById('ruleParamSelect');
+    return sel?sel.value:'';
+  }
+  return document.getElementById('ruleParam').value.trim();
+}
+function getCurrentRule(){
+  var id=parseInt(document.getElementById('ruleSelect').value);
+  return RULES.find(function(r){return r.id===id});
+}
+function addRuleOnly(){
+  var rule=getCurrentRule();
+  if(!rule){toast('请先选择一条规则');return}
+  var param=getRuleParam();
+  if(rule.pType!=='none'&&!param){toast('请输入参数值');return}
+  S.addedRules.push({seq:++S.ruleSeq,rule:rule,param:param});
+  renderRuleList();
+  resetRuleInput();
+  toast('已添加规则：'+rule.desc(param));
+}
+function executeRule(){
+  var rule=getCurrentRule();
+  if(!rule){toast('请先选择一条规则');return}
+  var param=getRuleParam();
+  if(rule.pType!=='none'&&!param){toast('请输入参数值');return}
+  S.addedRules.push({seq:++S.ruleSeq,rule:rule,param:param});
+  renderRuleList();
+  resetRuleInput();
+  executeAllRules();
+}
+function deleteRule(seq){
+  S.addedRules=S.addedRules.filter(function(r){return r.seq!==seq});
+  renderRuleList();
+  executeAllRules();
+}
+function resetRuleInput(){
+  document.getElementById('ruleSelect').value='';
+  document.getElementById('ruleParam').value='';
+  document.getElementById('ruleParam').style.display='';
+  var oldSel=document.getElementById('ruleParamSelect');
+  if(oldSel)oldSel.remove();
+}
+function renderRuleList(){
+  var box=document.getElementById('ruleList');
+  if(!S.addedRules.length){box.innerHTML='';return}
+  box.innerHTML=S.addedRules.map(function(r){
+    var color=CAT_COLORS[r.rule.cat]||'#6c5ce7';
+    return'<div class="rule-item">'+
+      '<span class="rule-tag">规则'+r.seq+'</span>'+
+      '<span class="rule-cat" style="background:'+color+';color:#fff">'+r.rule.cat+'</span>'+
+      '<span class="rule-desc">'+r.rule.desc(r.param)+'</span>'+
+      '<button class="rule-del" onclick="deleteRule('+r.seq+')">✕</button>'+
+    '</div>';
   }).join('');
 }
-function renderCandidateResult(list,winners){
-  var scroll=document.getElementById('candidateScroll');
-  var winnerNames={};
-  winners.forEach(function(w){winnerNames[w.name]=true});
-  var chips=scroll.querySelectorAll('.candidate-chip');
-  chips.forEach(function(chip){
-    var name=chip.getAttribute('data-name');
-    if(winnerNames[name]){
-      chip.className='candidate-chip winner';
-    }else{
-      chip.className='candidate-chip miss';
-    }
-  });
-}
-
-// ========== 中奖结果渲染 ==========
-function renderWinners(winners,ruleCalc,totalTime){
-  var area=document.getElementById('resultArea');
-  area.style.display='block';
-  if(!winners.length){
-    area.innerHTML='<div class="card" style="text-align:center;padding:40px"><div style="font-size:3em;margin-bottom:12px">😢</div><div style="font-size:1.2em;color:var(--sub)">本轮无人中奖</div><div style="font-size:.85em;color:var(--sub);margin-top:8px">规则「'+ruleCalc+'」未匹配到任何候选人</div></div>';
+function executeAllRules(){
+  if(!S.eligiblePool.length){
+    S.luckyList=[];
+    renderLuckyList();
     return;
   }
-  var html='<div style="text-align:center;margin-bottom:16px"><div style="font-size:2em;margin-bottom:8px">🎊</div><div style="font-size:1.4em;font-weight:bold;color:var(--gold)">恭喜以下中奖者！</div></div>';
-  winners.forEach(function(w,i){
-    var pc=w.preCalc||{};
-    var phoneDigits=extractDigits(w.phone);
-    var ticketDigits=extractDigits(w.ticket||'');
-    var allDigits=phoneDigits.concat(ticketDigits);
-    var totalSum=pc.totalSum||digitSum(allDigits);
-    var teamInfo=w.team||'';
-    var qResult=S.allQuizResults.find(function(q){return q.name===w.name&&q.phone===w.phone});
-    var accuracy=qResult&&qResult.totalCount>0?Math.round(qResult.correctCount/qResult.totalCount*100):0;
-
-    html+='<div class="winner-card" style="margin-bottom:14px">';
-    html+='<div class="winner-avatar">'+((w.name||'?')[0])+'</div>';
-    html+='<div class="winner-name">'+w.name+'</div>';
-    if(teamInfo)html+='<div style="font-size:.85em;color:var(--pri-l);margin-bottom:8px">['+teamInfo+']</div>';
-    html+='<div class="winner-detail">';
-    html+='手机号：'+maskPhone(w.phone)+'<br>';
-    if(qResult)html+='答题成绩：'+qResult.correctCount+'/'+qResult.totalCount+'（正确率 '+accuracy+'%）<br>';
-    html+='</div>';
-    // 数字拆解可视化
-    html+='<div style="margin-top:14px;font-size:.82em;color:var(--sub)">数字拆解验证：</div>';
-    html+='<div class="digit-viz">';
-    phoneDigits.forEach(function(d){
-      html+='<div class="digit-box from-phone">'+d+'</div>';
-    });
-    if(ticketDigits.length){
-      html+='<div style="display:flex;align-items:center;color:var(--sub);font-size:1.2em;padding:0 4px">+</div>';
-      ticketDigits.forEach(function(d){
-        html+='<div class="digit-box from-ticket">'+d+'</div>';
-      });
-    }
-    html+='<div style="display:flex;align-items:center;color:var(--sub);font-size:1.2em;padding:0 4px">=</div>';
-    html+='<div class="digit-box sum-target" style="width:48px">'+totalSum+'</div>';
-    html+='</div>';
-    html+='<div style="font-size:.78em;color:'+(totalSum===5?'var(--grn)':'var(--gold)')+';margin-top:6px">'+(totalSum===5?'✅ 数字之和为5，符合抽奖规则！':'数字之和：'+totalSum)+'</div>';
-    html+='</div>';
+  var matched=S.eligiblePool.slice();
+  S.addedRules.forEach(function(ar){
+    matched=matched.filter(function(d){return ar.rule.test(d,ar.param)});
   });
-  html+='<div style="text-align:center;font-size:.8em;color:var(--sub);padding:12px">规则：「'+ruleCalc+'」 · 耗时 '+totalTime+'ms · 智能体抽奖引擎</div>';
-  area.innerHTML=html;
+  S.luckyList=matched;
+  renderLuckyList();
 }
 
-// ========== 重置 ==========
-function resetEngine(){
-  document.getElementById('logCard').style.display='none';
-  document.getElementById('candidateCard').style.display='none';
-  document.getElementById('resultArea').style.display='none';
-  document.getElementById('runBtn').disabled=false;
-  document.getElementById('runBtn').textContent='🚀 启动智能体抽奖';
-  resetSteps();
-  setProgress(0);
-  S.isRunning=false;
-}
-
-// ========== 工具 ==========
-function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
-
-// ========== 大屏统计放大 ==========
-function applyBigscreenStats(){
-  document.querySelectorAll('.stat-num').forEach(function(el){el.style.fontSize='2.2em'});
-  document.querySelectorAll('.stat-item').forEach(function(el){el.style.padding='18px 10px'});
-  document.querySelectorAll('.stat-label').forEach(function(el){el.style.fontSize='.85em'});
-}
-
-// ========== 全屏控制 ==========
-function toggleFullscreen(){
-  var el=document.documentElement;
-  if(!document.fullscreenElement&&!document.webkitFullscreenElement&&!document.mozFullScreenElement){
-    if(el.requestFullscreen)el.requestFullscreen();
-    else if(el.webkitRequestFullscreen)el.webkitRequestFullscreen();
-    else if(el.mozRequestFullScreen)el.mozRequestFullScreen();
-    else if(el.msRequestFullscreen)el.msRequestFullscreen();
-    document.getElementById('fsBtn').textContent='eita';
-    document.getElementById('fsBtn').style.fontSize='1.1em';
-  }else{
-    if(document.exitFullscreen)document.exitFullscreen();
-    else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
-    else if(document.mozCancelFullScreen)document.mozCancelFullScreen();
-    else if(document.msExitFullscreen)document.msExitFullscreen();
-    document.getElementById('fsBtn').textContent='ffa';
+// ========== 幸运候选渲染 ==========
+function renderLuckyList(){
+  var box=document.getElementById('luckyList');
+  var countEl=document.getElementById('luckyCount');
+  countEl.textContent=S.luckyList.length+' 人';
+  if(!S.luckyList.length){
+    if(S.addedRules.length){
+      box.innerHTML='<div class="lucky-empty">当前规则下无命中人员<br>请调整规则或参数</div>';
+    }else{
+      box.innerHTML='<div class="lucky-empty">添加并执行天选规则后<br>命中全部规则的人员将显示在此</div>';
+    }
+    return;
   }
+  box.innerHTML=S.luckyList.map(function(d,i){
+    var rankCls=i<3?'top'+(i+1):'';
+    var ph=d.phone?maskPhone(d.phone):'';
+    var detail=ph;
+    if(d.last4Str)detail+=' · 后4位和='+d.last4Sum;
+    if(d.quizTotal>0)detail+=' · 答题'+d.quizScore+'/'+d.quizTotal;
+    if(d.stroke>0)detail+=' · 笔画='+d.stroke;
+    var tagText=S.addedRules.length+'条全中';
+    return'<div class="lucky-item">'+
+      '<div class="lucky-rank '+rankCls+'">'+(i+1)+'</div>'+
+      '<div class="lucky-info">'+
+        '<div class="lucky-name">'+escHtml(d.name)+'</div>'+
+        '<div class="lucky-detail">'+detail+'</div>'+
+      '</div>'+
+      '<div class="lucky-tag">'+tagText+'</div>'+
+    '</div>';
+  }).join('');
 }
-document.addEventListener('fullscreenchange',function(){
-  var btn=document.getElementById('fsBtn');
-  if(document.fullscreenElement){
-    btn.textContent='\u2716';btn.style.fontSize='1.1em';
+function escHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+
+// ========== 弹幕 ==========
+function toggleDanmaku(){
+  S.danmakuOn=!S.danmakuOn;
+  updateDanmakuStatus();
+  toast(S.danmakuOn?'弹幕已开启':'弹幕已关闭');
+}
+function updateDanmakuStatus(){
+  var el=document.getElementById('dmStatus');
+  el.textContent=S.danmakuOn?'弹幕已开启':'弹幕已关闭';
+  el.style.color=S.danmakuOn?'var(--grn)':'var(--sub)';
+  el.style.background=S.danmakuOn?'rgba(0,184,148,.1)':'rgba(255,255,255,.05)';
+}
+function showDanmaku(text,name,avatar,color){
+  if(!S.danmakuOn)return;
+  var layer=document.getElementById('danmakuLayer');
+  var div=document.createElement('div');
+  div.className='dm-item';
+  var fontSize=24,speed=8;
+  var c='#fff';
+  if(color&&color!=='random'){c=color}
+  else{var colors=['#fff','#fdcb6e','#fd79a8','#a29bfe','#00b894','#0984e3','#e17055','#74b9ff'];c=colors[Math.floor(Math.random()*colors.length)]}
+  div.style.fontSize=fontSize+'px';
+  div.style.color=c;
+  div.style.top=(Math.random()*60+5)+'%';
+  div.style.animationDuration=speed+'s';
+  if(avatar){var av=document.createElement('span');av.className='dm-avatar';if(typeof avatar==='string'&&avatar.indexOf('emoji:')===0){av.textContent=avatar.substr(6)}else{av.innerHTML='<img src="'+avatar+'">'}div.appendChild(av)}
+  if(name){var nick=document.createElement('span');nick.className='dm-nick';nick.textContent=name+':';div.appendChild(nick)}
+  var tx=document.createElement('span');tx.textContent=text;div.appendChild(tx);
+  layer.appendChild(div);
+  setTimeout(function(){div.remove()},speed*1000+500);
+}
+
+// ========== 互动游戏 ==========
+function openGameMenu(){
+  if(S.gameRunning)return;
+  var menu=document.createElement('div');
+  menu.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:250;background:rgba(22,27,60,.95);padding:28px;border-radius:20px;text-align:center;border:1px solid rgba(255,255,255,.1)';
+  menu.innerHTML='<h2 style="margin-bottom:18px">🎮 选择互动游戏</h2>';
+  var container=document.createElement('div');
+  container.style.cssText='display:flex;gap:12px;flex-direction:column';
+  var games=[
+    {id:'shake',name:'摇一摇大赛',desc:'参与者手机摇一摇，比拼摇动次数',icon:'📱'},
+    {id:'reaction',name:'反应速度测试',desc:'屏幕变色后最快点击者获胜',icon:'⚡'},
+    {id:'quiz',name:'趣味抢答',desc:'屏幕出题，参与者手机抢答',icon:'🧠'}
+  ];
+  games.forEach(function(g){
+    var btn=document.createElement('button');
+    btn.className='btn-game';
+    btn.style.cssText='width:280px;justify-content:flex-start;padding:14px 18px';
+    btn.innerHTML='<span style="font-size:1.4em;margin-right:8px">'+g.icon+'</span><div style="text-align:left"><div style="font-weight:bold">'+g.name+'</div><div style="font-size:.78em;opacity:.7">'+g.desc+'</div></div>';
+    btn.onclick=function(){menu.remove();openGame(g.id)};
+    container.appendChild(btn);
+  });
+  var cancel=document.createElement('button');
+  cancel.style.cssText='width:280px;padding:10px;border-radius:10px;background:transparent;border:1px solid var(--bd);color:var(--sub);cursor:pointer';
+  cancel.textContent='取消';
+  cancel.onclick=function(){menu.remove()};
+  container.appendChild(cancel);
+  menu.appendChild(container);
+  document.body.appendChild(menu);
+}
+function openGame(id){
+  S.gameRunning=true;
+  document.getElementById('gameOverlay').classList.add('show');
+  document.getElementById('gameResult').classList.remove('show');
+  var games={shake:{title:'📱 摇一摇大赛',desc:'参与者请打开手机端，疯狂摇动手机！'},reaction:{title:'⚡ 反应速度测试',desc:'屏幕变绿后，最快在手机端点击的参与者获胜'},quiz:{title:'🧠 趣味抢答',desc:'屏幕出题，参与者手机抢答'}};
+  var g=games[id]||games.shake;
+  document.getElementById('gameTitle').textContent=g.title;
+  document.getElementById('gameDesc').textContent=g.desc;
+  if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'start',game:id,time:Date.now()}));
+  if(id==='shake')runShakeGame();
+  else if(id==='reaction')runReactionGame();
+  else if(id==='quiz')runQuizGame();
+}
+var shakePlayers={},shakeTimer;
+function runShakeGame(){
+  shakePlayers={};
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+  var cd=5;
+  var cdInterval=setInterval(function(){
+    gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+    gameCtx.fillStyle='#fff';gameCtx.font='bold 120px Microsoft YaHei';gameCtx.textAlign='center';gameCtx.textBaseline='middle';
+    gameCtx.fillText(cd,gameCanvas.width/2,gameCanvas.height/2);
+    document.getElementById('gameDesc').textContent='倒计时 '+cd+' 秒';
+    if(cd<=0){clearInterval(cdInterval);startShakeRound()}
+    cd--;
+  },1000);
+}
+function startShakeRound(){
+  document.getElementById('gameDesc').textContent='开始摇一摇！';
+  var timeLeft=5;
+  var roundInterval=setInterval(function(){
+    gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+    var sorted=Object.entries(shakePlayers).sort(function(a,b){return b[1]-a[1]}).slice(0,10);
+    gameCtx.fillStyle='#fff';gameCtx.font='bold 40px Microsoft YaHei';gameCtx.textAlign='center';
+    gameCtx.fillText('⏱️ '+timeLeft+' 秒',gameCanvas.width/2,60);
+    gameCtx.font='bold 28px Microsoft YaHei';
+    sorted.forEach(function(e,i){var y=120+i*45;gameCtx.fillStyle=i===0?'#fdcb6e':i<3?'#fd79a8':'#fff';gameCtx.fillText((i+1)+'. '+e[0]+' - '+e[1]+'次',gameCanvas.width/2,y)});
+    if(timeLeft<=0){clearInterval(roundInterval);endShakeGame(sorted)}
+    timeLeft--;
+  },1000);
+}
+function endShakeGame(sorted){
+  document.getElementById('gameDesc').textContent='游戏结束！';
+  var result=document.getElementById('gameResult');
+  result.innerHTML='<h2>🏆 摇一摇大赛结果</h2>'+sorted.slice(0,3).map(function(e,i){return'<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+' - '+e[1]+'次</div>'}).join('');
+  result.classList.add('show');
+  if(S.mqtt){S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'end',game:'shake',rankings:sorted.slice(0,3).map(function(e,i){return{name:e[0],score:e[1],rank:i+1}})}))}
+}
+var reactionState='waiting',reactionTime=0,reactionPlayers={};
+function runReactionGame(){
+  reactionState='waiting';reactionPlayers={};
+  gameCtx.fillStyle='#e17055';gameCtx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+  gameCtx.fillStyle='#fff';gameCtx.font='bold 48px Microsoft YaHei';gameCtx.textAlign='center';gameCtx.textBaseline='middle';
+  gameCtx.fillText('请准备...',gameCanvas.width/2,gameCanvas.height/2);
+  document.getElementById('gameDesc').textContent='等待屏幕变绿后，参与者请在手机端最快点击！';
+  var waitTime=2000+Math.random()*4000;
+  setTimeout(function(){
+    if(!S.gameRunning)return;
+    reactionState='go';reactionTime=Date.now();
+    gameCtx.fillStyle='#00b894';gameCtx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
+    gameCtx.fillStyle='#fff';gameCtx.font='bold 80px Microsoft YaHei';
+    gameCtx.fillText('🟢 点击！',gameCanvas.width/2,gameCanvas.height/2);
+    document.getElementById('gameDesc').textContent='快点击手机端按钮！';
+    if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'go',game:'reaction',time:Date.now()}));
+    setTimeout(function(){if(S.gameRunning&&reactionState==='go'){reactionState='done';endReactionGame()}},3000);
+  },waitTime);
+}
+function endReactionGame(){
+  var sorted=Object.entries(reactionPlayers).sort(function(a,b){return a[1]-b[1]}).slice(0,10);
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+  document.getElementById('gameDesc').textContent='游戏结束！';
+  var result=document.getElementById('gameResult');
+  result.innerHTML='<h2>⚡ 反应速度排名</h2>'+sorted.slice(0,3).map(function(e,i){return'<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+' - '+(e[1]/1000).toFixed(3)+'秒</div>'}).join('')||'<div class="rank" style="background:rgba(231,112,85,.2)">没有人参与</div>';
+  result.classList.add('show');
+  if(S.mqtt){S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'end',game:'reaction',rankings:sorted.slice(0,3).map(function(e,i){return{name:e[0],score:e[1],rank:i+1}})}))}
+}
+var quizState={},quizzes=[
+{q:'一分钟有多少秒？',a:'60',options:['30','60','90','120']},
+{q:'一小时有多少分钟？',a:'60',options:['30','45','60','90']},
+{q:'一天有多少小时？',a:'24',options:['12','24','36','48']},
+{q:'一周有多少天？',a:'7',options:['5','6','7','8']},
+{q:'一年有多少个月？',a:'12',options:['10','11','12','13']},
+{q:'闰年有多少天？',a:'366',options:['364','365','366','367']},
+{q:'太阳从哪个方向升起？',a:'东',options:['东','西','南','北']},
+{q:'中国的首都是哪个城市？',a:'北京',options:['上海','北京','广州','深圳']},
+{q:'世界最高峰是？',a:'珠穆朗玛峰',options:['乞力马扎罗峰','珠穆朗玛峰','勃朗峰','麦金利峰']},
+{q:'世界上最大的洋是？',a:'太平洋',options:['大西洋','太平洋','印度洋','北冰洋']},
+{q:'世界上最大的洲是？',a:'亚洲',options:['亚洲','非洲','北美洲','欧洲']},
+{q:'水的沸点是多少摄氏度？',a:'100',options:['50','80','100','120']},
+{q:'水的冰点是多少摄氏度？',a:'0',options:['-10','0','10','32']},
+{q:'一公斤等于多少克？',a:'1000',options:['100','500','1000','2000']},
+{q:'一米等于多少厘米？',a:'100',options:['10','100','1000','10000']},
+{q:'太阳系有几颗行星？',a:'8',options:['7','8','9','10']},
+{q:'太阳系最大的行星是？',a:'木星',options:['火星','木星','土星','海王星']},
+{q:'彩虹有几种颜色？',a:'7',options:['5','6','7','8']},
+{q:'中国的国宝动物是？',a:'大熊猫',options:['金丝猴','大熊猫','东北虎','丹顶鹤']},
+{q:'世界上最大的哺乳动物是？',a:'蓝鲸',options:['大象','蓝鲸','长颈鹿','鲨鱼']},
+{q:'中国有多少个民族？',a:'56',options:['48','54','56','60']},
+{q:'十二生肖排第一的是？',a:'鼠',options:['鼠','牛','虎','龙']},
+{q:'中国的国庆节是几月几日？',a:'10月1日',options:['9月10日','10月1日','10月10日','11月1日']},
+{q:'中国的教师节是几月几日？',a:'9月10日',options:['9月1日','9月10日','9月20日','10月1日']},
+{q:'奥运会每几年举办一次？',a:'4',options:['2','3','4','5']},
+{q:'标准足球比赛每队多少人？',a:'11',options:['9','10','11','12']},
+{q:'成年人有多少颗牙齿？',a:'32',options:['28','30','32','34']},
+{q:'人体正常体温大约是多少摄氏度？',a:'37',options:['35','37','39','41']},
+{q:'世界上使用最广泛的语言是？',a:'英语',options:['汉语','英语','西班牙语','阿拉伯语']},
+{q:'中国最早的文字是？',a:'甲骨文',options:['金文','甲骨文','小篆','隶书']},
+{q:'长城始建于哪个朝代？',a:'秦朝',options:['汉朝','秦朝','唐朝','明朝']},
+{q:'光速大约是每秒多少万公里？',a:'30',options:['15','30','50','100']}
+];
+function runQuizGame(){
+  quizState={current:0,answers:{}};
+  var q=quizzes[Math.floor(Math.random()*quizzes.length)];quizState.current=q;
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+  gameCtx.fillStyle='#fdcb6e';gameCtx.font='bold 36px Microsoft YaHei';gameCtx.textAlign='center';
+  gameCtx.fillText('🧠 趣味抢答',gameCanvas.width/2,80);
+  gameCtx.fillStyle='#fff';gameCtx.font='bold 40px Microsoft YaHei';
+  gameCtx.fillText(q.q,gameCanvas.width/2,200);
+  q.options.forEach(function(opt,i){gameCtx.fillStyle=i===0?'#6c5ce7':i===1?'#fd79a8':i===2?'#00b894':'#0984e3';gameCtx.fillRect(gameCanvas.width/2-300,280+i*80,600,65);gameCtx.fillStyle='#fff';gameCtx.font='bold 28px Microsoft YaHei';gameCtx.fillText((['A','B','C','D'])[i]+'. '+opt,gameCanvas.width/2,320+i*80)});
+  document.getElementById('gameDesc').textContent='参与者请在手机端选择答案！';
+  if(S.mqtt&&S.mqtt.connected){S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'start',game:'quiz',question:q.q,options:q.options,time:Date.now()}))}
+  setTimeout(function(){if(S.gameRunning)endQuizGame()},8000);
+}
+function endQuizGame(){
+  var q=quizState.current;var correct=Object.entries(quizState.answers).filter(function(e){return e[1]===q.a});
+  document.getElementById('gameDesc').textContent='正确答案：'+q.a;
+  var result=document.getElementById('gameResult');
+  var html='<h2>🧠 抢答结果</h2><div class="rank" style="background:rgba(0,184,148,.2)">✅ 正确答案：'+q.a+'</div>';
+  if(correct.length){
+    html+=correct.slice(0,3).map(function(e,i){return'<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+'</div>'}).join('');
   }else{
-    btn.textContent='\u26F6';
+    html+='<div class="rank" style="background:rgba(231,112,85,.2)">没有人答对</div>';
   }
-});
-document.addEventListener('webkitfullscreenchange',function(){
-  var btn=document.getElementById('fsBtn');
-  if(document.webkitFullscreenElement){
-    btn.textContent='\u2716';btn.style.fontSize='1.1em';
+  result.innerHTML=html;
+  result.classList.add('show');
+  if(S.mqtt){S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'end',game:'quiz',correct:q.a,rankings:correct.slice(0,3).map(function(e,i){return{name:e[0],rank:i+1}})}))}
+}
+function closeGame(){
+  S.gameRunning=false;
+  document.getElementById('gameOverlay').classList.remove('show');
+  document.getElementById('gameResult').classList.remove('show');
+  if(S.mqtt){S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'close'}))}
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
+}
+
+// ========== 抽奖（广播到其他端）==========
+function startDraw(){
+  if(!S.luckyList.length){toast('当前无幸运候选，请先执行天选规则');return}
+  if(S.isDrawing)return;
+  S.isDrawing=true;
+  var winners=S.luckyList.map(function(d){return{name:d.name,phone:d.phone}});
+  if(S.mqtt&&S.mqtt.connected){
+    S.mqtt.publish(S.topic+'lottery_result',JSON.stringify({winners:winners,time:Date.now()}));
+    S.mqtt.publish(S.topic+'ai_analysis',JSON.stringify({
+      text:'天选规则引擎完成筛选！共'+S.addedRules.length+'条规则，命中'+S.luckyList.length+'人',
+      list:S.luckyList.slice(0,50).map(function(d){return{name:d.name,phone:d.phone}})
+    }));
+    toast('已广播'+S.luckyList.length+'名幸运候选至大屏');
   }else{
-    btn.textContent='\u26F6';
+    toast('MQTT未连接，无法广播');
   }
-});
+  launchConfetti();
+  S.isDrawing=false;
+}
+function launchConfetti(){
+  var colors=['#fd79a8','#fdcb6e','#6c5ce7','#00b894','#0984e3','#fab1a0','#a29bfe'];
+  for(var i=0;i<60;i++){var c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colors[Math.floor(Math.random()*colors.length)];c.style.animationDuration=(2+Math.random()*2)+'s';c.style.animationDelay=Math.random()*.5+'s';if(Math.random()>.5)c.style.borderRadius='50%';document.body.appendChild(c);setTimeout(function(el){return function(){el.remove()}}(c),5000)}
+}
 
 // ========== 音乐系统 ==========
-var MUSIC={
-  audio:null,
-  currentSrc:'',
-  currentName:'',
-  currentType:'',
-  isPlaying:false,
+var MUSIC={audio:null,currentSrc:'',isPlaying:false,
   presets:[
     {name:'科技感电子',url:'https://cdn.pixabay.com/download/audio/2022/03/15/audio_945ef41be1.mp3',icon:'🌐',tag:'推荐'},
     {name:'史诗震撼',url:'https://cdn.pixabay.com/download/audio/2021/11/23/audio_64de79e8e8.mp3',icon:'⚔️',tag:'抽奖'},
@@ -740,121 +972,80 @@ function initMusic(){
   MUSIC.audio=new Audio();
   MUSIC.audio.loop=true;
   MUSIC.audio.volume=0.4;
-  MUSIC.audio.addEventListener('play',function(){
-    MUSIC.isPlaying=true;
-    var btn=document.getElementById('musicPlayBtn');
-    btn.textContent='\u23F8';btn.classList.add('playing');
-    document.getElementById('musicStatus').textContent='正在播放';
-  });
-  MUSIC.audio.addEventListener('pause',function(){
-    MUSIC.isPlaying=false;
-    var btn=document.getElementById('musicPlayBtn');
-    btn.textContent='\u25B6';btn.classList.remove('playing');
-    document.getElementById('musicStatus').textContent='已暂停';
-  });
-  MUSIC.audio.addEventListener('error',function(){
-    MUSIC.isPlaying=false;
-    var btn=document.getElementById('musicPlayBtn');
-    btn.textContent='\u25B6';btn.classList.remove('playing');
-    document.getElementById('musicStatus').textContent='加载失败，请重试';
-  });
-  MUSIC.audio.addEventListener('waiting',function(){
-    document.getElementById('musicStatus').textContent='缓冲中...';
-  });
-  MUSIC.audio.addEventListener('canplay',function(){
-    if(MUSIC.isPlaying)document.getElementById('musicStatus').textContent='正在播放';
-  });
+  MUSIC.audio.addEventListener('play',function(){MUSIC.isPlaying=true;var btn=document.getElementById('musicPlayBtn');btn.textContent='⏸';btn.classList.add('playing');document.getElementById('musicStatus').textContent='正在播放'});
+  MUSIC.audio.addEventListener('pause',function(){MUSIC.isPlaying=false;var btn=document.getElementById('musicPlayBtn');btn.textContent='▶';btn.classList.remove('playing');document.getElementById('musicStatus').textContent='已暂停'});
+  MUSIC.audio.addEventListener('error',function(){MUSIC.isPlaying=false;var btn=document.getElementById('musicPlayBtn');btn.textContent='▶';btn.classList.remove('playing');document.getElementById('musicStatus').textContent='加载失败'});
   renderMusicPresets();
 }
 function renderMusicPresets(){
   var box=document.getElementById('musicPresetList');
   box.innerHTML=MUSIC.presets.map(function(p,i){
-    return '<div class="music-preset-item" data-idx="'+i+'" onclick="selectPresetMusic('+i+')">'+
-      '<span class="preset-icon">'+p.icon+'</span>'+
-      '<span class="preset-name">'+p.name+'</span>'+
-      '<span class="preset-tag">'+p.tag+'</span>'+
+    return'<div class="music-preset-item" data-idx="'+i+'" onclick="selectPresetMusic('+i+')">'+
+      '<span style="font-size:1.1em">'+p.icon+'</span>'+
+      '<span style="flex:1;color:#fff">'+p.name+'</span>'+
+      '<span style="font-size:.68em;color:var(--sub);padding:2px 6px;border-radius:8px;background:rgba(255,255,255,.05)">'+p.tag+'</span>'+
     '</div>';
   }).join('');
 }
 function selectPresetMusic(idx){
-  var p=MUSIC.presets[idx];
-  if(!p)return;
-  MUSIC.currentSrc=p.url;
-  MUSIC.currentName=p.name;
-  MUSIC.currentType='preset';
-  MUSIC.audio.src=p.url;
-  MUSIC.audio.play().catch(function(e){
-    toast('音乐加载中，请稍后重试');
-    document.getElementById('musicStatus').textContent='点击播放按钮重试';
-  });
+  var p=MUSIC.presets[idx];if(!p)return;
+  MUSIC.currentSrc=p.url;MUSIC.audio.src=p.url;
+  MUSIC.audio.play().catch(function(){toast('音乐加载中，请稍后重试')});
   document.getElementById('musicName').textContent=p.name;
-  document.querySelectorAll('.music-preset-item').forEach(function(el,i){
-    el.classList.toggle('active',i===idx);
-  });
-  showMusicCurrent(p.name,p.tag);
+  document.querySelectorAll('.music-preset-item').forEach(function(el,i){el.classList.toggle('active',i===idx)});
+  document.getElementById('musicCurrent').style.display='flex';
+  document.getElementById('musicCurrentName').textContent=p.name;
+  document.getElementById('musicCurrentTag').textContent=p.tag;
 }
 function togglePlayMusic(){
   if(!MUSIC.audio)return;
-  if(!MUSIC.currentSrc){
-    selectPresetMusic(0);
-    return;
-  }
-  if(MUSIC.isPlaying){
-    MUSIC.audio.pause();
-  }else{
-    MUSIC.audio.play().catch(function(e){
-      toast('播放失败，请重新选择音乐');
-    });
-  }
+  if(!MUSIC.currentSrc){selectPresetMusic(0);return}
+  if(MUSIC.isPlaying){MUSIC.audio.pause()}else{MUSIC.audio.play().catch(function(){toast('播放失败')})}
 }
-function setMusicVol(v){
-  if(MUSIC.audio)MUSIC.audio.volume=v/100;
-}
-function toggleMusicPanel(){
-  var panel=document.getElementById('musicPanel');
-  panel.classList.toggle('show');
-}
+function setMusicVol(v){if(MUSIC.audio)MUSIC.audio.volume=v/100}
+function toggleMusicPanel(){document.getElementById('musicPanel').classList.toggle('show')}
 function uploadMusic(input){
-  var file=input.files[0];
-  if(!file)return;
-  if(file.size>10*1024*1024){
-    toast('文件过大，请选择10MB以内的音频文件');
-    input.value='';
-    return;
-  }
+  var file=input.files[0];if(!file)return;
+  if(file.size>10*1024*1024){toast('文件过大，请选择10MB以内的音频');input.value='';return}
   var url=URL.createObjectURL(file);
-  MUSIC.currentSrc=url;
-  MUSIC.currentName=file.name.replace(/\.[^.]+$/,'');
-  MUSIC.currentType='custom';
-  MUSIC.audio.src=url;
-  MUSIC.audio.play().catch(function(e){
-    toast('播放失败，请重试');
-  });
-  document.getElementById('musicName').textContent=MUSIC.currentName;
+  MUSIC.currentSrc=url;MUSIC.audio.src=url;
+  MUSIC.audio.play().catch(function(){toast('播放失败')});
+  document.getElementById('musicName').textContent=file.name.replace(/\.[^.]+$/,'');
   document.querySelectorAll('.music-preset-item').forEach(function(el){el.classList.remove('active')});
-  showMusicCurrent(MUSIC.currentName,'自定义');
-  toast('已加载: '+MUSIC.currentName);
+  document.getElementById('musicCurrent').style.display='flex';
+  document.getElementById('musicCurrentName').textContent=file.name;
+  document.getElementById('musicCurrentTag').textContent='自定义';
+  toast('已加载: '+file.name);
   input.value='';
 }
-function showMusicCurrent(name,tag){
-  var box=document.getElementById('musicCurrent');
-  document.getElementById('musicCurrentName').textContent=name;
-  document.getElementById('musicCurrentTag').textContent=tag;
-  box.style.display='flex';
-}
-// 点击页面其他区域关闭音乐面板
 document.addEventListener('click',function(e){
   var panel=document.getElementById('musicPanel');
   var bar=document.getElementById('musicBar');
-  if(panel.classList.contains('show')&&!panel.contains(e.target)&&!bar.contains(e.target)){
-    panel.classList.remove('show');
-  }
+  if(panel.classList.contains('show')&&!panel.contains(e.target)&&!bar.contains(e.target)){panel.classList.remove('show')}
 });
 
-// ========== 初始化大屏 ==========
-window.addEventListener('DOMContentLoaded',function(){
-  initMusic();
-  applyBigscreenStats();
+// ========== 全屏 ==========
+function toggleFullscreen(){
+  var el=document.documentElement;
+  if(!document.fullscreenElement&&!document.webkitFullscreenElement&&!document.mozFullScreenElement){
+    if(el.requestFullscreen)el.requestFullscreen();
+    else if(el.webkitRequestFullscreen)el.webkitRequestFullscreen();
+    else if(el.mozRequestFullScreen)el.mozRequestFullScreen();
+    else if(el.msRequestFullscreen)el.msRequestFullscreen();
+    document.getElementById('fsBtn').textContent='✖';
+  }else{
+    if(document.exitFullscreen)document.exitFullscreen();
+    else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
+    else if(document.mozCancelFullScreen)document.mozCancelFullScreen();
+    else if(document.msExitFullscreen)document.msExitFullscreen();
+    document.getElementById('fsBtn').textContent='⛶';
+  }
+}
+document.addEventListener('fullscreenchange',function(){var btn=document.getElementById('fsBtn');btn.textContent=document.fullscreenElement?'✖':'⛶'});
+
+// ========== 键盘快捷键 ==========
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&S.gameRunning)closeGame();
 });
 
 </script>
