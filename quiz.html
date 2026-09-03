@@ -52,6 +52,20 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
 </head>
 <body>
 <div id="app">
+  <!-- 规则介绍首屏 -->
+  <div id="introPage" style="display:block;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
+      <div style="font-weight:bold;font-size:1.1em">🎉 趣味知识问答</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot0" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText0">连接中</span></div>
+      </div>
+    </div>
+    <div class="card" style="padding:24px 20px">
+      <div id="introContent" style="font-size:.95em;line-height:1.8;color:var(--sub);white-space:pre-wrap;word-break:break-word">加载中...</div>
+    </div>
+    <button class="btn btn-pri" style="width:100%;padding:16px;font-size:1.1em;margin-top:14px" onclick="enterReg()">✅ 我知道了，开始登记 →</button>
+  </div>
+
   <!-- 已答过题的选项页（再次作答 / 现场签到） -->
   <div id="choicePage" style="display:none;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
@@ -81,7 +95,7 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
   </div>
 
   <!-- 登记页 -->
-  <div id="regPage" style="display:block;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
+  <div id="regPage" style="display:none;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
       <div style="font-weight:bold;font-size:1.1em">📝 新办手机号码登记</div>
       <div style="display:flex;gap:8px;align-items:center">
@@ -246,7 +260,7 @@ function connectMQTT(){
     S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
   }catch(e){updateMqtt('offline')}
 }
-function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中';const d2=document.getElementById('mDot2'),t2=document.getElementById('mText2');if(d2){d2.style.background=d.style.background;t2.textContent=t.textContent}}
+function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中';const d2=document.getElementById('mDot2'),t2=document.getElementById('mText2');if(d2){d2.style.background=d.style.background;t2.textContent=t.textContent}const d0=document.getElementById('mDot0'),t0=document.getElementById('mText0');if(d0){d0.style.background=d.style.background;t0.textContent=t.textContent}}
 function handleMsg(t,d){
   if(t.endsWith('config')){
     S.configReceived=true;
@@ -257,16 +271,40 @@ function handleMsg(t,d){
     S.signin=d.signin||null;
     S.signFailMsg=d.signFailMsg||'';
     S.signPromptMsg=d.signPromptMsg||'请于当日17:00-17:30前往一食堂外电信展台进行现场签到';
+    // 规则介绍
+    S.quizIntro=d.quizIntro||'';
+    updateIntro();
   }else if(t.endsWith('quiz_result')){
     // 收到后台返回的答题确认
   }
 }
 
 // ========== 页面切换 ==========
+// 显示规则介绍首屏
+function showIntro(){
+  document.getElementById('introPage').style.display='block';
+  document.getElementById('regPage').style.display='none';
+  document.getElementById('quizPage').style.display='none';
+  document.getElementById('resultPage').style.display='none';
+  document.getElementById('choicePage').style.display='none';
+}
+// 从规则介绍页进入登记页
+function enterReg(){
+  document.getElementById('introPage').style.display='none';
+  document.getElementById('regPage').style.display='block';
+}
+// 更新规则介绍内容
+function updateIntro(){
+  var el=document.getElementById('introContent');
+  if(!el)return;
+  var txt=S.quizIntro||'🎉 欢迎参加趣味知识问答！\n\n📌 温馨提示：\n1. 每人最多可参与 3 次答题，系统自动取最好成绩\n2. 请如实填写姓名和手机号码，需与签到信息一致\n3. 答题开始后请专注作答，争取最佳成绩\n4. 成绩将自动同步至抽奖系统\n\n祝您答题愉快，好运连连！';
+  el.textContent=txt;
+}
 function backToReg(forceReg){
   document.getElementById('quizPage').style.display='none';
   document.getElementById('resultPage').style.display='none';
   document.getElementById('choicePage').style.display='none';
+  document.getElementById('introPage').style.display='none';
   // 已答过题且非强制回登记页 → 显示选项页
   if(!forceReg&&S.quizUserInfo&&hasQuizDone(S.quizUserInfo.name,S.quizUserInfo.phone)){
     showChoicePage();
@@ -397,6 +435,7 @@ function refresh(){}
 
 // 显示选项页（再次作答 / 现场签到）
 function showChoicePage(){
+  document.getElementById('introPage').style.display='none';
   document.getElementById('regPage').style.display='none';
   document.getElementById('quizPage').style.display='none';
   document.getElementById('resultPage').style.display='none';
@@ -514,6 +553,7 @@ function startQuiz(){
   document.getElementById('regPage').style.display='none';
   document.getElementById('resultPage').style.display='none';
   document.getElementById('choicePage').style.display='none';
+  document.getElementById('introPage').style.display='none';
   document.getElementById('quizPage').style.display='block';
   document.getElementById('roundBadge').textContent='第'+S.currentRound+'轮';
   document.getElementById('roundInfo').textContent='共'+MAX_ROUNDS+'轮机会';
