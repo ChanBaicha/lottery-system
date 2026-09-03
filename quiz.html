@@ -250,10 +250,6 @@ function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getEle
 function handleMsg(t,d){
   if(t.endsWith('config')){
     S.configReceived=true;
-    if(d.accounts&&d.accounts.length){
-      S._accounts=d.accounts;
-      try{localStorage.setItem('cj_reg_accounts_'+S.room,JSON.stringify(d.accounts))}catch(e){}
-    }
     S.quizConfig=d.quizConfig||null;
     S.quizFields=d.quizFields||[];
     S.allParticipants=d.participants||[];
@@ -311,13 +307,9 @@ function cloudQuizPull(){
       doneMap[r.name+'|'+r.phone]=1;
       roundsMap[r.name+'|'+r.phone]=r.rounds||0;
     });
-    // 合并到本地缓存
+    // 合并到本地缓存（云端为权威，不写 localStorage 以避免本地污染在线数据）
     _qdoneCache=Object.keys(doneMap).map(function(k){var p=k.split('|');return{name:p[0],phone:p[1]}});
     _qroundsCache=roundsMap;
-    try{
-      localStorage.setItem('cj_quiz_done_'+S.room,JSON.stringify(_qdoneCache));
-      localStorage.setItem('cj_quiz_rounds_'+S.room,JSON.stringify(_qroundsCache));
-    }catch(e){}
     setTimeout(function(){_qcloudFlag=false},500);
     refreshQuizStateUI();
   });
@@ -342,39 +334,63 @@ function refreshQuizStateUI(){
     }
   }catch(e){}
 }
-// 已答题用户记录（localStorage，用于再次进入时显示选项）
-function getQuizDoneList(){try{return JSON.parse(localStorage.getItem('cj_quiz_done_'+S.room)||'[]')}catch(e){return[]}}
-function markQuizDone(name,phone){
+// 已答题用户记录（云端为权威，localStorage 仅作离线兜底）
+function getQuizDoneList(){
   try{
-    var list=getQuizDoneList();
+    var local=JSON.parse(localStorage.getItem('cj_quiz_done_'+S.room)||'[]');
+    // 合并云端已答用户（_qdoneCache 来自云端 quiz_state）
+    if(_qdoneCache&&_qdoneCache.length){
+      var merged=local.slice();
+      _qdoneCache.forEach(function(u){
+        if(!merged.some(function(m){return m.name===u.name&&m.phone===u.phone})){
+          merged.push(u);
+        }
+      });
+      return merged;
+    }
+    return local;
+  }catch(e){return _qdoneCache||[]}
+}
+function markQuizDone(name,phone){
+  // 云端同步（quiz_state 表）
+  var rounds=getQuizRoundsDone(name,phone)||0;
+  if(rounds<1)rounds=1;
+  cloudQuizPushRound(name,phone,rounds);
+  // 本地兜底记录
+  try{
+    var list=JSON.parse(localStorage.getItem('cj_quiz_done_'+S.room)||'[]');
     if(!list.some(function(u){return u.name===name&&u.phone===phone})){
       list.push({name:name,phone:phone,time:Date.now()});
       localStorage.setItem('cj_quiz_done_'+S.room,JSON.stringify(list));
     }
-    // 云端同步
-    var rounds=getQuizRoundsDone(name,phone)||0;
-    if(rounds<1)rounds=1;
-    cloudQuizPushRound(name,phone,rounds);
   }catch(e){}
 }
 function hasQuizDone(name,phone){
+  // 云端优先
+  if(_qdoneCache&&_qdoneCache.length){
+    if(_qdoneCache.some(function(u){return u.name===name&&u.phone===phone}))return true;
+  }
   return getQuizDoneList().some(function(u){return u.name===name&&u.phone===phone});
 }
-// 获取用户已完成的轮次数（localStorage 记录每轮）
+// 获取用户已完成的轮次数（云端 quiz_state 为权威，localStorage 兜底）
 function getQuizRoundsDone(name,phone){
   try{
-    var rounds=JSON.parse(localStorage.getItem('cj_quiz_rounds_'+S.room)||'{}');
     var key=name+'|'+phone;
+    if(_qroundsCache&&_qroundsCache[key]!==undefined)return _qroundsCache[key];
+    var rounds=JSON.parse(localStorage.getItem('cj_quiz_rounds_'+S.room)||'{}');
     return rounds[key]||0;
   }catch(e){return 0}
 }
 function markQuizRoundDone(name,phone){
+  // 云端：轮次+1（以云端为准）
+  var cur=getQuizRoundsDone(name,phone)||0;
+  cloudQuizPushRound(name,phone,cur+1);
+  // 本地兜底
   try{
     var rounds=JSON.parse(localStorage.getItem('cj_quiz_rounds_'+S.room)||'{}');
     var key=name+'|'+phone;
     rounds[key]=(rounds[key]||0)+1;
     localStorage.setItem('cj_quiz_rounds_'+S.room,JSON.stringify(rounds));
-    cloudQuizPushRound(name,phone,rounds[key]);
   }catch(e){}
 }
 function refresh(){}
@@ -650,6 +666,36 @@ function finishRound(){
 
   // 即时构建数字拆解数据
   var breakdown=buildDataBreakdown(S.quizUserInfo.name,S.quizUserInfo.phone,'');
+
+  // 云端写入本轮答题结果（quiz_results 表，按 room+name+phone+round 去重）
+  if(_sbq){
+    var qrData={
+      room:S.room,
+      name:S.quizUserInfo.name,
+      phone:S.quizUserInfo.phone,
+      round:S.currentRound,
+      data:JSON.parse(JSON.stringify({
+        name:S.quizUserInfo.name,
+        phone:S.quizUserInfo.phone,
+        gender:S.quizUserInfo.gender,
+        round:S.currentRound,
+        answers:S.answers,
+        correctCount:correctCount,
+        totalCount:S.questions.length,
+        totalTimeMs:totalTime,
+        totalTimeStr:fmtTime(totalTime),
+        accuracy:S.questions.length>0?(correctCount/S.questions.length*100).toFixed(1):'0',
+        time:Date.now(),
+        roundResult:roundResult,
+        bestRound:bestRound,
+        allRoundCount:S.allRoundResults.length,
+        dataBreakdown:breakdown
+      }))
+    };
+    _sbq.from('quiz_results').upsert(qrData,{onConflict:'room,name,phone,round'}).then(function(res){
+      if(res.error)console.warn('答题结果云端写入失败',res.error.message);
+    });
+  }
 
   // 发送结果到后台（包含拆解数据和最佳成绩）
   S.mqtt.publish(S.topic+'quiz_result',JSON.stringify({
