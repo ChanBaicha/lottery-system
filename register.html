@@ -99,6 +99,8 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 
     <!-- 按登记者汇总 -->
     <div id="stOpSummary" style="margin-bottom:12px"></div>
+    <!-- 按发展战队汇总 -->
+    <div id="stTeamSummary" style="margin-bottom:12px"></div>
 
     <!-- 筛选与详细列表 -->
     <div class="card" style="margin-bottom:12px">
@@ -109,6 +111,10 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div class="f-grp">
         <label>按来源筛选</label>
         <select id="stFilterOp" onchange="renderStats()"><option value="">全部来源</option></select>
+      </div>
+      <div class="f-grp">
+        <label>按发展战队筛选</label>
+        <select id="stFilterTeam" onchange="renderStats()"><option value="">全部战队</option></select>
       </div>
       <!-- 状态筛选标签 -->
       <div class="tab-bar" style="margin-bottom:10px">
@@ -482,7 +488,16 @@ function updateStatsPage(){
     if(!ops.length){sumEl.innerHTML='<div class="card" style="text-align:center;color:var(--sub);padding:20px;font-size:.9em">暂无数据</div>'}
     else{sumEl.innerHTML='<div class="card"><div style="font-weight:bold;margin-bottom:10px;font-size:.95em">📋 按来源汇总</div><div style="overflow-x:auto"><table style="width:100%;font-size:.85em;border-collapse:collapse"><thead><tr style="color:var(--sub);text-align:left;border-bottom:1px solid var(--bd)"><th style="padding:8px 4px">来源</th><th style="text-align:center;padding:8px 4px">登记</th><th style="text-align:center;padding:8px 4px">签到</th><th style="text-align:center;padding:8px 4px">答题</th><th style="text-align:center;padding:8px 4px">未签</th></tr></thead><tbody>'+ops.map(function(op){var d=byOp[op];return '<tr style="border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer" onclick="filterByOp(\''+op.replace(/'/g,'\\\'')+'\')"><td style="padding:8px 4px;font-weight:bold">👤 '+op+'</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+d.total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+d.signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+d.quiz+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+d.unsigned+'</td></tr>'}).join('')+'<tr style="border-top:2px solid var(--bd);font-weight:bold"><td style="padding:8px 4px">合计</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+quizCount+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+(total-signed)+'</td></tr></tbody></table></div></div>'}
   }
-  // 筛选下拉
+  // 按发展战队汇总
+  var byTeam={};
+  allList.forEach(function(p){var tm=p.team||'';if(!tm)tm='未分配';if(!byTeam[tm])byTeam[tm]={total:0,signed:0,unsigned:0,quiz:0};byTeam[tm].total++;if(p.signed)byTeam[tm].signed++;else byTeam[tm].unsigned++;if(hasQuizResult(p.name,p.phone))byTeam[tm].quiz++});
+  var teamSumEl=document.getElementById('stTeamSummary');
+  if(teamSumEl){
+    var teams=Object.keys(byTeam).sort();
+    if(!teams.length){teamSumEl.innerHTML=''}
+    else{teamSumEl.innerHTML='<div class="card"><div style="font-weight:bold;margin-bottom:10px;font-size:.95em">🏆 按发展战队汇总</div><div style="overflow-x:auto"><table style="width:100%;font-size:.85em;border-collapse:collapse"><thead><tr style="color:var(--sub);text-align:left;border-bottom:1px solid var(--bd)"><th style="padding:8px 4px">战队</th><th style="text-align:center;padding:8px 4px">登记</th><th style="text-align:center;padding:8px 4px">签到</th><th style="text-align:center;padding:8px 4px">答题</th><th style="text-align:center;padding:8px 4px">未签</th></tr></thead><tbody>'+teams.map(function(tm){var d=byTeam[tm];return '<tr style="border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer" onclick="filterByTeam(\''+tm.replace(/'/g,'\\\'')+'\')"><td style="padding:8px 4px;font-weight:bold">🏁 '+tm+'</td><td style="text-align:center;padding:8px 4px;color:var(--gold)">'+d.total+'</td><td style="text-align:center;padding:8px 4px;color:var(--grn)">'+d.signed+'</td><td style="text-align:center;padding:8px 4px;color:var(--pri-l)">'+d.quiz+'</td><td style="text-align:center;padding:8px 4px;color:var(--red)">'+d.unsigned+'</td></tr>'}).join('')+'</tbody></table></div></div>'}
+  }
+  // 筛选下拉（来源）
   var opsMap={};
   allList.forEach(function(p){var op=p.operator||'未知';opsMap[op]=true});
   var sel=document.getElementById('stFilterOp');
@@ -490,6 +505,14 @@ function updateStatsPage(){
   var opKeys=Object.keys(opsMap);
   sel.innerHTML='<option value="">全部来源</option>'+opKeys.map(function(op){return '<option value="'+op+'">'+op+'</option>'}).join('');
   if(cur)sel.value=cur;
+  // 筛选下拉（发展战队）
+  var teamMap={};
+  allList.forEach(function(p){var tm=p.team||'';if(tm)teamMap[tm]=true});
+  var selT=document.getElementById('stFilterTeam');
+  var curT=selT?selT.value:'';
+  var teamKeys=Object.keys(teamMap);
+  if(selT)selT.innerHTML='<option value="">全部战队</option>'+teamKeys.map(function(tm){return '<option value="'+tm+'">'+tm+'</option>'}).join('');
+  if(curT&&selT)selT.value=curT;
   renderStats();
 }
 function getMyParticipants(){
@@ -502,6 +525,7 @@ function getMyParticipants(){
   });
 }
 function filterByOp(op){var sel=document.getElementById('stFilterOp');if(sel){sel.value=op;renderStats()}var list=document.getElementById('stList');if(list)list.scrollIntoView({behavior:'smooth'})}
+function filterByTeam(tm){var sel=document.getElementById('stFilterTeam');if(sel){sel.value=tm;renderStats()}var list=document.getElementById('stList');if(list)list.scrollIntoView({behavior:'smooth'})}
 function setStatFilter(filter){
   S._statFilter=filter;
   document.querySelectorAll('.tab-btn[data-filter]').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-filter')===filter)});
@@ -510,9 +534,12 @@ function setStatFilter(filter){
 function renderStats(){
   var sel=document.getElementById('stFilterOp');
   var filterOp=sel?sel.value:'';
+  var selT=document.getElementById('stFilterTeam');
+  var filterTeam=selT?selT.value:'';
   var allList=S.allParticipants||[];
   var list=allList.filter(function(p){
     if(filterOp&&(p.operator||'未知')!==filterOp)return false;
+    if(filterTeam&&(p.team||'')!==filterTeam)return false;
     var f=S._statFilter||'all';
     if(f==='signed'&&!p.signed)return false;
     if(f==='unsigned'&&p.signed)return false;
