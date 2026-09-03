@@ -231,6 +231,7 @@ body{font-family:'Microsoft YaHei',sans-serif;overflow:hidden;background:#0a0e27
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 let S={mqtt:null,topic:'',room:'',prizes:[],fields:[],participants:[],screen:{title:'',titleSize:48,titleColor:'#fdcb6e',bgUrl:'',flowType:'meteor',elements:[]},signin:{},drawCount:1,noRepeat:true,flowType:'meteor',isDrawing:false,flowItems:[],gameRunning:false,
   flowInterval:0,autoRotateTimer:null,
@@ -248,6 +249,9 @@ let flowParticles=[],flowStars=[],heartPhase=0,globeRot=0,cloudT=0;
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 
 // ========== 初始化 ==========
+const SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
+let _sb=null,_cloudFlag=false;
 (function init(){
   const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
   canvas=document.getElementById('flowCanvas');ctx=canvas.getContext('2d');
@@ -255,10 +259,65 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(
   resizeCanvas();
   window.addEventListener('resize',resizeCanvas);
   connectMQTT();
-  try{const d=JSON.parse(localStorage.getItem('cj_screen_'+S.room));if(d){S.screen=d.screen||S.screen;S.prizes=d.prizes||[]}}catch(e){}
+  initCloud();
   applyScreenConfig();startFlow();
   applyMusic();
 })();
+
+// ========== 云端直连（Supabase，大屏数据源） ==========
+function initCloud(){
+  try{
+    if(typeof supabase==='undefined'){console.warn('supabase-js 未加载');return}
+    _s=supabase.createClient(SB_URL,SB_KEY);
+    cloudPull();
+    // 订阅配置
+    _s.channel('scr-cfg-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'room_data',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        if(payload.new&&payload.new.data)applyCloudConfig(payload.new.data);
+      })
+      .subscribe();
+    // 订阅参与者
+    _s.channel('scr-pt-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'participants',filter:'room=eq.'+S.room},function(p){
+        if(_cloudFlag)return;
+        cloudPullT();
+      })
+      .subscribe();
+    // 订阅答题结果
+    _s.channel('scr-qr-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'quiz_results',filter:'room=eq.'+S.room},function(){
+        if(_cloudFlag)return;
+        cloudPullT();
+      })
+      .subscribe();
+  }catch(e){console.warn('大屏云端初始化失败',e)}
+}
+function cloudPullT(){
+  if(!_s)return;
+  _s.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
+    if(res.error){console.warn('云端配置拉取失败',res.error.message);return}
+    if(res.data&&res.data.data){_cloudFlag=true;applyCloudConfig(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
+  });
+  _s.from('participants').select('*').eq('room',S.room).then(function(pr){
+    if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
+    if(pr.data){_cloudFlag=true;S.participants=pr.data.map(function(r){var d=r.data||{};if(!d.id)d.id=r.pid;return d});setTimeout(function(){_cloudFlag=false},500)}
+    updateFlowItems();
+  });
+  _s.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
+    if(qr.error){console.warn('云端答题拉取失败',qr.error.message);return}
+    if(qr.data){_cloudFlag=true;S.quizResults=qr.data.map(function(r){return r.data||{}});setTimeout(function(){_cloudFlag=false},500)}
+  });
+}
+function applyCloudConfig(d){
+  if(!d||typeof d!=='object')return;
+  S.prizes=d.prizes||S.prizes;S.fields=d.fields||S.fields;S.screen=Object.assign(S.screen,d.screen||{});S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;S.noRepeat=d.noRepeat!==false;
+  S.flowInterval=d.flowInterval||0;
+  S.danmakuSettings=Object.assign({enable:true,speed:8,fontSize:28,badWords:[],mode:'scroll',colorful:true},d.danmaku||{});
+  if(d.music)S.music=d.music;
+  if(d.lotteryRule)S.lotteryRule=d.lotteryRule;
+  applyScreenConfig();updateFlowItems();setupAutoRotate();applyMusic();
+}
 
 function resizeCanvas(){if(canvas){canvas.width=window.innerWidth;canvas.height=window.innerHeight}if(gameCanvas){gameCanvas.width=window.innerWidth;gameCanvas.height=window.innerHeight}}
 
@@ -290,21 +349,11 @@ function connectMQTT(){
 function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');d.className='mqtt-dot '+s;t.textContent=s==='online'?'已连接':s==='offline'?'未连接':'连接中...'}
 function handleMsg(t,d){
   if(t.endsWith('config')){
-    S.prizes=d.prizes||S.prizes;S.fields=d.fields||S.fields;S.screen=Object.assign(S.screen,d.screen||{});S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;S.noRepeat=d.noRepeat!==false;
-    S.flowInterval=d.flowInterval||0;
-    S.danmakuSettings=Object.assign({enable:true,speed:8,fontSize:28,badWords:[],mode:'scroll',colorful:true},d.danmaku||{});
+    // MQTT 配置为辅助（云端为权威来源），避免覆盖云端配置
+    if(d.screen)S.screen=Object.assign(S.screen,d.screen);
+    if(d.prizes)S.prizes=d.prizes;
     if(d.music)S.music=d.music;
-    if(d.participants&&d.participants.length){
-      S.participants=d.participants.map(function(p){
-        const item=Object.assign({id:uid(),signed:true,won:false,prizeId:null},p);
-        if(p.avatar)item.avatar=p.avatar;
-        return item;
-      });
-    }
-    if(d.lotteryRule)S.lotteryRule=d.lotteryRule;
-    if(d.quizResults)S.quizResults=d.quizResults;
     applyScreenConfig();updateFlowItems();setupAutoRotate();applyMusic();
-    try{localStorage.setItem('cj_screen_'+S.room,JSON.stringify({screen:S.screen,prizes:S.prizes}))}catch(e){}
   }else if(t.endsWith('draw_cmd')){
     if(d.action==='start')startDraw();else if(d.action==='game')openGame(d.game);
   }else if(t.endsWith('lottery_result')){
