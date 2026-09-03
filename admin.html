@@ -677,8 +677,8 @@ function doLogin(){
   const acc=S.accounts.find(a=>a.user===u&&a.pwd===p);
   if(!acc){toast('账号或密码错误');return}
   S.loggedIn=true;S.currentUser=acc;
-  // 持久化登录状态（下次打开自动登录，退出时清除）
-  try{localStorage.setItem('cj_admin_login',JSON.stringify({user:acc.user,name:acc.name,time:Date.now()}))}catch(e){}
+  // 登录态仅存 sessionStorage（浏览器会话内有效，关闭即清，不落盘）
+  try{sessionStorage.setItem('cj_admin_login',JSON.stringify({user:acc.user,name:acc.name,time:Date.now()}))}catch(e){}
   enterSystem();
 }
 function enterSystem(){
@@ -688,6 +688,7 @@ function enterSystem(){
 }
 function doLogout(){
   S.loggedIn=false;
+  try{sessionStorage.removeItem('cj_admin_login')}catch(e){}
   try{localStorage.removeItem('cj_admin_login')}catch(e){}
   location.reload();
 }
@@ -1803,8 +1804,16 @@ function renderParticipants(){
   const colors=['#6c5ce7','#fd79a8','#fdcb6e','#00b894','#0984e3','#e17055'];
   l.innerHTML=list.map(function(p,i){return '<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px;'+(p.won?'opacity:.5':'')+'"><div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;background:'+colors[i%colors.length]+';flex-shrink:0">'+((p.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+(p.name||'未知')+(p.team?' <span style="color:var(--pri-l);font-size:.8em">['+p.team+']</span>':'')+(p.won?' <span style="color:var(--gold);font-size:.8em">已中奖</span>':'')+'</div><div style="font-size:.8em;color:var(--sub)">'+(p.phone||'')+(p.operator?' · 👤'+p.operator:'')+(p.registerTime?' · 登记'+fmt(p.registerTime):'')+(p.signed?' · ✅已签到':'')+(p.signTime?' · 签到'+fmt(p.signTime):'')+(hasQuizResult(p.name,p.phone)?' · 🧠已答题':' · 🚫未答题')+'</div></div><button class="btn btn-dng btn-sm" onclick="delParticipant(\''+p.id+'\')">✕</button></div>'}).join('')
 }
-function delParticipant(id){S.participants=S.participants.filter(p=>p.id!==id);saveLocal();renderParticipants();broadcastConfig();toast('已删除')}
-function clearParticipants(){if(!S.participants.length){toast('暂无参与者');return}if(confirm('确定清空所有参与者？')){S.participants=[];saveLocal();renderParticipants();broadcastConfig();toast('已清空')}}
+function delParticipant(id){
+  // 同步删除云端 participants 表对应行（按 pid）
+  if(_sb&&id){
+    _sb.from('participants').delete().eq('pid',id).then(function(res){
+      if(res.error)console.warn('云端参与者删除失败',res.error.message);
+    });
+  }
+  S.participants=S.participants.filter(p=>p.id!==id);
+  saveLocal();renderParticipants();broadcastConfig();toast('已删除')}
+function clearParticipants(){if(!S.participants.length){toast('暂无参与者');return}if(confirm('确定清空所有参与者？')){S.participants=[];saveLocal();renderParticipants();broadcastConfig();toast('已清空');if(_sb){_sb.from('participants').delete().eq('room',S.room).then(function(res){if(res.error)console.warn('云端参与者清空失败',res.error.message)})}}}
 function voidTodaySigned(){
   if(!S.participants.length){toast('暂无参与者');return}
   // 筛选当日已签到的参与者
@@ -1877,19 +1886,50 @@ function copyAllLinks(){
 // 让所有浏览器/设备访问同一份数据：数据源从 localStorage 升级为 Supabase 云数据库
 const SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
-let _sb=null,_cloudReady=false,_cloudFlag=false,_cloudTimer=null,_cloudSub=null;
+let _sb=null,_cloudReady=false,_cloudFlag=false,_cloudTimer=null,_cloudSub=null,_cloudSubP=null,_cloudSubQ=null,_cloudSubL=null;
+// ===== 云端分表同步（Supabase 为唯一数据源）=====
+// room_data: 配置类（奖品/账号/字段/签到/题库/大屏/弹幕等）整行
+// participants: 参与者独立行（按 room+pid），各端并发写不互相覆盖
+// quiz_results: 答题结果独立行
+// lottery_records: 抽奖记录独立行
 function cloudInit(){
   try{
     if(typeof supabase==='undefined'){console.warn('supabase-js 未加载');return}
     _sb=supabase.createClient(SB_URL,SB_KEY);
-    // 订阅本房间数据变化（跨浏览器实时同步）
+    // 订阅 room_data（配置变化）
     _cloudSub=_sb.channel('room-sync')
       .on('postgres_changes',{event:'*',schema:'public',table:'room_data',filter:'room=eq.'+S.room},function(payload){
-        if(_cloudFlag)return;              // 本机写入触发，跳过
+        if(_cloudFlag)return;                 // 本机写入触发，跳过
         if(payload.new&&payload.new.data){
           _cloudFlag=true;
-          try{applyCloudData(payload.new.data)}finally{setTimeout(function(){_cloudFlag=false},500)}
+          try{applyCloudData(payload.new.data,true)}finally{setTimeout(function(){_cloudFlag=false},500)}
         }
+      })
+      .subscribe();
+    // 订阅 participants
+    _cloudSubP=_sb.channel('pt-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'participants',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        var row=payload.new||{};
+        if(payload.eventType==='DELETE'){removeCloudParticipant((row.pid||row.id||''))}
+        else if(row.pid){upsertCloudParticipant(row)}
+        renderParticipants();renderRecords();broadcastConfig();
+      })
+      .subscribe();
+    // 订阅 quiz_results（答题结果）
+    _cloudSubQ=_sb.channel('qr-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'quiz_results',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        var row=payload.new||{};
+        if(row.pid||row.name){upsertCloudQuizResult(row)}
+      })
+      .subscribe();
+    // 订阅 lottery_records（抽奖记录）
+    _cloudSubL=_sb.channel('lr-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'lottery_records',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        var row=payload.new||{};
+        if(row.data){upsertCloudLottery(row)}
       })
       .subscribe();
     cloudPull();
@@ -1897,22 +1937,43 @@ function cloudInit(){
 }
 function cloudPull(){
   if(!_sb)return;
+  // 拉配置
   _sb.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
-    if(res.error){console.warn('云端拉取失败',res.error.message);return}
-    if(res.data&&res.data.data){_cloudFlag=true;applyCloudData(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
+    if(res.error){console.warn('云端配置拉取失败',res.error.message);return}
+    if(res.data&&res.data.data){_cloudFlag=true;applyCloudData(res.data.data,false);setTimeout(function(){_cloudFlag=false},500)}
+    // 拉参与者（全量覆盖，以云端为准）
+    _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
+      if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
+      if(pr.data){_cloudFlag=true;try{mergeCloudParticipants(pr.data)}finally{setTimeout(function(){_cloudFlag=false},500)}}
+    });
+    // 拉答题结果
+    _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
+      if(qr.error){console.warn('云端答题拉取失败',qr.error.message);return}
+      if(qr.data&&qr.data.length){_cloudFlag=true;try{mergeCloudQuizResults(qr.data)}finally{setTimeout(function(){_cloudFlag=false},500)}}
+    });
+    // 拉抽奖记录
+    _sb.from('lottery_records').select('*').eq('room',S.room).then(function(lr){
+      if(lr.error){console.warn('云端抽奖拉取失败',lr.error.message);return}
+      if(lr.data&&lr.data.length){_cloudFlag=true;try{mergeCloudLotteries(lr.data)}finally{setTimeout(function(){_cloudFlag=false},500)}}
+    });
   });
 }
-function applyCloudData(d){
+// 合并云端配置（只合并配置类字段，不覆盖 participants/quizResults/records —— 它们独立表）
+function applyCloudData(d,isRemote){
   try{
     if(!d||typeof d!=='object')return;
-    Object.assign(S,d);
+    var cfgKeys=['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','lotteryRule','room'];
+    cfgKeys.forEach(function(k){if(d[k]!==undefined)S[k]=d[k]});
     if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}
     if(!S.room||S.room.length<4){S.room=space();S.topic='cj2026/'+S.room+'/'}
     S.topic='cj2026/'+S.room+'/';
     document.getElementById('roomIdDisp').textContent=S.room;
     if(S.loggedIn)renderAll();
-    try{localStorage.setItem('cj_admin',JSON.stringify(S))}catch(e){}
+    try{localStorage.setItem('cj_admin',JSON.stringify({config:pickCfg(),participants:S.participants,records:S.records,quizResults:S.quizResults}))}catch(e){}
   }catch(e){console.warn('应用云端数据失败',e)}
+}
+function pickCfg(){
+  var o={};['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','lotteryRule','room'].forEach(function(k){if(S[k]!==undefined)o[k]=S[k]});return o;
 }
 function space(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function cloudPush(){
@@ -1920,12 +1981,127 @@ function cloudPush(){
   clearTimeout(_cloudTimer);
   _cloudTimer=setTimeout(function(){
     _cloudFlag=true;
-    const payload={room:S.room,data:JSON.parse(JSON.stringify(S)),updated_at:new Date().toISOString()};
+    // 只写配置到 room_data（参与者/答题/抽奖走独立表）
+    const payload={room:S.room,data:pickCfg(),updated_at:new Date().toISOString()};
     _sb.from('room_data').upsert(payload,{onConflict:'room'}).then(function(res){
       setTimeout(function(){_cloudFlag=false},500);
-      if(res.error)console.warn('云端写入失败',res.error.message);
+      if(res.error)console.warn('云端配置写入失败',res.error.message);
     });
+    // 全量同步参与者（upsert 去重）
+    var ptData=S.participants||[];
+    if(ptData.length){
+      var rows=ptData.map(function(p){
+        return {room:S.room,pid:p.id||p.pid||p['抽奖券编码']||p.name+'_'+p.phone,name:p.name||'?',phone:p.phone||'',data:JSON.parse(JSON.stringify(p))};
+      });
+      _sb.from('participants').upsert(rows,{onConflict:'room,pid'}).then(function(res){
+        if(res.error)console.warn('云端参与者写入失败',res.error.message);
+      });
+    }
+    // 全量同步答题结果（表去重按 name+phone+round）
+    var qrData=S.quizResults||[];
+    if(qrData.length){
+      var qrows=qrData.map(function(r){
+        return {room:S.room,name:r.name||'',phone:r.phone||'',round:r.round||1,data:JSON.parse(JSON.stringify(r))};
+      });
+      _sb.from('quiz_results').upsert(qrows,{onConflict:'room,name,phone,round'}).then(function(res){
+        if(res.error)console.warn('云端答题写入失败',res.error.message);
+      });
+    }
+    // 全量同步抽奖记录
+    var lrData=S.records||[];
+    if(lrData.length){
+      var lrows=lrData.map(function(r){
+        return {room:S.room,time:r.time||Date.now(),data:JSON.parse(JSON.stringify(r))};
+      });
+      _sb.from('lottery_records').upsert(lrows,{onConflict:'room,time'}).then(function(res){
+        if(res.error)console.warn('云端抽奖写入失败',res.error.message);
+      });
+    }
   },400);
+}
+// ---- 参与者云端合并 ----
+function mergeCloudParticipants(rows){
+  if(!rows||!rows.length)return;
+  var pidSet={};S.participants=S.participants||[];
+  S.participants.forEach(function(p){pidSet[p.id||p.pid]=1});
+  rows.forEach(function(row){
+    var pid=row.pid;
+    if(pidSet[pid]){ // 本地已有，合并云端字段
+      var lp=S.participants.find(function(p){return (p.id||p.pid)===pid});
+      if(lp)Object.assign(lp,row.data||{});
+    }else{
+      var np=row.data||{};
+      if(!np.id)np.id=row.pid;
+      S.participants.push(np);
+    }
+  });
+  if(S.loggedIn){renderParticipants()}
+  saveLocal();
+}
+function upsertCloudParticipant(row){
+  // realtime payload 已含全量行（pid/name/phone/data），直接合并本地，无需再查库
+  var np=row.data||{};
+  if(!np.id)np.id=row.pid;
+  var pid=row.pid||np.id;
+  var lp=S.participants.find(function(p){return (p.id||p.pid)===pid});
+  if(lp){Object.assign(lp,np)}else{S.participants.push(np)}
+  renderParticipants();saveLocal();
+}
+function removeCloudParticipant(pid){
+  if(!pid)return;
+  S.participants=(S.participants||[]).filter(function(p){return (p.id!==pid)&&(p.pid!==pid)});
+  renderParticipants();saveLocal();
+}
+function removeP(rowId){
+  // 先从云端删除（按 pid），再本地移除（保证两端一致）
+  if(_sb){
+    _sb.from('participants').delete().eq('pid',rowId).then(function(res){
+      if(res.error)console.warn('云端参与者删除失败',res.error.message);
+    });
+  }
+  // 本地按 id 或 pid 移除
+  S.participants=(S.participants||[]).filter(function(p){return (p.id!==rowId)&&(p.pid!==rowId)});
+  renderParticipants();saveLocal();
+}
+// ---- 答题结果合并 ----
+function mergeCloudQuizResults(rows){
+  if(!rows||!rows.length)return;
+  S.quizResults=S.quizResults||[];
+  var keySet={};S.quizResults.forEach(function(r){keySet[(r.name||'')+'|'+(r.phone||'')+'|'+(r.round||1)]=1});
+  rows.forEach(function(row){
+    var d=row.data||{};
+    var k=(d.name||row.name||'')+'|'+(d.phone||row.phone||'')+'|'+(d.round||row.round||1);
+    if(!keySet[k]){S.quizResults.push(d);keySet[k]=1}
+  });
+  if(S.loggedIn)renderQuizResults();
+  saveLocal();
+}
+function upsertCloudQuizResult(row){
+  var d=row.data||{};if(!d.id)d.id='qr_'+row.id;
+  var k=(d.name||'')+'|'+(d.phone||'')+'|'+(d.round||1);
+  S.quizResults=S.quizResults||[];
+  var exist=S.quizResults.find(function(r){return (r.name||'')+'|'+(r.phone||'')+'|'+(r.round||1)===k});
+  if(exist){Object.assign(exist,d)}else{S.quizResults.push(d)}
+  renderQuizResults();saveLocal();
+}
+// ---- 抽奖记录合并 ----
+function mergeCloudLotteries(rows){
+  if(!rows||!rows.length)return;
+  S.records=S.records||[];
+  var keySet={};S.records.forEach(function(r){keySet[r.time||0]=1});
+  rows.forEach(function(row){
+    var d=row.data||{};d.time=d.time||row.time;
+    if(!keySet[d.time]){S.records.push(d);keySet[d.time]=1}
+  });
+  if(S.loggedIn)renderRecords();
+  saveLocal();
+}
+function upsertCloudLottery(row){
+  var d=row.data||{};d.time=d.time||row.time;
+  S.records=S.records||[];
+  var exist=S.records.find(function(r){return r.time===d.time});
+  if(exist){Object.assign(exist,d)}else{S.records.push(d)}
+  renderRecords();saveLocal();
 }
 // ========== 存储渲染 ==========
 function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于当日17:00-17:30前往一楼展馆外现场签到',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[],lotteryRule:S.lotteryRule||{}}))}catch(e){}
@@ -1987,11 +2163,11 @@ function renderAll(){
   });
 })();
 
-// 页面加载时检查已保存的登录状态，自动进入系统
+// 页面加载时检查已保存的登录状态（sessionStorage 会话级），自动进入系统
 (function(){
   try{
     loadLocal();
-    const lg=JSON.parse(localStorage.getItem('cj_admin_login'));
+    const lg=JSON.parse(sessionStorage.getItem('cj_admin_login'));
     if(lg&&lg.user){
       const acc=S.accounts.find(a=>a.user===lg.user);
       if(acc){S.loggedIn=true;S.currentUser=acc;enterSystem();return}
