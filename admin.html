@@ -860,11 +860,27 @@ function addPrize(){
 function uploadPrizeImg(e){
   const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas');const maxW=200;const sc=Math.min(1,maxW/img.width);cv.width=img.width*sc;cv.height=img.height*sc;cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);_pzImg=cv.toDataURL('image/jpeg',0.7);const pv=document.getElementById('pzImgPreview');pv.src=_pzImg;pv.style.display='block';toast('奖品图片已上传')};img.src=r.result};r.readAsDataURL(f);e.target.value=''
 }
-function delPrize(id){S.prizes=S.prizes.filter(p=>p.id!==id);saveLocal();renderPrizes();broadcastConfig();toast('已删除')}
+function delPrize(id){
+  if(typeof id==='string'&&id.indexOf('__idx_')===0){
+    // 无 id 旧数据兜底：按索引删除
+    var idx=parseInt(id.replace('__idx_',''),10);
+    if(!isNaN(idx)&&S.prizes[idx]){S.prizes.splice(idx,1);saveLocal();renderPrizes();broadcastConfig();toast('已删除');return}
+    toast('删除失败，请刷新后重试');return;
+  }
+  S.prizes=S.prizes.filter(p=>p.id!==id);
+  saveLocal();renderPrizes();broadcastConfig();toast('已删除')
+}
+function ensurePrizeId(p){
+  // 旧数据迁移：无 id 的奖品自动补 id
+  if(p&&!p.id){p.id=uid();p.won=p.won||0}
+  return p;
+}
 function renderPrizes(){
+  // 渲染前确保所有奖品有 id（兼容旧数据）
+  S.prizes=S.prizes.map(ensurePrizeId);
   const l=document.getElementById('pzList');
   if(!S.prizes.length){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:30px">暂无奖品</div>';return}
-  l.innerHTML=S.prizes.map(p=>'<div class="section" style="display:flex;align-items:center;gap:12px;padding:12px 16px">'+(p.img?'<img src="'+p.img+'" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0">':'<div style="width:32px;height:32px;border-radius:50%;background:'+p.color+';flex-shrink:0"></div>')+'<div style="flex:1"><div style="font-weight:bold">'+p.name+'</div><div style="font-size:.82em;color:var(--sub)">数量:'+p.count+' · 权重:'+p.weight+' · 已抽:'+p.won+'/'+p.count+'</div></div><button class="btn btn-dng btn-sm" onclick="delPrize(\''+p.id+'\')">🗑</button></div>').join('')
+  l.innerHTML=S.prizes.map((p,i)=>'<div class="section" style="display:flex;align-items:center;gap:12px;padding:12px 16px">'+(p.img?'<img src="'+p.img+'" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0">':'<div style="width:32px;height:32px;border-radius:50%;background:'+p.color+';flex-shrink:0"></div>')+'<div style="flex:1"><div style="font-weight:bold">'+p.name+'</div><div style="font-size:.82em;color:var(--sub)">数量:'+p.count+' · 权重:'+p.weight+' · 已抽:'+(p.won||0)+'/'+p.count+'</div></div><button class="btn btn-dng btn-sm" onclick="delPrize(\''+(p.id||'__idx_'+i)+'\')">🗑</button></div>').join('')
 }
 
 // ========== 账号 ==========
