@@ -61,7 +61,22 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
       </div>
     </div>
     <div class="card" style="padding:24px 20px">
-      <div id="introContent" style="font-size:.95em;line-height:1.8;color:var(--sub);white-space:pre-wrap;word-break:break-word">加载中...</div>
+      <div id="introContent" style="font-size:.95em;line-height:1.8;color:var(--sub);white-space:pre-wrap;word-break:break-word">🎉 欢迎参加我AI西柚新生知识竞答！
+
+🚩 活动参与：
+📶 Step1 办理校园网
+✍️ Step2 参加知识竞答
+📍 Step3 活动现场签到
+
+📌 活动规则：
+🎯 竞答活动4日-5日每日天选一次，当日17:00前办理校园网即可参与当日天选，每人仅可参加一次天选；
+📝 知识竞答每人最多可参与 3 次答题，系统自动取最好成绩；
+📋 竞答前请登记姓名和校园网手机号码，需要与校园网信息保持一致；
+🤖 新生有困难，找TeleAgent“新生助手”，所有内容均来自“新生助手”；
+🍀 幸运儿由TeleAgent智能体现场天选。
+
+TA新生助手，助你开启全新西柚生活！
+点击参与竞答，你就是TA天选之子！！</div>
     </div>
     <button class="btn btn-pri" style="width:100%;padding:16px;font-size:1.1em;margin-top:14px" onclick="enterReg()">✅ 我知道了，开始登记 →</button>
   </div>
@@ -271,9 +286,8 @@ function handleMsg(t,d){
     S.signin=d.signin||null;
     S.signFailMsg=d.signFailMsg||'';
     S.signPromptMsg=d.signPromptMsg||'请于当日17:00-17:30前往一食堂外电信展台进行现场签到';
-    // 规则介绍
     S.quizIntro=d.quizIntro||'';
-    updateIntro();
+    if(S.quizIntro)updateIntro();
   }else if(t.endsWith('quiz_result')){
     // 收到后台返回的答题确认
   }
@@ -297,8 +311,7 @@ function enterReg(){
 function updateIntro(){
   var el=document.getElementById('introContent');
   if(!el)return;
-  var txt=S.quizIntro||'🎉 欢迎参加趣味知识问答！\n\n📌 温馨提示：\n1. 每人最多可参与 3 次答题，系统自动取最好成绩\n2. 请如实填写姓名和手机号码，需与签到信息一致\n3. 答题开始后请专注作答，争取最佳成绩\n4. 成绩将自动同步至抽奖系统\n\n祝您答题愉快，好运连连！';
-  el.textContent=txt;
+  if(S.quizIntro)el.textContent=S.quizIntro;
 }
 function backToReg(forceReg){
   document.getElementById('quizPage').style.display='none';
