@@ -238,7 +238,8 @@ let S={mqtt:null,topic:'',room:'',
   gameType:null,shakeCount:0,shakeListening:false,reactionReady:false,reactionPenaltyUntil:0,quizAnswer:null,
   shakeBatchTimer:null,shakePending:0,
   dmColor:'#fff',
-  _avatarTmp:''
+  _avatarTmp:'',
+  _formRendered:false
 };
 // 预设头像（emoji 头像，无需图片文件）
 const PRESET_AVATARS=['🐱','🐶','🐼','🦊','🐸','🐯','🦁','🐮','🐷','🐰','🐨','🐻','🐧','🦄','🐬','🐳','🦉','🐙','🦖','🐺','🦅','🦈','🐊','🐡','🐟','🦀','🐌','🦋','🐝','🐞','🦇','🐲','🤖','👾','👻','🎃','🐹','🐰'];
@@ -269,7 +270,7 @@ function initCloud(){
   try{
     if(typeof supabase==='undefined'){console.warn('supabase-js 未加载');return}
     _sb=supabase.createClient(SB_URL,SB_KEY);
-    cloudPull();
+    cloudPullT();
     // 订阅配置
     _cloudSub=_sb.channel('sign-cfg-'+S.room)
       .on('postgres_changes',{event:'*',schema:'public',table:'room_data',filter:'room=eq.'+S.room},function(payload){
@@ -439,10 +440,12 @@ function selectDmColor(c){
 function showSigninFormPage(){
   normalizeSignin();
   if(S.signin.enabled===false){toast('签到暂未开放，请稍后再试');return}
+  S._formRendered=false;
   hideAllPages();document.getElementById('signinFormPage').style.display='block';renderSignForm()
 }
 function backToHome(){
   if(S.gameType){S.gameType=null;shakeListening=false}
+  S._formRendered=false;
   hideAllPages();
   if(S.signedIn){document.getElementById('signWaiting').style.display='block'}
   else{document.getElementById('signPage').style.display='block'}
@@ -453,6 +456,17 @@ function backToHome(){
 function renderSignForm(){
   const form=document.getElementById('signForm');
   if(!S.fields.length){form.innerHTML='<p style="color:var(--sub);text-align:center;padding:16px">暂无签到字段</p>';return}
+  // 表单已渲染且签到页可见时，不重建DOM以保留用户正在输入的内容
+  var formPage=document.getElementById('signinFormPage');
+  if(S._formRendered&&formPage&&formPage.style.display==='block'){
+    if(S.signin.locationEnabled&&S.signin.lat!=null){
+      document.getElementById('signLocCard').style.display='block';
+      document.getElementById('signLocDesc').textContent='需要在指定位置('+S.signin.radius+'米内)和时间段内签到';
+    }else{
+      document.getElementById('signLocCard').style.display='none';
+    }
+    return;
+  }
   form.innerHTML=S.fields.map(f=>{
     if(f.type==='select'){const opts=(f.options||'').split(',').filter(Boolean);return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><select id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'"><option value="">请选择</option>'+opts.map(o=>'<option value="'+o.trim()+'">'+o.trim()+'</option>').join('')+'</select></div>'}
     if(f.type==='textarea')return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><textarea id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" placeholder="'+(f.placeholder||'')+'" rows="3"></textarea></div>';
@@ -482,6 +496,7 @@ function renderSignForm(){
     }
   }
   if(S._autoName&&!S._autoShown){S._autoShown=true;document.getElementById('signinFormPage').style.display='block'}
+  S._formRendered=true;
 }
 
 // 兼容旧配置字段（enable 拆分为 enabled + locationEnabled）
