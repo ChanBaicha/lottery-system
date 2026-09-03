@@ -72,6 +72,25 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div class="stat-item"><div class="stat-num" id="statNoQuiz" style="color:var(--red)">0</div><div class="stat-label">未答题</div></div>
     </div>
 
+    <!-- 登记表单 -->
+    <div class="card" id="regFormCard" style="display:none">
+      <div style="font-weight:bold;margin-bottom:12px">📝 新增登记</div>
+      <div id="regForm"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-pri" style="flex:1;padding:14px;font-size:1em" onclick="submitRegister()">确认登记</button>
+        <button class="btn btn-out" style="padding:14px" onclick="clearRegForm()">清空</button>
+      </div>
+    </div>
+
+    <!-- 最近登记列表 -->
+    <div class="card" id="regListCard" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:bold">📋 最近登记</div>
+        <button class="btn btn-out" style="padding:4px 10px;font-size:.8em" onclick="exportMyRecords()">📥 导出</button>
+      </div>
+      <div id="regList" style="max-height:250px;overflow-y:auto"></div>
+    </div>
+
     <!-- 未答题人员列表 -->
     <div class="card" id="noQuizCard">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -327,6 +346,13 @@ function enterSystem(acc){
   document.getElementById('regUser').textContent='('+acc.name+')';
   const qrBtn=document.getElementById('qrBtn');
   if(qrBtn)qrBtn.style.display=canQR()?'inline-flex':'none';
+  // 根据权限显示/隐藏登记表单
+  var regFormCard=document.getElementById('regFormCard');
+  var regListCard=document.getElementById('regListCard');
+  if(regFormCard){regFormCard.style.display=canReg()?'block':'none'}
+  if(regListCard){regListCard.style.display=canReg()?'block':'none'}
+  if(canReg())renderRegForm();
+  renderRegList();
   updateStats();
   rememberLogin(acc);
 }
