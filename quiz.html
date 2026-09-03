@@ -208,7 +208,8 @@ let S={
   qStartTime:0,totalStartTime:0,
   _retryTimer:null
 };
-const MAX_ROUNDS=3;
+// 答题轮次：优先从云端配置读取，默认3
+function getMaxRounds(){return(S.quizConfig&&S.quizConfig.rounds)?parseInt(S.quizConfig.rounds)||3:3}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
 function fmtTime(ms){return(ms/1000).toFixed(2)}
@@ -374,7 +375,7 @@ function refreshQuizStateUI(){
       var done=getQuizRoundsDone(S.quizUserInfo.name,S.quizUserInfo.phone);
       var remain=document.getElementById('choiceRemain');
       if(remain){
-        var left=Math.max(0,MAX_ROUNDS-done);
+        var left=Math.max(0,getMaxRounds()-done);
         if(left>0)remain.textContent='（剩余'+left+'次机会）';
         else remain.textContent='（次数已用完）';
       }
@@ -454,7 +455,7 @@ function showChoicePage(){
   var remain=document.getElementById('choiceRemain');
   if(remain){
     var done=getQuizRoundsDone(S.quizUserInfo.name,S.quizUserInfo.phone);
-    var left=Math.max(0,MAX_ROUNDS-done);
+    var left=Math.max(0,getMaxRounds()-done);
     if(left>0)remain.textContent='（剩余'+left+'次机会）';
     else remain.textContent='（次数已用完）';
   }
@@ -469,8 +470,8 @@ function showChoicePage(){
 // 选项：再次作答
 function choiceAgain(){
   var done=getQuizRoundsDone(S.quizUserInfo.name,S.quizUserInfo.phone);
-  var left=Math.max(0,MAX_ROUNDS-done);
-  if(left<=0){toast('您已用完全部'+MAX_ROUNDS+'次答题机会');return}
+  var left=Math.max(0,getMaxRounds()-done);
+  if(left<=0){toast('您已用完全部'+getMaxRounds()+'次答题机会');return}
   // 重置轮次并开始答题
   S.currentRound=1;
   S.allRoundResults=[];
@@ -577,7 +578,7 @@ function startQuiz(){
   document.getElementById('introPage').style.display='none';
   document.getElementById('quizPage').style.display='block';
   document.getElementById('roundBadge').textContent='第'+S.currentRound+'轮';
-  document.getElementById('roundInfo').textContent='共'+MAX_ROUNDS+'轮机会';
+  document.getElementById('roundInfo').textContent='共'+getMaxRounds()+'轮机会';
   document.getElementById('tipRound').textContent=S.currentRound;
 
   // 渲染历史轮次
@@ -846,14 +847,14 @@ function showResults(){
 
   // 按钮状态
   var againBtn=document.getElementById('againBtn');
-  if(S.currentRound<MAX_ROUNDS){
+  if(S.currentRound<getMaxRounds()){
     againBtn.style.display='block';
-    againBtn.textContent='🔄 再来一轮（'+(S.currentRound+1)+'/'+MAX_ROUNDS+'）';
+    againBtn.textContent='🔄 再来一轮（'+(S.currentRound+1)+'/'+getMaxRounds()+'）';
     againBtn.style.background='var(--pri)';
     againBtn.style.color='#fff';
   }else{
     againBtn.style.display='block';
-    againBtn.textContent='✅ 已完成全部3轮答题';
+    againBtn.textContent='✅ 已完成全部'+getMaxRounds()+'轮答题';
     againBtn.style.background='var(--grn)';
     againBtn.style.color='#fff';
     againBtn.style.pointerEvents='none';
@@ -862,7 +863,7 @@ function showResults(){
 }
 
 function startNextRound(){
-  if(S.currentRound>=MAX_ROUNDS)return;
+  if(S.currentRound>=getMaxRounds())return;
   S.currentRound++;
   startQuiz();
 }
