@@ -109,10 +109,6 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
     <div class="card">
       <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">发送弹幕消息，实时显示在大屏上</p>
       <div class="f-grp">
-        <label>弹幕颜色</label>
-        <div id="dmColorRow" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
-      </div>
-      <div class="f-grp">
         <textarea id="dmPageInput" rows="3" placeholder="输入弹幕内容..." maxlength="50"></textarea>
       </div>
       <button class="btn btn-pri" style="width:100%;padding:14px" onclick="sendPageDanmaku()">发送弹幕</button>
@@ -392,23 +388,7 @@ function randomNick(silent){
   if(!silent)toast('已随机生成昵称');
   return nick;
 }
-function showDanmakuPage(){hideAllPages();document.getElementById('danmakuPage').style.display='block';renderDmColorRow();document.getElementById('dmPageInput').focus()}
-function renderDmColorRow(){
-  var row=document.getElementById('dmColorRow');
-  if(!row)return;
-  var colors=['#fff','#fdcb6e','#fd79a8','#a29bfe','#00b894','#0984e3','#e17055','#55efc4','#ff6b81','#74b9ff'];
-  var html=colors.map(function(c){
-    var sel=c===S.dmColor?'2px solid var(--pri)':'2px solid transparent';
-    return '<div onclick="selectDmColor(\''+c+'\')" style="width:34px;height:34px;border-radius:50%;background:'+c+';cursor:pointer;border:'+sel+';transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>';
-  }).join('');
-  html+='<div onclick="selectDmColor(\'random\')" style="font-size:.75em;padding:6px 10px;border-radius:16px;cursor:pointer;border:2px solid '+(S.dmColor==='random'?'var(--pri)':'var(--bd)')+';color:var(--sub)">🌈 随机</div>';
-  row.innerHTML=html;
-}
-function selectDmColor(c){
-  S.dmColor=c;
-  renderDmColorRow();
-  toast(c==='random'?'已选择随机彩色弹幕':'已选择弹幕颜色');
-}
+function showDanmakuPage(){hideAllPages();document.getElementById('danmakuPage').style.display='block';document.getElementById('dmPageInput').focus()}
 // ========== 签到验证 ==========
 function showSigninFormPage(){
   normalizeSignin();
@@ -733,7 +713,6 @@ function sendPageDanmaku(){
   var nick=document.getElementById('wxNickname')?document.getElementById('wxNickname').value.trim():'';
   var msg={text:text,name:nick||S.myName||'匿名',time:Date.now()};
   if(S.avatarData)msg.avatar=S.avatarData;
-  if(S.dmColor)msg.color=S.dmColor;
   S.mqtt.publish(S.topic+'danmaku',JSON.stringify(msg));
   document.getElementById('dmPageInput').value='';
   toast('弹幕已发送');
