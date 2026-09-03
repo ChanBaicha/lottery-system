@@ -167,6 +167,7 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
 
 <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 let S={
   mqtt:null,topic:'',room:'',
@@ -282,6 +283,65 @@ function backToReg(forceReg){
   if(tipRound)tipRound.textContent='1';
 }
 
+// ========== 云端同步（Supabase） ==========
+// 答题状态（已答用户 + 轮次）上云，跨浏览器共享，防止换浏览器重复答题
+const SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
+let _sbq=null,_qcloudReady=false,_qcloudFlag=false,_qdoneCache=[],_qroundsCache={};
+function cloudQuizInit(){
+  try{
+    if(typeof supabase==='undefined')return;
+    _sbq=supabase.createClient(SB_URL,SB_KEY);
+    cloudQuizPull();
+    _sbq.channel('quiz-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'quiz_state',filter:'room=eq.'+S.room},function(){
+        if(_qcloudFlag)return;
+        cloudQuizPull();
+      })
+      .subscribe();
+  }catch(e){console.warn('答题云端初始化失败',e)}
+}
+function cloudQuizPull(){
+  if(!_sbq)return;
+  _sbq.from('quiz_state').select('name,phone,rounds').eq('room',S.room).then(function(res){
+    if(res.error){console.warn('答题云端拉取失败',res.error.message);return}
+    _qcloudFlag=true;
+    var doneMap={},roundsMap={};
+    (res.data||[]).forEach(function(r){
+      doneMap[r.name+'|'+r.phone]=1;
+      roundsMap[r.name+'|'+r.phone]=r.rounds||0;
+    });
+    // 合并到本地缓存
+    _qdoneCache=Object.keys(doneMap).map(function(k){var p=k.split('|');return{name:p[0],phone:p[1]}});
+    _qroundsCache=roundsMap;
+    try{
+      localStorage.setItem('cj_quiz_done_'+S.room,JSON.stringify(_qdoneCache));
+      localStorage.setItem('cj_quiz_rounds_'+S.room,JSON.stringify(_qroundsCache));
+    }catch(e){}
+    setTimeout(function(){_qcloudFlag=false},500);
+    refreshQuizStateUI();
+  });
+}
+function cloudQuizPushRound(name,phone,rounds){
+  if(!_sbq)return;
+  _sbq.from('quiz_state').upsert({room:S.room,name:name,phone:phone,rounds:rounds,updated_at:new Date().toISOString()},{onConflict:'room,name,phone'}).then(function(res){
+    if(res.error)console.warn('答题云端写入失败',res.error.message);
+  });
+}
+// 云端拉取后刷新 UI：若当前用户已答过题，刷新选项页的剩余次数提示
+function refreshQuizStateUI(){
+  try{
+    if(S.quizUserInfo){
+      var done=getQuizRoundsDone(S.quizUserInfo.name,S.quizUserInfo.phone);
+      var remain=document.getElementById('choiceRemain');
+      if(remain){
+        var left=Math.max(0,MAX_ROUNDS-done);
+        if(left>0)remain.textContent='（剩余'+left+'次机会）';
+        else remain.textContent='（次数已用完）';
+      }
+    }
+  }catch(e){}
+}
 // 已答题用户记录（localStorage，用于再次进入时显示选项）
 function getQuizDoneList(){try{return JSON.parse(localStorage.getItem('cj_quiz_done_'+S.room)||'[]')}catch(e){return[]}}
 function markQuizDone(name,phone){
@@ -291,6 +351,10 @@ function markQuizDone(name,phone){
       list.push({name:name,phone:phone,time:Date.now()});
       localStorage.setItem('cj_quiz_done_'+S.room,JSON.stringify(list));
     }
+    // 云端同步
+    var rounds=getQuizRoundsDone(name,phone)||0;
+    if(rounds<1)rounds=1;
+    cloudQuizPushRound(name,phone,rounds);
   }catch(e){}
 }
 function hasQuizDone(name,phone){
@@ -310,8 +374,10 @@ function markQuizRoundDone(name,phone){
     var key=name+'|'+phone;
     rounds[key]=(rounds[key]||0)+1;
     localStorage.setItem('cj_quiz_rounds_'+S.room,JSON.stringify(rounds));
+    cloudQuizPushRound(name,phone,rounds[key]);
   }catch(e){}
 }
+function refresh(){}
 
 // 显示选项页（再次作答 / 现场签到）
 function showChoicePage(){
@@ -705,6 +771,9 @@ function startNextRound(){
   S.currentRound++;
   startQuiz();
 }
+
+// 页面初始化完成后启动云端同步（此处所有 const 已定义，避免 TDZ）
+cloudQuizInit();
 </script>
 </body>
 </html>
