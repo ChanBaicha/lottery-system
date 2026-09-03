@@ -89,10 +89,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .music-current .current-name{color:var(--gold);font-weight:bold;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #danmakuLayer{position:fixed;top:0;left:0;width:100%;height:100%;z-index:50;pointer-events:none;overflow:hidden}
 .dm-item{position:absolute;white-space:nowrap;font-weight:bold;text-shadow:1px 1px 3px rgba(0,0,0,.8);animation:dmScroll linear forwards}
-.dm-item.dm-top{left:50%;transform:translateX(-50%);animation:dmFade linear forwards}
-.dm-item.dm-bottom{left:50%;transform:translateX(-50%);animation:dmFade linear forwards}
 @keyframes dmScroll{from{transform:translateX(100vw)}to{transform:translateX(-100%)}}
-@keyframes dmFade{from{opacity:0}to{opacity:1}}
 .dm-avatar{display:inline-block;width:1.6em;height:1.6em;border-radius:50%;overflow:hidden;vertical-align:middle;margin-right:6px;background:rgba(255,255,255,.15)}
 .dm-avatar img{width:100%;height:100%;object-fit:cover}
 .dm-nick{font-weight:bold;margin-right:4px;opacity:.9}
@@ -523,7 +520,7 @@ function cloudPull(){
 }
 function applyCloudConfig(d){
   if(!d||typeof d!=='object')return;
-  if(d.danmaku)S.danmakuOn=d.danmaku.enable!==false;
+  if(d.danmaku){S.danmakuOn=d.danmaku.enable!==false;S.danmakuMax=d.danmaku.max||50;S.danmakuSpeed=d.danmaku.speed||8;S.danmakuFontSize=d.danmaku.fontSize||24}
   updateDanmakuStatus();
 }
 function buildQuizMap(){
@@ -581,7 +578,7 @@ function handleMsg(t,d){
     if(d.drawCount)S.drawCount=d.drawCount;
     if(d.screen)S.screen=d.screen;
     if(d.gameConfig)S.gameConfig=d.gameConfig;
-    if(d.danmaku)S.danmakuOn=d.danmaku.enable!==false;
+    if(d.danmaku){S.danmakuOn=d.danmaku.enable!==false;S.danmakuMax=d.danmaku.max||50;S.danmakuSpeed=d.danmaku.speed||8;S.danmakuFontSize=d.danmaku.fontSize||24}
     if(d.music)S.music=d.music;
     if(d.quizConfig)S.quizConfig=d.quizConfig;
     if(d.lotteryRule)S.lotteryRule=d.lotteryRule;
@@ -734,9 +731,6 @@ function renderLuckyList(){
     var rankCls=i<3?'top'+(i+1):'';
     var ph=d.phone?maskPhone(d.phone):'';
     var detail=ph;
-    if(d.last4Str)detail+=' · 后4位和='+d.last4Sum;
-    if(d.quizTotal>0)detail+=' · 答题'+d.quizScore+'/'+d.quizTotal;
-    if(d.stroke>0)detail+=' · 笔画='+d.stroke;
     var tagText=S.addedRules.length+'条全中';
     var avatarHtml='';
     if(d.avatar){
@@ -777,12 +771,16 @@ function updateDanmakuStatus(){
 function showDanmaku(text,name,avatar,color){
   if(!S.danmakuOn)return;
   var layer=document.getElementById('danmakuLayer');
+  // 数量限制：超过最大条数时移除最旧的
+  var maxDM=S.danmakuMax||50;
+  var existing=layer.children;
+  while(existing.length>=maxDM){existing[0].remove()}
   var div=document.createElement('div');
   div.className='dm-item';
-  var fontSize=24,speed=8;
-  var c='#fff';
-  if(color&&color!=='random'){c=color}
-  else{var colors=['#fff','#fdcb6e','#fd79a8','#a29bfe','#00b894','#0984e3','#e17055','#74b9ff'];c=colors[Math.floor(Math.random()*colors.length)]}
+  var fontSize=S.danmakuFontSize||24,speed=S.danmakuSpeed||8;
+  // 颜色：始终随机
+  var colors=['#fff','#fdcb6e','#fd79a8','#a29bfe','#00b894','#0984e3','#e17055','#74b9ff'];
+  var c=colors[Math.floor(Math.random()*colors.length)];
   div.style.fontSize=fontSize+'px';
   div.style.color=c;
   div.style.top=(Math.random()*60+5)+'%';
