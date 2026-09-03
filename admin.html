@@ -1248,6 +1248,12 @@ function clearQuizResults(){
   if(!S.quizResults||!S.quizResults.length){toast('暂无记录');return}
   if(!confirm('确定清空全部答题记录？'))return;
   S.quizResults=[];saveLocal();renderQuizResults();toast('已清空');
+  // 同步删除云端 quiz_results 表数据
+  if(_sb){
+    _sb.from('quiz_results').delete().eq('room',S.room).then(function(res){
+      if(res.error)console.warn('云端答题记录清空失败',res.error.message);
+    });
+  }
 }
 
 // ========== 抽奖规则 ==========
@@ -1754,6 +1760,14 @@ function importParticipantsExcel(input){
       newParticipants.forEach(function(p){p.preCalc=preCalcParticipant(p)});
       S.participants=newParticipants;
       saveLocal();renderParticipants();broadcastConfig();
+      // 先删除云端旧参与者（避免重复导入产生多批不同 pid 的记录）
+      if(_sb){
+        _sb.from('participants').delete().eq('room',S.room).then(function(res){
+          if(res.error)console.warn('云端旧参与者删除失败',res.error.message);
+          // 删除完成后再写入新参与者
+          cloudPush();
+        });
+      }
       toast('已导入 '+newParticipants.length+' 条登记数据（含预计算）');
     }catch(err){toast('Excel解析失败：'+err.message)}
     input.value='';
