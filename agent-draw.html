@@ -24,10 +24,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .card{background:var(--card);border-radius:14px;padding:14px;border:1px solid var(--bd)}
 .act-count-box{background:linear-gradient(135deg,rgba(108,92,231,.2),rgba(253,203,110,.1));border:1px solid rgba(253,203,110,.3);border-radius:14px;padding:18px;text-align:center}
 .act-count-label{font-size:.85em;color:var(--sub);letter-spacing:2px;margin-bottom:4px}
-.act-count-num{font-size:2.8em;font-weight:bold;color:var(--gold);line-height:1}
+.act-count-num{font-size:4.2em;font-weight:bold;color:var(--gold);line-height:1;text-shadow:0 0 20px rgba(253,203,110,.3)}
 .act-count-sub{font-size:.75em;color:var(--sub);margin-top:4px}
 .rule-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.rule-select{flex:0 0 200px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.88em;cursor:pointer}
+.rule-select{flex:0 0 160px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.88em;cursor:pointer}
+.rule-cat-select{flex:0 0 100px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.82em;cursor:pointer}
 .rule-param{flex:1;min-width:80px;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.88em}
 .rule-param::placeholder{color:var(--sub)}
 .btn-exec{padding:9px 18px;border-radius:10px;background:var(--gold);color:#333;font-weight:bold;cursor:pointer;font-size:.9em;white-space:nowrap}
@@ -46,6 +47,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .lucky-count{font-size:.82em;color:var(--sub);padding:3px 10px;border-radius:16px;background:var(--card2)}
 .lucky-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;max-height:calc(100vh - 380px)}
 .lucky-item{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:12px;background:var(--card2);border:1px solid var(--bd);transition:.2s}
+.lucky-avatar{width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--pri);display:flex;align-items:center;justify-content:center;font-size:.9em;font-weight:bold;color:#fff}
+.lucky-avatar img{width:100%;height:100%;object-fit:cover}
 .lucky-item:hover{border-color:var(--gold);background:rgba(253,203,110,.08)}
 .lucky-rank{width:30px;height:30px;border-radius:50%;background:var(--pri);display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:.85em;flex-shrink:0}
 .lucky-rank.top1{background:var(--gold);color:#333}
@@ -62,7 +65,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .btn-game{padding:8px 16px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--red));color:#333;font-weight:bold;cursor:pointer;font-size:.88em;display:flex;align-items:center;gap:5px}
 .bottom-label{font-size:.8em;color:var(--sub);flex:1}
 .bottom-status{font-size:.76em;color:var(--grn);padding:2px 8px;border-radius:8px;background:rgba(0,184,148,.1)}
-.music-bar{position:fixed;bottom:12px;left:12px;z-index:9000;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:24px;background:rgba(22,27,60,.85);border:1px solid var(--bd);backdrop-filter:blur(8px);font-size:.8em;color:var(--sub);max-width:320px}
+.music-bar{position:fixed;top:14px;right:64px;z-index:9000;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:24px;background:rgba(22,27,60,.85);border:1px solid var(--bd);backdrop-filter:blur(8px);font-size:.8em;color:var(--sub);max-width:320px}
 .music-play-btn{width:30px;height:30px;border-radius:50%;background:var(--pri);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .music-play-btn.playing{background:var(--grn)}
 .music-info{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -71,7 +74,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .music-vol{width:50px;height:4px;-webkit-appearance:none;background:var(--card2);border-radius:2px;cursor:pointer;flex-shrink:0}
 .music-vol::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--gold);cursor:pointer}
 .music-more-btn{width:28px;height:28px;border-radius:8px;background:transparent;border:1px solid var(--bd);color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.music-panel{position:fixed;bottom:54px;left:12px;z-index:9000;width:300px;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;display:none;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.music-panel{position:fixed;top:60px;right:14px;z-index:9000;width:300px;background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px;display:none;box-shadow:0 8px 32px rgba(0,0,0,.4)}
 .music-panel.show{display:block}
 .music-panel-title{font-size:.88em;font-weight:bold;color:#fff;margin-bottom:8px}
 .music-preset-list{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
@@ -136,11 +139,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="act-count-box">
         <div class="act-count-label">活动人数</div>
         <div class="act-count-num" id="actCount">0</div>
-        <div class="act-count-sub">已签到 · 已答题 · 未中奖</div>
       </div>
       <div class="card" style="flex:1;overflow-y:auto">
         <div style="font-weight:bold;margin-bottom:10px;font-size:.95em">📋 天选规则配置</div>
         <div class="rule-row">
+          <select class="rule-cat-select" id="ruleCatSelect" onchange="onRuleCatChange()"></select>
           <select class="rule-select" id="ruleSelect" onchange="onRuleSelectChange()"></select>
           <input class="rule-param" id="ruleParam" placeholder="参数值">
           <button class="btn-exec" onclick="executeRule()">规则执行</button>
@@ -319,11 +322,11 @@ var TOP_SURNAMES_LIST=['王','张','李','刘','陈','杨','黄','赵','周','�
 var RULES=[
   // 宽泛
   {id:1,name:'号码第X位为偶数',cat:'宽泛',pType:'number',pLabel:'X（第几位）',fields:['phone'],
-   test:function(d,p){var ph=d.phone||'';var i=parseInt(p)-1;if(i<0||i>=ph.length)return false;return parseInt(ph[i])%2===0},
-   desc:function(p){return'号码第'+p+'位为偶数'}},
+   test:function(d,p){var ph=d.phone||'';var i=ph.length-parseInt(p);if(i<0||i>=ph.length)return false;return parseInt(ph[i])%2===0},
+   desc:function(p){return'号码倒数第'+p+'位为偶数'}},
   {id:2,name:'号码第X位为奇数',cat:'宽泛',pType:'number',pLabel:'X（第几位）',fields:['phone'],
-   test:function(d,p){var ph=d.phone||'';var i=parseInt(p)-1;if(i<0||i>=ph.length)return false;return parseInt(ph[i])%2!==0},
-   desc:function(p){return'号码第'+p+'位为奇数'}},
+   test:function(d,p){var ph=d.phone||'';var i=ph.length-parseInt(p);if(i<0||i>=ph.length)return false;return parseInt(ph[i])%2!==0},
+   desc:function(p){return'号码倒数第'+p+'位为奇数'}},
   {id:3,name:'姓名笔画数为偶数',cat:'宽泛',pType:'none',pLabel:'',fields:['name'],
    test:function(d){return d.stroke%2===0},
    desc:function(){return'姓名笔画数为偶数'}},
@@ -337,8 +340,8 @@ var RULES=[
    test:function(d,p){var pl=(p||'').toUpperCase();return d.pinyinFirst>='A'&&d.pinyinFirst<=pl},
    desc:function(p){return'拼音首字母在A至'+p+'之间'}},
   // 较宽泛
-  {id:7,name:'号码尾号为X/Y/Z之一',cat:'较宽泛',pType:'text',pLabel:'X,Y,Z（逗号分隔）',fields:['phone'],
-   test:function(d,p){var ph=d.phone||'';if(!ph.length)return false;var last=ph[ph.length-1];var opts=(p||'').split(/[,\s,、]/).map(function(s){return s.trim()});return opts.indexOf(last)>=0},
+  {id:7,name:'号码尾号为X/Y/Z之一',cat:'较宽泛',pType:'text',pLabel:'X;Y;Z（分号或逗号分隔）',fields:['phone'],
+   test:function(d,p){var ph=d.phone||'';if(!ph.length)return false;var last=ph[ph.length-1];var opts=(p||'').split(/[;,\s、]/).map(function(s){return s.trim()});return opts.indexOf(last)>=0},
    desc:function(p){return'号码尾号为'+p+'之一'}},
   {id:8,name:'姓名笔画数≥X画',cat:'较宽泛',pType:'number',pLabel:'X（笔画数）',fields:['name'],
    test:function(d,p){return d.stroke>=parseInt(p)},
@@ -360,8 +363,8 @@ var RULES=[
    desc:function(p){return'号段属现场前'+p+'号段'}},
   // 较精准
   {id:14,name:'号码第X位与第X+1位相同',cat:'较精准',pType:'number',pLabel:'X（第几位）',fields:['phone'],
-   test:function(d,p){var ph=d.phone||'';var i=parseInt(p)-1;if(i<0||i+1>=ph.length)return false;return ph[i]===ph[i+1]},
-   desc:function(p){return'号码第'+p+'位与第'+(parseInt(p)+1)+'位相同'}},
+   test:function(d,p){var ph=d.phone||'';var i=ph.length-parseInt(p);if(i<0||i+1>=ph.length)return false;return ph[i]===ph[i+1]},
+   desc:function(p){return'号码倒数第'+p+'位与第'+(parseInt(p)+1)+'位相同'}},
   {id:15,name:'姓名笔画数=号码后四位之和',cat:'较精准',pType:'none',pLabel:'',fields:['name','phone'],
    test:function(d){return d.stroke===d.last4Sum},
    desc:function(){return'姓名笔画数=号码后四位之和'}},
@@ -588,15 +591,20 @@ function handleMsg(t,d){
 
 // ========== 规则管理 ==========
 function renderRuleSelect(){
-  var sel=document.getElementById('ruleSelect');
-  var html='<option value="">-- 选择天选规则 --</option>';
-  var lastCat='';
-  RULES.forEach(function(r){
-    if(r.cat!==lastCat){html+='<optgroup label="'+r.cat+'">';lastCat=r.cat}
-    html+='<option value="'+r.id+'">'+r.name+'</option>';
-  });
-  html+='</optgroup>';
-  sel.innerHTML=html;
+  var catSel=document.getElementById('ruleCatSelect');
+  var ruleSel=document.getElementById('ruleSelect');
+  var cats=['宽泛','较宽泛','较精准','精准'];
+  catSel.innerHTML='<option value="">全部分类</option>'+cats.map(function(c){return'<option value="'+c+'">'+c+'</option>'}).join('');
+  ruleSel.innerHTML='<option value="">-- 选择规则 --</option>';
+  RULES.forEach(function(r){ruleSel.innerHTML+='<option value="'+r.id+'" data-cat="'+r.cat+'" class="rule-opt" style="display:none">'+r.name+'</option>'});
+}
+function onRuleCatChange(){
+  var cat=document.getElementById('ruleCatSelect').value;
+  var opts=document.querySelectorAll('.rule-opt');
+  var ruleSel=document.getElementById('ruleSelect');
+  ruleSel.value='';
+  opts.forEach(function(o){o.style.display=(!cat||o.getAttribute('data-cat')===cat)?'':'none'});
+  onRuleSelectChange();
 }
 function onRuleSelectChange(){
   var id=parseInt(document.getElementById('ruleSelect').value);
@@ -662,11 +670,14 @@ function deleteRule(seq){
   executeAllRules();
 }
 function resetRuleInput(){
+  document.getElementById('ruleCatSelect').value='';
   document.getElementById('ruleSelect').value='';
   document.getElementById('ruleParam').value='';
   document.getElementById('ruleParam').style.display='';
   var oldSel=document.getElementById('ruleParamSelect');
   if(oldSel)oldSel.remove();
+  var opts=document.querySelectorAll('.rule-opt');
+  opts.forEach(function(o){o.style.display='none'});
 }
 function renderRuleList(){
   var box=document.getElementById('ruleList');
@@ -716,7 +727,19 @@ function renderLuckyList(){
     if(d.quizTotal>0)detail+=' · 答题'+d.quizScore+'/'+d.quizTotal;
     if(d.stroke>0)detail+=' · 笔画='+d.stroke;
     var tagText=S.addedRules.length+'条全中';
+    var avatarHtml='';
+    if(d.avatar){
+      if(typeof d.avatar==='string'&&d.avatar.indexOf('emoji:')===0){
+        avatarHtml='<div class="lucky-avatar" style="background:var(--card2)">'+d.avatar.substr(6)+'</div>';
+      }else{
+        avatarHtml='<div class="lucky-avatar"><img src="'+escHtml(d.avatar)+'"></div>';
+      }
+    }else{
+      var firstChar=d.name?d.name[0]:'?';
+      avatarHtml='<div class="lucky-avatar">'+escHtml(firstChar)+'</div>';
+    }
     return'<div class="lucky-item">'+
+      avatarHtml+
       '<div class="lucky-rank '+rankCls+'">'+(i+1)+'</div>'+
       '<div class="lucky-info">'+
         '<div class="lucky-name">'+escHtml(d.name)+'</div>'+
@@ -965,7 +988,17 @@ var MUSIC={audio:null,currentSrc:'',isPlaying:false,
     {name:'史诗震撼',url:'https://cdn.pixabay.com/download/audio/2021/11/23/audio_64de79e8e8.mp3',icon:'⚔️',tag:'抽奖'},
     {name:'轻松欢快',url:'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d68bb0b6e4.mp3',icon:'🎈',tag:'暖场'},
     {name:'悬疑紧张',url:'https://cdn.pixabay.com/download/audio/2022/10/25/audio_easy-going-melody-105bpm-12232.mp3',icon:'⏳',tag:'等待'},
-    {name:'胜利庆祝',url:'https://cdn.pixabay.com/download/audio/2023/06/19/audio_57c70e0ebe.mp3',icon:'🏆',tag:'中奖'}
+    {name:'胜利庆祝',url:'https://cdn.pixabay.com/download/audio/2023/06/19/audio_57c70e0ebe.mp3',icon:'🏆',tag:'中奖'},
+    {name:'动感节拍',url:'https://cdn.pixabay.com/download/audio/2022/05/16/audio_5e7da70be0.mp3',icon:'🥁',tag:'暖场'},
+    {name:'浪漫钢琴',url:'https://cdn.pixabay.com/download/audio/2021/11/23/audio_8e3e3e3e3e.mp3',icon:'🎹',tag:'背景'},
+    {name:'中国风古筝',url:'https://cdn.pixabay.com/download/audio/2022/04/12/audio_d6a3c2c8c8.mp3',icon:'🪕',tag:'背景'},
+    {name:'欢乐嘉年华',url:'https://cdn.pixabay.com/download/audio/2023/01/25/audio_5b3e3c3e3e.mp3',icon:'🎪',tag:'抽奖'},
+    {name:'神秘悬念',url:'https://cdn.pixabay.com/download/audio/2022/08/02/audio_9e9e9e9e9e.mp3',icon:'🔮',tag:'等待'},
+    {name:'热血激昂',url:'https://cdn.pixabay.com/download/audio/2022/03/28/audio_6f6f6f6f6f.mp3',icon:'🔥',tag:'抽奖'},
+    {name:'梦幻星空',url:'https://cdn.pixabay.com/download/audio/2023/03/15/audio_7a7a7a7a7a.mp3',icon:'✨',tag:'背景'},
+    {name:'摇滚派对',url:'https://cdn.pixabay.com/download/audio/2022/07/18/audio_8b8b8b8b8b.mp3',icon:'🎸',tag:'暖场'},
+    {name:'温馨感恩',url:'https://cdn.pixabay.com/download/audio/2023/05/20/audio_4c4c4c4c4c.mp3',icon:'💝',tag:'颁奖'},
+    {name:'青春活力',url:'https://cdn.pixabay.com/download/audio/2022/09/10/audio_3d3d3d3d3d.mp3',icon:'💪',tag:'暖场'}
   ]
 };
 function initMusic(){
