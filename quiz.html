@@ -52,6 +52,34 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
 </head>
 <body>
 <div id="app">
+  <!-- 已答过题的选项页（再次作答 / 现场签到） -->
+  <div id="choicePage" style="display:none;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
+      <div style="font-weight:bold;font-size:1.1em">🏆 知识问答</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;align-items:center;gap:4px;font-size:.75em;padding:4px 10px;border-radius:16px;background:rgba(255,255,255,.05)"><div id="mDot2" style="width:6px;height:6px;border-radius:50%;background:#555"></div><span id="mText2">连接中</span></div>
+      </div>
+    </div>
+    <div class="rule-tip" style="margin-bottom:16px">
+      📌 您已参与过知识问答，请选择以下操作：
+    </div>
+    <div class="card" style="text-align:center;padding:24px">
+      <div style="font-size:2em;margin-bottom:8px">🎉</div>
+      <div style="font-weight:bold;font-size:1.2em;margin-bottom:6px" id="choiceUserName"></div>
+      <div style="font-size:.85em;color:var(--sub);margin-bottom:16px">请选择您接下来要进行的操作</div>
+      <button class="btn btn-pri" style="width:100%;padding:16px;font-size:1.05em;margin-bottom:12px" onclick="choiceAgain()">
+        🔄 再次作答 <span id="choiceRemain" style="font-size:.8em;opacity:.85"></span>
+      </button>
+      <button class="btn btn-suc" style="width:100%;padding:16px;font-size:1.05em" onclick="choiceSignin()">
+        📍 现场签到
+      </button>
+      <div style="margin-top:14px;font-size:.78em;color:var(--sub)" id="choiceSigninTip"></div>
+    </div>
+    <div style="text-align:center;margin-top:10px">
+      <button class="btn btn-out" style="padding:8px 20px;font-size:.85em" onclick="backToReg(true)">← 返回</button>
+    </div>
+  </div>
+
   <!-- 登记页 -->
   <div id="regPage" style="display:block;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 4px">
@@ -145,6 +173,8 @@ let S={
   configReceived:false,
   quizConfig:null,quizFields:[],
   allParticipants:[],
+  // 签到配置（由后台广播）
+  signin:null,signFailMsg:'',signinPromptMsg:'',
   // 答题状态
   questions:[],currentQ:0,currentRound:1,maxRounds:3,
   answers:[],allRoundResults:[],
@@ -215,7 +245,7 @@ function connectMQTT(){
     S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
   }catch(e){updateMqtt('offline')}
 }
-function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
+function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中';const d2=document.getElementById('mDot2'),t2=document.getElementById('mText2');if(d2){d2.style.background=d.style.background;t2.textContent=t.textContent}}
 function handleMsg(t,d){
   if(t.endsWith('config')){
     S.configReceived=true;
@@ -226,20 +256,120 @@ function handleMsg(t,d){
     S.quizConfig=d.quizConfig||null;
     S.quizFields=d.quizFields||[];
     S.allParticipants=d.participants||[];
+    // 新增：接收签到配置与提示语
+    S.signin=d.signin||null;
+    S.signFailMsg=d.signFailMsg||'';
+    S.signPromptMsg=d.signPromptMsg||'请于当日17:00-17:30前往一食堂外电信展台进行现场签到';
   }else if(t.endsWith('quiz_result')){
     // 收到后台返回的答题确认
   }
 }
 
 // ========== 页面切换 ==========
-function backToReg(){
+function backToReg(forceReg){
   document.getElementById('quizPage').style.display='none';
   document.getElementById('resultPage').style.display='none';
+  document.getElementById('choicePage').style.display='none';
+  // 已答过题且非强制回登记页 → 显示选项页
+  if(!forceReg&&S.quizUserInfo&&hasQuizDone(S.quizUserInfo.name,S.quizUserInfo.phone)){
+    showChoicePage();
+    return;
+  }
   document.getElementById('regPage').style.display='block';
   S.currentRound=1;S.allRoundResults=[];
   // 恢复登记页的规则提示
   var tipRound=document.getElementById('tipRound');
   if(tipRound)tipRound.textContent='1';
+}
+
+// 已答题用户记录（localStorage，用于再次进入时显示选项）
+function getQuizDoneList(){try{return JSON.parse(localStorage.getItem('cj_quiz_done_'+S.room)||'[]')}catch(e){return[]}}
+function markQuizDone(name,phone){
+  try{
+    var list=getQuizDoneList();
+    if(!list.some(function(u){return u.name===name&&u.phone===phone})){
+      list.push({name:name,phone:phone,time:Date.now()});
+      localStorage.setItem('cj_quiz_done_'+S.room,JSON.stringify(list));
+    }
+  }catch(e){}
+}
+function hasQuizDone(name,phone){
+  return getQuizDoneList().some(function(u){return u.name===name&&u.phone===phone});
+}
+// 获取用户已完成的轮次数（localStorage 记录每轮）
+function getQuizRoundsDone(name,phone){
+  try{
+    var rounds=JSON.parse(localStorage.getItem('cj_quiz_rounds_'+S.room)||'{}');
+    var key=name+'|'+phone;
+    return rounds[key]||0;
+  }catch(e){return 0}
+}
+function markQuizRoundDone(name,phone){
+  try{
+    var rounds=JSON.parse(localStorage.getItem('cj_quiz_rounds_'+S.room)||'{}');
+    var key=name+'|'+phone;
+    rounds[key]=(rounds[key]||0)+1;
+    localStorage.setItem('cj_quiz_rounds_'+S.room,JSON.stringify(rounds));
+  }catch(e){}
+}
+
+// 显示选项页（再次作答 / 现场签到）
+function showChoicePage(){
+  document.getElementById('regPage').style.display='none';
+  document.getElementById('quizPage').style.display='none';
+  document.getElementById('resultPage').style.display='none';
+  document.getElementById('choicePage').style.display='block';
+  var un=document.getElementById('choiceUserName');
+  if(un)un.textContent='您好，'+S.quizUserInfo.name;
+  var remain=document.getElementById('choiceRemain');
+  if(remain){
+    var done=getQuizRoundsDone(S.quizUserInfo.name,S.quizUserInfo.phone);
+    var left=Math.max(0,MAX_ROUNDS-done);
+    if(left>0)remain.textContent='（剩余'+left+'次机会）';
+    else remain.textContent='（次数已用完）';
+  }
+  // 同步MQTT状态指示
+  var d2=document.getElementById('mDot2'),t2=document.getElementById('mText2');
+  if(d2){d2.style.background=S.mqtt&&S.mqtt.connected?'#00b894':(S.mqtt?'#e17055':'#fdcb6e');t2.textContent=S.mqtt&&S.mqtt.connected?'在线':(S.mqtt?'离线':'连接中');}
+  // 显示签到提示语
+  var tip=document.getElementById('choiceSigninTip');
+  if(tip)tip.textContent='签到方式：现场扫描二维码签到';
+}
+
+// 选项：再次作答
+function choiceAgain(){
+  var done=getQuizRoundsDone(S.quizUserInfo.name,S.quizUserInfo.phone);
+  var left=Math.max(0,MAX_ROUNDS-done);
+  if(left<=0){toast('您已用完全部'+MAX_ROUNDS+'次答题机会');return}
+  // 重置轮次并开始答题
+  S.currentRound=1;
+  S.allRoundResults=[];
+  startQuiz();
+}
+
+// 选项：现场签到
+function choiceSignin(){
+  // 检查签到配置
+  var signin=S.signin||{};
+  var enabled=signin.enable!==false;
+  if(!enabled){toast(S.signPromptMsg||'签到暂未开放，请稍后再试');return;}
+  // 检查签到时间窗口
+  var now=new Date();
+  var startOk=true,endOk=true;
+  if(signin.startTime){
+    var st=new Date(signin.startTime);
+    if(now<st)startOk=false;
+  }
+  if(signin.endTime){
+    var et=new Date(signin.endTime);
+    if(now>et)endOk=false;
+  }
+  if(!startOk||!endOk){
+    toast(S.signPromptMsg||'当前不在签到时间内');
+    return;
+  }
+  // 在签到时间内：提示去现场扫码
+  toast('请前往现场扫描二维码完成签到');
 }
 
 // ========== 登记提交 ==========
@@ -273,6 +403,12 @@ function submitReg(){
     return;
   }
 
+  // 检查是否已答过题：已答过则显示选项页（再次作答 / 现场签到）
+  if(hasQuizDone(name,fullPhone)){
+    showChoicePage();
+    return;
+  }
+
   S.currentRound=1;
   S.allRoundResults=[];
   startQuiz();
@@ -295,6 +431,7 @@ function startQuiz(){
 
   document.getElementById('regPage').style.display='none';
   document.getElementById('resultPage').style.display='none';
+  document.getElementById('choicePage').style.display='none';
   document.getElementById('quizPage').style.display='block';
   document.getElementById('roundBadge').textContent='第'+S.currentRound+'轮';
   document.getElementById('roundInfo').textContent='共'+MAX_ROUNDS+'轮机会';
@@ -437,6 +574,10 @@ function finishRound(){
   };
 
   S.allRoundResults.push(roundResult);
+
+  // 记录已完成答题（用于再次进入时显示选项页）与轮次
+  markQuizDone(S.quizUserInfo.name,S.quizUserInfo.phone);
+  markQuizRoundDone(S.quizUserInfo.name,S.quizUserInfo.phone);
 
   // 找最佳轮次
   var bestRound=getBestRound();
