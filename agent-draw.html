@@ -114,6 +114,29 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .mqtt-dot.connecting{background:var(--gold);animation:blink 1s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .top-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.bridge-status{display:flex;align-items:center;gap:4px;font-size:.7em;padding:2px 8px;border-radius:12px;background:rgba(255,255,255,.05)}
+.bridge-dot{width:6px;height:6px;border-radius:50%;background:#555;transition:.3s}
+.bridge-dot.online{background:var(--grn);box-shadow:0 0 6px var(--grn)}
+.bridge-dot.offline{background:var(--red)}
+.bridge-dot.executing{background:var(--gold);animation:blink 1s infinite}
+.thinking-area{margin-top:10px;border-top:1px solid var(--bd);padding-top:10px}
+.thinking-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.thinking-title{font-size:.82em;font-weight:bold;color:var(--pri-l);display:flex;align-items:center;gap:5px}
+.thinking-page-info{font-size:.68em;color:var(--sub)}
+.thinking-display{background:var(--card2);border-radius:12px;padding:12px 14px;min-height:60px;font-size:.78em;line-height:1.6;color:var(--sub);white-space:pre-wrap;word-break:break-all;position:relative;overflow:hidden}
+.thinking-display .step-icon{font-size:1.1em;margin-right:4px}
+.thinking-display .step-text{color:#fff}
+.thinking-display.type-thinking{border-left:3px solid var(--blue)}
+.thinking-display.type-info{border-left:3px solid var(--grn)}
+.thinking-display.type-rule_result{border-left:3px solid var(--gold)}
+.thinking-display.type-warning{border-left:3px solid var(--red)}
+.thinking-display.type-final{border-left:3px solid var(--pri);background:rgba(108,92,231,.15)}
+.thinking-display.type-error{border-left:3px solid var(--red);background:rgba(225,112,85,.1)}
+.thinking-empty{text-align:center;color:var(--sub);font-size:.8em;padding:20px 0}
+.thinking-nav{display:flex;gap:6px;margin-top:6px;justify-content:center}
+.thinking-nav-btn{padding:4px 12px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:var(--sub);cursor:pointer;font-size:.72em}
+.thinking-nav-btn:disabled{opacity:.3;cursor:not-allowed}
+.thinking-nav-btn.active{background:var(--pri);color:#fff}
 </style>
 </head>
 <body>
@@ -130,6 +153,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <span style="font-weight:bold;color:#fff">天选规则引擎</span>
     </div>
     <div class="mqtt-status"><div class="mqtt-dot connecting" id="mDot"></div><span id="mText">连接中</span></div>
+    <div class="bridge-status" id="bridgeStatusWrap"><div class="bridge-dot offline" id="bridgeDot"></div><span id="bridgeText">TeleAgent离线</span></div>
   </div>
   <div class="main-content">
     <div class="left-panel">
@@ -157,6 +181,19 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         </div>
         <div class="lucky-list" id="luckyList">
           <div class="lucky-empty">添加并执行天选规则后<br>命中全部规则的人员将显示在此</div>
+        </div>
+        <div class="thinking-area" id="thinkingArea" style="display:none">
+          <div class="thinking-header">
+            <div class="thinking-title"><span>🤖</span> TeleAgent 思考过程</div>
+            <div class="thinking-page-info" id="thinkingPageInfo"></div>
+          </div>
+          <div class="thinking-display" id="thinkingDisplay">
+            <div class="thinking-empty">等待 TeleAgent 开始执行...</div>
+          </div>
+          <div class="thinking-nav" id="thinkingNav" style="display:none">
+            <button class="thinking-nav-btn" id="thinkPrev" onclick="thinkingPrev()">上一页</button>
+            <button class="thinking-nav-btn" id="thinkNext" onclick="thinkingNext()">下一页</button>
+          </div>
         </div>
       </div>
     </div>
@@ -212,7 +249,15 @@ var S={
   luckyList:[],
   danmakuOn:true,
   gameRunning:false,
-  isDrawing:false
+  isDrawing:false,
+  // TeleAgent 桥接相关
+  bridgeOnline:false,
+  bridgeExecuting:false,
+  bridgeReqId:null,
+  bridgeAckTimer:null,
+  bridgeSteps:[],
+  bridgeCurrentStep:-1,
+  bridgeStepTimer:null
 };
 var SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
@@ -540,7 +585,7 @@ function updatePool(){
     return S.quizMap[(p.name||'')+'|'+(p.phone||'')];
   }).map(preCalcParticipant);
   document.getElementById('actCount').textContent=S.eligiblePool.length;
-  if(S.addedRules.length)executeAllRules();
+  if(S.addedRules.length)executeAllRulesLocal();
 }
 
 // ========== MQTT ==========
@@ -559,7 +604,12 @@ function connectMQTT(){
       S.mqtt.subscribe(S.topic+'quiz_answer');
       S.mqtt.subscribe(S.topic+'danmaku_show');
       S.mqtt.subscribe(S.topic+'avatar_update');
+      S.mqtt.subscribe(S.topic+'teleagent_status');
+      S.mqtt.subscribe(S.topic+'teleagent_ack');
+      S.mqtt.subscribe(S.topic+'teleagent_step');
+      S.mqtt.subscribe(S.topic+'teleagent_result');
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'agent-draw',time:Date.now()}));
+      S.mqtt.publish(S.topic+'teleagent_ping',JSON.stringify({type:'ping',from:'agent-draw',time:Date.now()}));
     });
     S.mqtt.on('message',function(t,m){try{var d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
     S.mqtt.on('error',function(){updateMqtt('offline')});
@@ -594,7 +644,236 @@ function handleMsg(t,d){
     if(!reactionPlayers[d.name])reactionPlayers[d.name]=Date.now()-reactionTime;
   }else if(t.endsWith('quiz_answer')){
     if(!quizState.answers[d.name])quizState.answers[d.name]=d.answer;
+  }else if(t.endsWith('teleagent_status')){
+    handleBridgeStatus(d);
+  }else if(t.endsWith('teleagent_ack')){
+    handleBridgeAck(d);
+  }else if(t.endsWith('teleagent_step')){
+    handleBridgeStep(d);
+  }else if(t.endsWith('teleagent_result')){
+    handleBridgeResult(d);
   }
+}
+
+// ========== TeleAgent 桥接 ==========
+function handleBridgeStatus(d){
+  var wasOnline=S.bridgeOnline;
+  S.bridgeOnline=d.online===true||d.online==='true';
+  updateBridgeUI();
+  if(S.bridgeOnline&&!wasOnline){
+    // 刚上线，取消降级定时器
+    if(S.bridgeAckTimer){clearTimeout(S.bridgeAckTimer);S.bridgeAckTimer=null}
+  }
+}
+function updateBridgeUI(){
+  var dot=document.getElementById('bridgeDot');
+  var txt=document.getElementById('bridgeText');
+  if(S.bridgeExecuting){
+    dot.className='bridge-dot executing';
+    txt.textContent='TeleAgent执行中';
+  }else if(S.bridgeOnline){
+    dot.className='bridge-dot online';
+    txt.textContent='TeleAgent在线';
+  }else{
+    dot.className='bridge-dot offline';
+    txt.textContent='TeleAgent离线';
+  }
+}
+function handleBridgeAck(d){
+  if(d.reqId!==S.bridgeReqId)return;
+  if(S.bridgeAckTimer){clearTimeout(S.bridgeAckTimer);S.bridgeAckTimer=null}
+  // 桥接已收到请求，开始等待步骤
+  S.bridgeExecuting=true;
+  updateBridgeUI();
+  showThinkingArea(true);
+  S.bridgeSteps=[];
+  S.bridgeCurrentStep=-1;
+  renderThinkingDisplay();
+}
+function handleBridgeStep(d){
+  if(d.reqId!==S.bridgeReqId)return;
+  // 只在有新内容时添加步骤
+  var step=d.step;
+  if(!step)return;
+  // 避免重复添加相同步骤
+  var existing=S.bridgeSteps.find(function(s){return s.text===step.text&&s.type===step.type});
+  if(existing)return;
+  S.bridgeSteps.push(step);
+  // 自动翻页到最新步骤
+  var prevCount=S.bridgeCurrentStep+1;
+  S.bridgeCurrentStep=S.bridgeSteps.length-1;
+  // 只有当有新内容时才翻页（已经有新步骤）
+  renderThinkingDisplay();
+  // 如果该步骤包含当前列表，则更新幸运候选
+  if(step.currentList){
+    S.luckyList=step.currentList.map(function(d){
+      return{name:d.name,phone:d.phone,avatar:d.avatar||''};
+    });
+    renderLuckyList();
+    // 更新标签为规则序号
+    updateLuckyTags(d.stepIndex+1);
+  }
+}
+function handleBridgeResult(d){
+  if(d.reqId!==S.bridgeReqId)return;
+  S.bridgeExecuting=false;
+  updateBridgeUI();
+  if(d.success&&d.finalList){
+    S.luckyList=d.finalList.map(function(p){
+      return{name:p.name,phone:p.phone,avatar:p.avatar||''};
+    });
+    renderLuckyList();
+    updateLuckyTags(S.addedRules.length);
+    if(d.steps&&d.steps>S.bridgeSteps.length){
+      toast('TeleAgent 执行完成，命中 '+d.finalList.length+' 人');
+    }else{
+      toast('TeleAgent 执行完成，命中 '+d.finalList.length+' 人');
+    }
+  }else if(!d.success){
+    toast('TeleAgent 执行失败：'+(d.error||'未知错误')+'，已降级为本地计算');
+    // 降级为本地计算
+    executeAllRulesLocal();
+  }
+  // 停止自动翻页（如果有）
+  if(S.bridgeStepTimer){clearInterval(S.bridgeStepTimer);S.bridgeStepTimer=null}
+}
+function updateLuckyTags(ruleCount){
+  // 更新幸运候选的标签文字
+  var tags=document.querySelectorAll('.lucky-tag');
+  tags.forEach(function(t){t.textContent=ruleCount+'条规则命中'});
+}
+function showThinkingArea(show){
+  document.getElementById('thinkingArea').style.display=show?'block':'none';
+}
+function renderThinkingDisplay(){
+  var display=document.getElementById('thinkingDisplay');
+  var pageInfo=document.getElementById('thinkingPageInfo');
+  var nav=document.getElementById('thinkingNav');
+  if(!S.bridgeSteps.length){
+    display.innerHTML='<div class=\"thinking-empty\">等待 TeleAgent 开始执行...</div>';
+    pageInfo.textContent='';
+    nav.style.display='none';
+    return;
+  }
+  var step=S.bridgeSteps[S.bridgeCurrentStep];
+  if(!step){
+    display.innerHTML='<div class=\"thinking-empty\">无内容</div>';
+    pageInfo.textContent='';
+    nav.style.display='none';
+    return;
+  }
+  var icon='';
+  var typeClass='type-'+(step.type||'info');
+  if(step.type==='thinking')icon='🔄';
+  else if(step.type==='info')icon='📋';
+  else if(step.type==='rule_result')icon='🎯';
+  else if(step.type==='warning')icon='⚠️';
+  else if(step.type==='final')icon='✅';
+  else if(step.type==='error')icon='❌';
+  else icon='•';
+  display.className='thinking-display '+typeClass;
+  display.innerHTML='<span class=\"step-icon\">'+icon+'</span><span class=\"step-text\">'+escHtml(step.text||'')+'</span>';
+  pageInfo.textContent=(S.bridgeCurrentStep+1)+' / '+S.bridgeSteps.length;
+  // 超过1步时显示翻页按钮
+  if(S.bridgeSteps.length>1){
+    nav.style.display='flex';
+    document.getElementById('thinkPrev').disabled=(S.bridgeCurrentStep<=0);
+    document.getElementById('thinkNext').disabled=(S.bridgeCurrentStep>=S.bridgeSteps.length-1);
+  }else{
+    nav.style.display='none';
+  }
+}
+function thinkingPrev(){
+  if(S.bridgeCurrentStep>0){
+    S.bridgeCurrentStep--;
+    renderThinkingDisplay();
+  }
+}
+function thinkingNext(){
+  if(S.bridgeCurrentStep<S.bridgeSteps.length-1){
+    S.bridgeCurrentStep++;
+    renderThinkingDisplay();
+  }
+}
+function executeRulesViaBridge(){
+  if(!S.addedRules.length){toast('请先添加至少一条规则');return}
+  if(!S.bridgeOnline){
+    // 桥接离线，直接降级
+    toast('TeleAgent 离线，使用本地计算');
+    executeAllRulesLocal();
+    return;
+  }
+  // 构造请求
+  S.bridgeReqId=uid();
+  var rulesPayload=S.addedRules.map(function(ar){
+    return{id:ar.rule.id,param:ar.param};
+  });
+  var req={
+    type:'execute_rules',
+    reqId:S.bridgeReqId,
+    roomId:S.room,
+    rules:rulesPayload,
+    time:Date.now()
+  };
+  // 发送请求
+  S.mqtt.publish(S.topic+'teleagent_req',JSON.stringify(req));
+  // 设置5秒ack超时，降级为本地计算
+  S.bridgeAckTimer=setTimeout(function(){
+    if(!S.bridgeExecuting){
+      toast('TeleAgent 未响应，降级为本地计算');
+      S.bridgeOnline=false;
+      updateBridgeUI();
+      executeAllRulesLocal();
+    }
+  },5000);
+  // 显示思考区域
+  showThinkingArea(true);
+  S.bridgeSteps=[];
+  S.bridgeCurrentStep=-1;
+  renderThinkingDisplay();
+  toast('已发送至 TeleAgent，等待执行...');
+}
+function executeAllRulesLocal(){
+  // 原有的本地规则执行逻辑（降级方案）
+  if(!S.eligiblePool.length){
+    S.luckyList=[];
+    renderLuckyList();
+    return;
+  }
+  var matched=S.eligiblePool.slice();
+  S.addedRules.forEach(function(ar){
+    matched=matched.filter(function(d){return ar.rule.test(d,ar.param)});
+  });
+  S.luckyList=matched;
+  renderLuckyList();
+  updateLuckyTags(S.addedRules.length);
+  // 本地执行也展示简单的思考过程
+  showThinkingArea(true);
+  S.bridgeSteps=[];
+  S.bridgeSteps.push({type:'info',text:'TeleAgent 离线，使用浏览器本地计算\
+资格池：'+S.eligiblePool.length+' 人'});
+  S.addedRules.forEach(function(ar,i){
+    var before=S.eligiblePool.length;
+    var matched2=S.eligiblePool.slice();
+    for(var j=0;j<=i;j++){matched2=matched2.filter(function(d){return S.addedRules[j].rule.test(d,S.addedRules[j].param)})}
+    S.bridgeSteps.push({type:'rule_result',text:'规则'+(i+1)+'：「'+ar.rule.desc(ar.param)+'」\
+命中：'+matched2.length+' 人'});
+  });
+  S.bridgeSteps.push({type:'final',text:'本地计算完成，最终命中 '+S.luckyList.length+' 人'});
+  S.bridgeCurrentStep=0;
+  // 自动逐步翻页
+  var stepIdx=0;
+  if(S.bridgeStepTimer)clearInterval(S.bridgeStepTimer);
+  S.bridgeStepTimer=setInterval(function(){
+    if(stepIdx<S.bridgeSteps.length){
+      S.bridgeCurrentStep=stepIdx;
+      renderThinkingDisplay();
+      stepIdx++;
+    }else{
+      clearInterval(S.bridgeStepTimer);
+      S.bridgeStepTimer=null;
+    }
+  },800);
 }
 
 // ========== 规则管理 ==========
@@ -670,12 +949,12 @@ function executeRule(){
   S.addedRules.push({seq:++S.ruleSeq,rule:rule,param:param});
   renderRuleList();
   resetRuleInput();
-  executeAllRules();
+  executeRulesViaBridge();
 }
 function deleteRule(seq){
   S.addedRules=S.addedRules.filter(function(r){return r.seq!==seq});
   renderRuleList();
-  executeAllRules();
+  if(S.addedRules.length){executeRulesViaBridge()}else{S.luckyList=[];renderLuckyList();showThinkingArea(false)}
 }
 function resetRuleInput(){
   document.getElementById('ruleCatSelect').value='';
@@ -701,17 +980,8 @@ function renderRuleList(){
   }).join('');
 }
 function executeAllRules(){
-  if(!S.eligiblePool.length){
-    S.luckyList=[];
-    renderLuckyList();
-    return;
-  }
-  var matched=S.eligiblePool.slice();
-  S.addedRules.forEach(function(ar){
-    matched=matched.filter(function(d){return ar.rule.test(d,ar.param)});
-  });
-  S.luckyList=matched;
-  renderLuckyList();
+  // 兼容旧调用，路由到桥接版本
+  executeRulesViaBridge();
 }
 
 // ========== 幸运候选渲染 ==========
