@@ -337,6 +337,7 @@ function cloudQuizInit(){
     if(typeof supabase==='undefined')return;
     _sbq=supabase.createClient(SB_URL,SB_KEY);
     cloudQuizPull();
+    cloudQuizPullConfig();
     _sbq.channel('quiz-sync')
       .on('postgres_changes',{event:'*',schema:'public',table:'quiz_state',filter:'room=eq.'+S.room},function(){
         if(_qcloudFlag)return;
@@ -344,6 +345,30 @@ function cloudQuizInit(){
       })
       .subscribe();
   }catch(e){console.warn('答题云端初始化失败',e)}
+}
+// 云端题库兜底：从 room_data 拉取 quizConfig（MQTT 配置未到达时使用，已到达则不覆盖）
+function cloudQuizPullConfig(cb){
+  if(!_sbq){if(cb)cb(false);return}
+  _sbq.from('room_data').select('data').eq('room',S.room).limit(1).then(function(res){
+    if(res.error){console.warn('云端题库拉取失败',res.error.message);if(cb)cb(false);return}
+    if(res.data&&res.data[0]&&res.data[0].data){
+      var d=res.data[0].data;
+      // MQTT 配置未到达时才使用云端兜底，避免覆盖实时配置
+      if(!S.configReceived&&d.quizConfig&&d.quizConfig.questions&&d.quizConfig.questions.length){
+        S.quizConfig=d.quizConfig;
+        S.quizFields=d.quizFields||S.quizFields;
+        if(d.quizIntro&&!S.quizIntro){S.quizIntro=d.quizIntro;updateIntro()}
+        console.log('题库已从云端兜底加载：'+d.quizConfig.questions.length+' 道题');
+        if(cb)cb(true);
+        return;
+      }else if(S.configReceived&&S.quizConfig&&S.quizConfig.questions&&S.quizConfig.questions.length){
+        // MQTT 配置其实已就绪（可能刚到达）
+        if(cb)cb(true);
+        return;
+      }
+    }
+    if(cb)cb(false);
+  }).catch(function(){if(cb)cb(false)});
 }
 function cloudQuizPull(){
   if(!_sbq)return;
@@ -542,10 +567,28 @@ function submitReg(){
 
   // 检查是否有题库配置
   if(!S.quizConfig||!S.quizConfig.questions||!S.quizConfig.questions.length){
+    // 触发云端兜底拉取（若 MQTT 配置未到达），拉取成功后自动继续
+    if(_sbq&&!S._cfgPulling){
+      S._cfgPulling=true;
+      toast('正在加载题库，请稍候...');
+      cloudQuizPullConfig(function(ok){
+        S._cfgPulling=false;
+        if(ok&&S.quizConfig&&S.quizConfig.questions&&S.quizConfig.questions.length){
+          continueQuizReg();
+        }else{
+          toast('题库尚未配置，请联系管理员导入题库');
+        }
+      });
+      return;
+    }
     toast('题库尚未配置，请联系管理员导入题库');
     return;
   }
-
+  continueQuizReg();
+}
+function continueQuizReg(){
+  const fullPhone=S.quizUserInfo?S.quizUserInfo.phone:'';
+  const name=S.quizUserInfo?S.quizUserInfo.name:'';
   // 检查是否已答过题：已答过则显示选项页（再次作答 / 现场签到）
   if(hasQuizDone(name,fullPhone)){
     showChoicePage();
