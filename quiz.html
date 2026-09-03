@@ -183,10 +183,6 @@ TA新生助手，助你开启全新西柚生活！
       <div style="font-weight:bold;margin-bottom:12px">📋 答题明细（最佳轮次）</div>
       <div id="detailList" style="max-height:400px;overflow-y:auto"></div>
     </div>
-    <div id="dataBreakdownBox" class="data-breakdown" style="display:none">
-      <div class="data-breakdown-title">🔍 您的数字拆解数据（已提交至抽奖系统）</div>
-      <div id="dataBreakdownList"></div>
-    </div>
     <div style="display:flex;gap:10px;margin-top:14px">
       <button class="btn btn-pri" style="flex:1;padding:14px;font-size:1em" id="againBtn" onclick="startNextRound()">🔄 再来一轮</button>
       <button class="btn btn-out" style="flex:1;padding:14px;font-size:1em" onclick="backToReg()">← 返回登记</button>
@@ -847,18 +843,6 @@ function showResults(){
     '</div>';
   }).join('');
   document.getElementById('detailList').innerHTML=html;
-
-  // 显示数字拆解数据
-  var breakdown=buildDataBreakdown(S.quizUserInfo.name,S.quizUserInfo.phone,'');
-  var bdBox=document.getElementById('dataBreakdownBox');
-  var bdList=document.getElementById('dataBreakdownList');
-  bdBox.style.display='block';
-  var bdHtml='';
-  bdHtml+='<div class="data-row"><span class="label">手机号</span><span class="value">'+maskPhone(breakdown.phone)+'</span></div>';
-  bdHtml+='<div class="data-row"><span class="label">手机号数字拆解</span><span class="value">['+breakdown.phoneDigits.join(', ')+']</span></div>';
-  bdHtml+='<div class="data-row"><span class="label">手机号数字之和</span><span class="value" style="color:var(--gold)">'+breakdown.phoneSum+'</span></div>';
-  bdHtml+='<div class="data-row"><span class="label">全部数字之和</span><span class="value" style="color:'+(breakdown.totalSum===5?'var(--grn)':'var(--acc)')+';font-size:1.1em">'+breakdown.totalSum+(breakdown.totalSum===5?' 🎯 命中抽奖规则!':'')+'</span></div>';
-  bdList.innerHTML=bdHtml;
 
   // 按钮状态
   var againBtn=document.getElementById('againBtn');
