@@ -226,6 +226,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 
 <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 let S={mqtt:null,topic:'',room:'',
   fields:[],prizes:[],signin:{enable:true},drawCount:1,signFailMsg:'签到失败！请检查您填写的姓名和手机号是否正确。',
@@ -252,15 +253,97 @@ function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=
 function fmt(d){const dt=new Date(d);return(dt.getMonth()+1)+'/'+dt.getDate()+' '+String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')}
 
 // ========== 初始化 ==========
+const SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
+let _sb=null,_cloudFlag=false;
 (function init(){
   const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
-  // 恢复已签到状态（刷新后不再显示签到按钮）
-  try{
-    const sd=JSON.parse(localStorage.getItem('cj_signed_'+S.room)||'null');
-    if(sd&&sd.name){S.signedIn=true;S.myName=sd.name}
-  }catch(e){}
+  initCloud();
   connectMQTT();
 })();
+
+// ========== 云端直连（Supabase） ==========
+function initCloud(){
+  try{
+    if(typeof supabase==='undefined'){console.warn('supabase-js 未加载');return}
+    _sb=supabase.createClient(SB_URL,SB_KEY);
+    cloudPull();
+    // 订阅配置
+    _cloudSub=_sb.channel('sign-cfg-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'room_data',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        if(payload.new&&payload.new.data)applyCloudConfig(payload.new.data);
+      })
+      .subscribe();
+    // 订阅 participants（签到状态实时更新）
+    _sb.channel('sign-pt-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'participants',filter:'room=eq.'+S.room},function(p){
+        if(_cloudFlag)return;
+        cloudPullT();
+      })
+      .subscribe();
+    // 订阅 quiz_results
+    _sb.channel('sign-qr-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'quiz_results',filter:'room=eq.'+S.room},function(){
+        if(_cloudFlag)return;
+        cloudPullT();
+      })
+      .subscribe();
+  }catch(e){console.warn('云端初始化失败',e)}
+}
+function cloudPullT(){
+  if(!_sb)return;
+  _sb.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
+    if(res.error){console.warn('云端配置拉取失败',res.error.message);return}
+    if(res.data&&res.data.data){_cloudFlag=true;applyCloudConfig(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
+  });
+  _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
+    if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
+    if(pr.data){_cloudFlag=true;S.allParticipants=pr.data.map(function(r){return r.data||{}});setTimeout(function(){_cloudFlag=false},500)}
+    // 恢复签到状态（从云端：当前用户是否已签到）
+    restoreSigninState();
+  });
+  _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
+    if(qr.error){console.warn('云端答题拉取失败',qr.error.message);return}
+    if(qr.data){_cloudFlag=true;S.allQuizResults=qr.data.map(function(r){return r.data||{}});setTimeout(function(){_cloudFlag=false},500)}
+    updateSigninUI();
+  });
+}
+function applyCloudConfig(d){
+  if(!d||typeof d!=='object')return;
+  S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
+  S.signFailMsg=d.signFailMsg||S.signFailMsg;
+  S.signFailNoQuizMsg=d.signFailNoQuizMsg||S.signFailNoQuizMsg;
+  S.voidedTickets=d.voidedTickets||[];
+  S.danmakuSettings=d.danmaku||{enable:true,anonymous:true};
+  if(d.music)S.music=d.music;
+  applyMusic();
+  if(!S.signedIn)renderSignForm();
+  updateSigninUI();
+}
+function updateSigninUI(){
+  if(S.signedIn){
+    var wc=document.getElementById('waitCount');if(wc)wc.textContent=S.allParticipants?S.allParticipants.filter(function(p){return p.signed}).length:0;
+    renderSignPrizes();
+  }
+}
+function restoreSigninState(){
+  // 检查当前会话中是否已签到（从云端参与者数据判断）
+  var nick=null;
+  try{var sd=JSON.parse(sessionStorage.getItem('cj_signin_user_'+S.room)||'null');if(sd&&sd.name)nick=sd.name}catch(e){}
+  if(nick&&S.allParticipants){
+    var me=S.allParticipants.find(function(p){return p.name===nick&&p.signed});
+    if(me){
+      S.signedIn=true;S.myName=me.name;S.myData=me;
+      var sp=document.getElementById('signPage'),sw=document.getElementById('signWaiting');
+      if(sp&&sw&&sp.style.display!=='none'&&sw.style.display==='none'){
+        hideAllPages();sw.style.display='block';
+        var wc=document.getElementById('waitCount');if(wc)wc.textContent=S.allParticipants.filter(function(p){return p.signed}).length;
+        renderSignPrizes();
+      }
+    }
+  }
+}
 
 // ========== MQTT ==========
 function connectMQTT(){
@@ -281,17 +364,17 @@ function connectMQTT(){
 function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
 function handleMsg(t,d){
   if(t.endsWith('config')){
-    S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
-    S.signFailMsg=d.signFailMsg||S.signFailMsg;
-    S.signFailNoQuizMsg=d.signFailNoQuizMsg||S.signFailNoQuizMsg;
-    S.voidedTickets=d.voidedTickets||[];S.allParticipants=d.participants||[];
-    S.allQuizResults=d.quizResults||[];
-    S.danmakuSettings=d.danmaku||{enable:true,anonymous:true};
+    // MQTT 配置作辅助（云端为权威来源，避免覆盖）
+    if(d.fields)S.fields=d.fields;if(d.prizes)S.prizes=d.prizes;if(d.signin)S.signin=d.signin;
+    if(d.drawCount)S.drawCount=d.drawCount;
+    if(d.signFailMsg)S.signFailMsg=d.signFailMsg;
+    if(d.signFailNoQuizMsg)S.signFailNoQuizMsg=d.signFailNoQuizMsg;
+    if(d.voidedTickets)S.voidedTickets=d.voidedTickets;
+    if(d.danmaku)S.danmakuSettings=d.danmaku;
     if(d.music)S.music=d.music;applyMusic();
     if(!S.signedIn)renderSignForm();
     if(S.signedIn){
       document.getElementById('waitCount').textContent=d.participantCount||0;renderSignPrizes();
-      // 若已从localStorage恢复签到状态，直接显示等待页（隐藏首页签到按钮）
       var sp=document.getElementById('signPage'),sw=document.getElementById('signWaiting');
       if(sp&&sw&&sp.style.display!=='none'&&sw.style.display==='none'){
         hideAllPages();sw.style.display='block';
@@ -466,12 +549,22 @@ function submitSignin(data){
   var nickEl=document.getElementById('wxNickname');
   S.myName=(nickEl&&nickEl.value.trim())||data.name||'';
   S.myData=data;
-  // 持久化已签到状态（刷新后不再显示签到按钮）
-  try{localStorage.setItem('cj_signed_'+S.room,JSON.stringify({name:S.myName,time:Date.now()}))}catch(e){}
+  // 会话级签到记录（仅本浏览器标签，关闭即清）
+  try{sessionStorage.setItem('cj_signin_user_'+S.room,JSON.stringify({name:S.myName,time:Date.now()}))}catch(e){}
   const id=data.id||uid();data.id=id;data.signed=true;data.signTime=Date.now();
-  S.mqtt.publish(S.topic+'sign_in',JSON.stringify({id:id,name:data.name||'',phone:data.phone||'',lat:data.lat,lng:data.lng,distance:data.distance,signTime:data.signTime,fields:data}));
+  // 直接写云端 participants 表（按 pid upsert，不依赖 MQTT 转发）
+  if(_sb){
+    var row={room:S.room,pid:id,name:data.name||'',phone:data.phone||'',data:JSON.parse(JSON.stringify(data))};
+    _sb.from('participants').upsert(row,{onConflict:'room,pid'}).then(function(res){
+      if(res.error)console.warn('云端签到写入失败',res.error.message);
+    });
+  }
+  // 仍发布 MQTT 事件（大屏实时提示）
+  if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'sign_in',JSON.stringify({id:id,name:data.name||'',phone:data.phone||'',lat:data.lat,lng:data.lng,distance:data.distance,signTime:data.signTime,fields:data}));
   hideAllPages();
   document.getElementById('signWaiting').style.display='block';
+  var wc=document.getElementById('waitCount');if(wc)wc.textContent=(S.allParticipants?S.allParticipants.filter(function(p){return p.signed}).length:0)+1;
+  renderSignPrizes();
   if(S.avatarData){
     document.getElementById('avatarPreview').style.display='block';
     var imgEl=document.getElementById('avatarImg');
