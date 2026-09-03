@@ -364,6 +364,14 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <button class="btn btn-pri" onclick="saveQuizConfig()">💾 保存设置</button>
     </div>
 
+    <!-- 规则介绍编辑 -->
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px">📋 规则介绍编辑</h3>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">此内容将显示在知识问答页面的首屏，作为规则介绍和温馨提示。支持多行文本（换行即可分段）。</p>
+      <div class="f-grp"><textarea id="quizIntroText" rows="10" placeholder="请输入规则介绍和温馨提示内容..." style="width:100%;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.95em;line-height:1.7;resize:vertical"></textarea></div>
+      <button class="btn btn-pri" onclick="saveQuizIntro()">💾 保存规则介绍</button>
+    </div>
+
     <!-- 登记字段配置 -->
     <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:10px">📝 登记字段配置</h3>
@@ -643,6 +651,7 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   quizConfig:{questions:[],rounds:1,questionCount:10,mode:'sequential',shuffleOptions:true},
   quizFields:[{id:'qz_name',name:'姓名',type:'text',required:true},{id:'qz_gender',name:'性别',type:'select',options:'男,女',required:true},{id:'qz_phone',name:'新办手机号码',type:'phone',required:true}],
   quizBoardName:'新办手机号码',
+  quizIntro:'🎉 欢迎参加趣味知识问答！\n\n📌 温馨提示：\n1. 每人最多可参与 3 次答题，系统自动取最好成绩\n2. 请如实填写姓名和手机号码，需与签到信息一致\n3. 答题开始后请专注作答，争取最佳成绩\n4. 成绩将自动同步至抽奖系统\n\n祝您答题愉快，好运连连！',
   quizResults:[],
   lotteryRule:{enable:false,signed:true,quiz:true,notWon:true,nameKeywords:'',nameStart:'',nameEnd:'',phonePrefix:'',phoneSuffix:'',phoneCalc:'',hitList:[],ruleDesc:'',runTime:null}
 };
@@ -815,6 +824,7 @@ function broadcastConfig(){
     quizConfig:S.quizConfig,
     quizFields:S.quizFields,
     quizBoardName:S.quizBoardName,
+    quizIntro:S.quizIntro||'',
     quizResults:getBestQuizResults().map(function(qr){return{name:qr.name||'',phone:qr.phone||'',gender:qr.gender||'',round:qr.round||1,correctCount:qr.correctCount||0,totalCount:qr.totalCount||0,totalTimeMs:qr.totalTimeMs||0,time:qr.time||0,allRoundCount:qr.allRoundCount||1,bestCorrectCount:qr.bestCorrectCount||qr.correctCount||0,bestAccuracy:qr.bestAccuracy||'0',bestTotalTimeMs:qr.bestTotalTimeMs||qr.totalTimeMs||0,dataBreakdown:qr.dataBreakdown||null}}),
     lotteryRule:S.lotteryRule||{enable:false,hitList:[]},
     agentDrawEnabled:true,
@@ -1077,6 +1087,10 @@ function saveQuizConfig(){
 function saveQuizFields(){
   S.quizBoardName=document.getElementById('quizBoardName').value.trim()||'新办手机号码';
   saveLocal();broadcastConfig();toast('字段配置已保存');
+}
+function saveQuizIntro(){
+  S.quizIntro=document.getElementById('quizIntroText').value||'';
+  saveLocal();broadcastConfig();toast('规则介绍已保存并同步');
 }
 // ========== 预计算工具 ==========
 // 提取字符串中的所有数字
@@ -1962,7 +1976,7 @@ function cloudPull(){
 function applyCloudData(d,isRemote){
   try{
     if(!d||typeof d!=='object')return;
-    var cfgKeys=['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','lotteryRule','room'];
+    var cfgKeys=['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room'];
     cfgKeys.forEach(function(k){if(d[k]!==undefined)S[k]=d[k]});
     if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}
     if(!S.room||S.room.length<4){S.room=space();S.topic='cj2026/'+S.room+'/'}
@@ -1973,7 +1987,7 @@ function applyCloudData(d,isRemote){
   }catch(e){console.warn('应用云端数据失败',e)}
 }
 function pickCfg(){
-  var o={};['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','lotteryRule','room'].forEach(function(k){if(S[k]!==undefined)o[k]=S[k]});return o;
+  var o={};['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room'].forEach(function(k){if(S[k]!==undefined)o[k]=S[k]});return o;
 }
 function space(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function cloudPush(){
@@ -2144,6 +2158,7 @@ function renderAll(){
   var qm=document.getElementById('quizMode');if(qm)qm.value=qc.mode||'sequential';
   var qs=document.getElementById('quizShuffle');if(qs)qs.value=qc.shuffleOptions!==false?'true':'false';
   var qbn=document.getElementById('quizBoardName');if(qbn)qbn.value=S.quizBoardName||'新办手机号码';
+  var qi=document.getElementById('quizIntroText');if(qi)qi.value=S.quizIntro||'';
 }
 // URL room
 (function(){const p=new URLSearchParams(location.search);if(p.get('room')){S.room=p.get('room');S.topic='cj2026/'+S.room+'/';loadLocal()}})();
