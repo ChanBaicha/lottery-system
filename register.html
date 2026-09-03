@@ -44,7 +44,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   <div id="loginPage" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:20px">
     <div class="card" style="width:100%;max-width:380px;text-align:center">
       <h1 style="font-size:1.5em;margin-bottom:8px;background:linear-gradient(135deg,#6c5ce7,#fd79a8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">抽奖登记系统</h1>
-      <p style="color:var(--sub);font-size:.85em;margin-bottom:24px">请登录后使用（登录状态将自动保存）</p>
+      <p style="color:var(--sub);font-size:.85em;margin-bottom:24px">请登录后使用（数据已接入云端实时同步）</p>
       <div class="f-grp"><input id="loginUser" placeholder="账号" style="font-size:1em" onkeydown="if(event.key==='Enter')document.getElementById('loginPwd').focus()"></div>
       <div class="f-grp"><input id="loginPwd" type="password" placeholder="密码" style="font-size:1em" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <button class="btn btn-pri" style="width:100%;padding:14px;font-size:1em" onclick="doLogin()">登 录</button>
@@ -156,6 +156,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 let S={mqtt:null,topic:'',room:'',currentUser:null,
   fields:[],prizes:[],signin:{enable:true},drawCount:1,
@@ -176,13 +177,89 @@ function fmt(d){const dt=new Date(d);return(dt.getMonth()+1)+'/'+dt.getDate()+' 
 function maskPhone(p){if(!p)return'';return p.substr(0,3)+'****'+p.substr(-4)}
 
 // ========== 初始化 ==========
+const SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
+let _sb=null,_cloudFlag=false,_subP=null,_subQ=null,_subR=null;
 (function init(){
   const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
-  try{const cached=JSON.parse(localStorage.getItem('cj_reg_accounts_'+S.room)||'null');if(cached&&cached.length){S._accounts=cached;S.configReceived=false}}catch(e){}
-  if(!S._accounts||!S._accounts.length){S._accounts=[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}]}
+  // 不读取本地缓存：账号、配置、数据全部以云端为准（清空 localStorage）
+  S._accounts=null;
+  initCloud();
   connectMQTT();
-  if(S._accounts&&S._accounts.length){tryAutoLogin()}
 })();
+
+// ========== 云端直连（Supabase） ==========
+function initCloud(){
+  try{
+    if(typeof supabase==='undefined'){console.warn('supabase-js 未加载');return}
+    _sb=supabase.createClient(SB_URL,SB_KEY);
+    cloudPullConfig();
+    // 订阅 room_data（配置/账号变化实时同步）
+    _cloudSub=_sb.channel('reg-cfg-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'room_data',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        if(payload.new&&payload.new.data)applyCloudConfig(payload.new.data);
+      })
+      .subscribe();
+    // 订阅 participants（登记/签到实时）
+    _cloudSubP=_sb.channel('reg-pt-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'participants',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        var row=payload.new||{};
+        if(payload.eventType==='DELETE'){removeCloudParticipant(row.pid)}
+        else if(row.pid)upsertCloudParticipant(row);
+        updateStats();
+      })
+      .subscribe();
+    // 订阅 quiz_results
+    _cloudSubQ=_sb.channel('reg-qr-'+S.room)
+      .on('postgres_changes',{event:'*',schema:'public',table:'quiz_results',filter:'room=eq.'+S.room},function(){
+        if(_cloudFlag)return;
+        cloudPullQuizResults();
+      })
+      .subscribe();
+  }catch(e){console.warn('云端初始化失败',e)}
+}
+function cloudPullConfig(){
+  if(!_sb)return;
+  _sb.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
+    if(res.error){console.warn('云端配置拉取失败',res.error.message);return}
+    if(res.data&&res.data.data){_cloudFlag=true;applyCloudConfig(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
+    // 拉参与者
+    _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
+      if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
+      if(pr.data){_cloudFlag=true;S.allParticipants=pr.data.map(function(r){return r.data||{}});setTimeout(function(){_cloudFlag=false},500)}
+    });
+    // 拉答题结果
+    cloudPullQuizResults();
+  });
+}
+function cloudPullQuizResults(){
+  if(!_sb)return;
+  _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
+    if(qr.error){console.warn('云端答题拉取失败',qr.error.message);return}
+    if(qr.data){_cloudFlag=true;S.allQuizResults=qr.data.map(function(r){return r.data||{}});setTimeout(function(){_cloudFlag=false},500)}
+    updateStats();
+  });
+}
+function applyCloudConfig(d){
+  if(!d||typeof d!=='object')return;
+  if(d.accounts&&d.accounts.length){S._accounts=d.accounts}
+  S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
+  S.baseLink=d.baseLink||'';
+  S.quizFields=d.quizFields||[];S.quizConfig=d.quizConfig||null;
+  updateStats();
+  if(!S.currentUser)tryAutoLogin();
+}
+function upsertCloudParticipant(row){
+  var np=row.data||{};if(!np.id)np.id=row.pid;
+  S.allParticipants=S.allParticipants||[];
+  var exist=S.allParticipants.find(function(p){return (p.id||p.pid)===np.id});
+  if(exist){Object.assign(exist,np)}else{S.allParticipants.push(np)}
+}
+function removeCloudParticipant(pid){
+  S.allParticipants=(S.allParticipants||[]).filter(function(p){return (p.id||p.pid)!==pid});
+}
 
 // ========== MQTT ==========
 function connectMQTT(){
@@ -210,18 +287,13 @@ function connectMQTT(){
 function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
 function handleMsg(t,d){
   if(t.endsWith('config')){
-    S.configReceived=true;
-    if(d.accounts&&d.accounts.length){
-      S._accounts=d.accounts;
-      try{localStorage.setItem('cj_reg_accounts_'+S.room,JSON.stringify(d.accounts))}catch(e){}
-    }
-    S._accounts=(d.accounts&&d.accounts.length)?d.accounts:(S._accounts||[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}]);
+    // MQTT 配置仅作辅助（主要配置已从云端拉取），避免覆盖云端账号
+    if(d.accounts&&d.accounts.length&&!S._accounts){S._accounts=d.accounts}
+    if(!S._accounts)S._accounts=(d.accounts&&d.accounts.length)?d.accounts:[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}];
     S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
     S.baseLink=d.baseLink||'';
-    S.allParticipants=d.participants||[];
-    S.quizFields=d.quizFields||[];S.quizConfig=d.quizConfig||null;
-    // 存储答题详情
-    S.allQuizResults=d.quizResults||[];
+    if(d.quizFields)S.quizFields=d.quizFields;
+    if(d.quizConfig)S.quizConfig=d.quizConfig;
     updateStats();
     if(!S.currentUser)tryAutoLogin();
   }
@@ -229,11 +301,12 @@ function handleMsg(t,d){
 
 // ========== 登录 ==========
 function rememberLogin(acc){
-  try{localStorage.setItem('cj_reg_'+S.room,JSON.stringify({user:acc.user,pwd:acc.pwd,name:acc.name,role:acc.role,time:Date.now()}))}catch(e){}
+  // 登录态仅存 sessionStorage（浏览器会话内有效，关闭即清，不污染云端数据）
+  try{sessionStorage.setItem('cj_reg_'+S.room,JSON.stringify({user:acc.user,pwd:acc.pwd,name:acc.name,role:acc.role,time:Date.now()}))}catch(e){}
 }
 function tryAutoLogin(){
   try{
-    const d=JSON.parse(localStorage.getItem('cj_reg_'+S.room)||'null');
+    const d=JSON.parse(sessionStorage.getItem('cj_reg_'+S.room)||'null');
     if(!d||!d.user||!d.pwd)return;
     if(!S._accounts||!S._accounts.length)return;
     const acc=S._accounts.find(a=>a.user===d.user&&a.pwd===d.pwd);
@@ -268,7 +341,11 @@ function doLogin(){
   if(S.mqtt&&S.mqtt.connected){S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'register',time:Date.now()}))}
   setTimeout(doLogin,2000);
 }
-function doLogout(){S.currentUser=null;try{localStorage.removeItem('cj_reg_'+S.room)}catch(e){}location.reload()}
+function doLogout(){
+  S.currentUser=null;
+  try{sessionStorage.removeItem('cj_reg_'+S.room)}catch(e){}
+  try{localStorage.removeItem('cj_reg_'+S.room);localStorage.removeItem('cj_reg_accounts_'+S.room)}catch(e){}
+  location.reload()}
 
 // ========== 页面切换 ==========
 function showStatsPage(){document.getElementById('regPage').style.display='none';document.getElementById('qrPage').style.display='none';document.getElementById('statsPage').style.display='block';updateStatsPage()}
@@ -316,7 +393,16 @@ function submitRegister(){
   if(!valid)return;
   const id=uid();
   data.id=id;data.signed=false;data.registerTime=Date.now();data.operator=S.currentUser.name;data.operatorUser=S.currentUser.user;
-  S.mqtt.publish(S.topic+'register',JSON.stringify({type:'register',operator:S.currentUser.name,data:data,time:Date.now()}));
+  // 直接写云端 participants 表（不依赖 MQTT，admin 在线与否都能登记）
+  if(_sb){
+    var row={room:S.room,pid:id,name:data.name||'?',phone:data.phone||'',data:JSON.parse(JSON.stringify(data))};
+    _sb.from('participants').upsert(row,{onConflict:'room,pid'}).then(function(res){
+      if(res.error){console.warn('云端登记写入失败',res.error.message);toast('登记失败，请检查网络');return}
+      toast('登记成功：'+(data.name||'新参与者'));
+    });
+  }
+  // 仍发布 MQTT 事件（大屏/管理员实时提示）
+  if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'register',JSON.stringify({type:'register',operator:S.currentUser.name,data:data,time:Date.now()}));
   S.regList.unshift({id,name:data.name||'?',phone:data.phone||'',time:Date.now(),fields:data,operator:S.currentUser.name});
   if(S.regList.length>100)S.regList.pop();
   renderRegList();clearRegForm();updateStats();toast('登记成功：'+(data.name||'新参与者'));
