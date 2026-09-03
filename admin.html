@@ -623,6 +623,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   prizes:[],accounts:[{user:'admin',pwd:'admin123',name:'管理员',role:'super'}],
@@ -695,7 +696,7 @@ function initSystem(){
   if(!S.room||S.room.length<4){S.room=uid().substr(0,6)}
   S.topic='cj2026/'+S.room+'/';
   document.getElementById('roomIdDisp').textContent=S.room;
-  connectMQTT();renderAll();initSigninTime();
+  connectMQTT();renderAll();initSigninTime();initCloudSync();
 }
 
 // ========== MQTT ==========
@@ -1872,9 +1873,66 @@ function copyAllLinks(){
   copyText('大屏端: '+s+'\n登记端: '+r+'\n签到端: '+si+'\n知识问答端: '+qz+(ad&&ad!=='未设置'?'\n智能体抽奖端: '+ad:''));toast('链接已复制')
 }
 
+// ========== 云端同步（Supabase） ==========
+// 让所有浏览器/设备访问同一份数据：数据源从 localStorage 升级为 Supabase 云数据库
+const SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
+let _sb=null,_cloudReady=false,_cloudFlag=false,_cloudTimer=null,_cloudSub=null;
+function cloudInit(){
+  try{
+    if(typeof supabase==='undefined'){console.warn('supabase-js 未加载');return}
+    _sb=supabase.createClient(SB_URL,SB_KEY);
+    // 订阅本房间数据变化（跨浏览器实时同步）
+    _cloudSub=_sb.channel('room-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'room_data',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;              // 本机写入触发，跳过
+        if(payload.new&&payload.new.data){
+          _cloudFlag=true;
+          try{applyCloudData(payload.new.data)}finally{setTimeout(function(){_cloudFlag=false},500)}
+        }
+      })
+      .subscribe();
+    cloudPull();
+  }catch(e){console.warn('云端初始化失败',e)}
+}
+function cloudPull(){
+  if(!_sb)return;
+  _sb.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
+    if(res.error){console.warn('云端拉取失败',res.error.message);return}
+    if(res.data&&res.data.data){_cloudFlag=true;applyCloudData(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
+  });
+}
+function applyCloudData(d){
+  try{
+    if(!d||typeof d!=='object')return;
+    Object.assign(S,d);
+    if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}
+    if(!S.room||S.room.length<4){S.room=space();S.topic='cj2026/'+S.room+'/'}
+    S.topic='cj2026/'+S.room+'/';
+    document.getElementById('roomIdDisp').textContent=S.room;
+    if(S.loggedIn)renderAll();
+    try{localStorage.setItem('cj_admin',JSON.stringify(S))}catch(e){}
+  }catch(e){console.warn('应用云端数据失败',e)}
+}
+function space(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+function cloudPush(){
+  if(!_sb||_cloudFlag)return;
+  clearTimeout(_cloudTimer);
+  _cloudTimer=setTimeout(function(){
+    _cloudFlag=true;
+    const payload={room:S.room,data:JSON.parse(JSON.stringify(S)),updated_at:new Date().toISOString()};
+    _sb.from('room_data').upsert(payload,{onConflict:'room'}).then(function(res){
+      setTimeout(function(){_cloudFlag=false},500);
+      if(res.error)console.warn('云端写入失败',res.error.message);
+    });
+  },400);
+}
 // ========== 存储渲染 ==========
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于当日17:00-17:30前往一楼展馆外现场签到',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[],lotteryRule:S.lotteryRule||{}}))}catch(e){}}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于当日17:00-17:30前往一楼展馆外现场签到',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[],lotteryRule:S.lotteryRule||{}}))}catch(e){}
+  cloudPush();
+}
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
+function initCloudSync(){cloudInit();}
 function renderAll(){
   renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
