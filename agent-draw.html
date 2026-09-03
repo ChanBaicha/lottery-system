@@ -573,9 +573,20 @@ function connectMQTT(){
 function updateMqtt(s){var d=document.getElementById('mDot'),t=document.getElementById('mText');d.className='mqtt-dot '+s;t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中'}
 function handleMsg(t,d){
   if(t.endsWith('config')){
-    if(d.participants)S.participants=d.participants;
-    if(d.quizResults){S.quizResults=d.quizResults;buildQuizMap()}
-    updatePool();
+    // 已有 Supabase 直连拉取 participants 和 quiz_results，不覆盖这两个数据源
+    // 只同步配置类字段（奖品/字段/签到设置等）
+    if(d.prizes)S.prizes=d.prizes;
+    if(d.fields)S.fields=d.fields;
+    if(d.signin)S.signin=d.signin;
+    if(d.drawCount)S.drawCount=d.drawCount;
+    if(d.screen)S.screen=d.screen;
+    if(d.gameConfig)S.gameConfig=d.gameConfig;
+    if(d.danmaku)S.danmakuOn=d.danmaku.enable!==false;
+    if(d.music)S.music=d.music;
+    if(d.quizConfig)S.quizConfig=d.quizConfig;
+    if(d.lotteryRule)S.lotteryRule=d.lotteryRule;
+    updateDanmakuStatus();
+    // 不覆盖 participants 和 quizResults — 保留 Supabase 直连数据
   }else if(t.endsWith('draw_cmd')){
     if(d.action==='start')startDraw();
   }else if(t.endsWith('danmaku_show')){
