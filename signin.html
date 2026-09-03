@@ -746,17 +746,21 @@ function joinGame(id){
 }
 function handleGameCmd(d){
   if(d.action==='start'){
-    if(!S.gameType){S.gameType=d.game}
-    if(d.game===S.gameType){
+    // 只有用户已手动加入相同游戏时才处理start命令
+    if(S.gameType&&d.game===S.gameType){
       if(d.game==='shake')startShakeRound();else if(d.game==='reaction')startReactionRound();else if(d.game==='quiz')showQuizQuestion(d);
     }
-  }else if(d.action==='go'&&d.game==='reaction'){
+  }else if(d.action==='go'&&d.game==='reaction'&&S.gameType==='reaction'){
     reactionGo();
   }else if(d.action==='end'){
-    if(d.game==='shake')stopShakeBatch();
-    showGameResult(d);
+    // 只处理当前游戏的end命令
+    if(d.game===S.gameType){
+      if(d.game==='shake')stopShakeBatch();
+      showGameResult(d);
+    }
   }else if(d.action==='close'){
-    exitGame();
+    // 只在游戏页面时才退出
+    if(S.gameType)exitGame();
   }
 }
 // 摇一摇
