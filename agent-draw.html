@@ -508,7 +508,8 @@ function preCalcParticipant(p){
   renderRuleSelect();
   connectMQTT();
   initCloud();
-  initMusic();
+  // 延迟初始化音乐：确保 MUSIC 对象（定义在文件后部）已赋值
+  setTimeout(initMusic,0);
 })();
 
 function resizeGameCanvas(){if(gameCanvas){gameCanvas.width=window.innerWidth;gameCanvas.height=window.innerHeight}}
