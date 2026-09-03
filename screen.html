@@ -196,10 +196,6 @@ body{font-family:'Microsoft YaHei',sans-serif;overflow:hidden;background:#0a0e27
 
   <!-- 背景音乐 -->
   <audio id="bgMusic" loop></audio>
-  </div>
-
-  <!-- 背景音乐 -->
-  <audio id="bgMusic" loop></audio>
 
   <!-- 游戏覆盖层 -->
   <div id="gameOverlay">
@@ -265,24 +261,24 @@ let _sb=null,_cloudFlag=false;
 function initCloud(){
   try{
     if(typeof supabase==='undefined'){console.warn('supabase-js 未加载');return}
-    _s=supabase.createClient(SB_URL,SB_KEY);
+    _sb=supabase.createClient(SB_URL,SB_KEY);
     cloudPull();
     // 订阅配置
-    _s.channel('scr-cfg-'+S.room)
+    _sb.channel('scr-cfg-'+S.room)
       .on('postgres_changes',{event:'*',schema:'public',table:'room_data',filter:'room=eq.'+S.room},function(payload){
         if(_cloudFlag)return;
         if(payload.new&&payload.new.data)applyCloudConfig(payload.new.data);
       })
       .subscribe();
-    // 订阅参与者
-    _s.channel('scr-pt-'+S.room)
+    // 订阅 participants
+    _sb.channel('scr-pt-'+S.room)
       .on('postgres_changes',{event:'*',schema:'public',table:'participants',filter:'room=eq.'+S.room},function(p){
         if(_cloudFlag)return;
         cloudPullT();
       })
       .subscribe();
     // 订阅答题结果
-    _s.channel('scr-qr-'+S.room)
+    _sb.channel('scr-qr-'+S.room)
       .on('postgres_changes',{event:'*',schema:'public',table:'quiz_results',filter:'room=eq.'+S.room},function(){
         if(_cloudFlag)return;
         cloudPullT();
@@ -291,17 +287,17 @@ function initCloud(){
   }catch(e){console.warn('大屏云端初始化失败',e)}
 }
 function cloudPullT(){
-  if(!_s)return;
-  _s.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
+  if(!_sb)return;
+  _sb.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
     if(res.error){console.warn('云端配置拉取失败',res.error.message);return}
     if(res.data&&res.data.data){_cloudFlag=true;applyCloudConfig(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
   });
-  _s.from('participants').select('*').eq('room',S.room).then(function(pr){
+  _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
     if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
     if(pr.data){_cloudFlag=true;S.participants=pr.data.map(function(r){var d=r.data||{};if(!d.id)d.id=r.pid;return d});setTimeout(function(){_cloudFlag=false},500)}
     updateFlowItems();
   });
-  _s.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
+  _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
     if(qr.error){console.warn('云端答题拉取失败',qr.error.message);return}
     if(qr.data){_cloudFlag=true;S.quizResults=qr.data.map(function(r){return r.data||{}});setTimeout(function(){_cloudFlag=false},500)}
   });
@@ -310,7 +306,7 @@ function applyCloudConfig(d){
   if(!d||typeof d!=='object')return;
   S.prizes=d.prizes||S.prizes;S.fields=d.fields||S.fields;S.screen=Object.assign(S.screen,d.screen||{});S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;S.noRepeat=d.noRepeat!==false;
   S.flowInterval=d.flowInterval||0;
-  S.danmakuSettings=Object.assign({enable:true,speed:8,fontSize:28,badWords:[],mode:'scroll',colorful:true},d.danmaku||{});
+  S.danmakuSettings=Object.assign({enable:true,speed:8,fontSize:28,badWords:[]},d.danmaku||{});
   if(d.music)S.music=d.music;
   if(d.lotteryRule)S.lotteryRule=d.lotteryRule;
   applyScreenConfig();updateFlowItems();setupAutoRotate();applyMusic();
@@ -461,27 +457,6 @@ function applyMusic(){
     audio.play().catch(function(){});
   }else if(S.music.preset&&S.music.preset!=='custom'){
     // 预设音乐用免费CC0音效URL
-    var presets={
-      bg1:'https://cdn.pixabay.com/download/audio/2022/10/30/audio_347111d50c.mp3',
-      bg2:'https://cdn.pixabay.com/download/audio/2022/03/24/audio_4c0c1c40c4.mp3',
-      bg3:'https://cdn.pixabay.com/download/audio/2022/08/04/audio_1c0c1c40c4.mp3',
-      bg4:'https://cdn.pixabay.com/download/audio/2022/11/22/audio_4f7c0c1c40.mp3'
-    };
-    var url=presets[S.music.preset];
-    if(url){if(audio.src!==url)audio.src=url;audio.play().catch(function(){})}
-  }
-}
-
-// ========== 背景音乐 ==========
-function applyMusic(){
-  var audio=document.getElementById('bgMusic');
-  if(!audio)return;
-  if(!S.music||!S.music.enable){audio.pause();return}
-  audio.volume=S.music.volume||0.5;
-  if(S.music.url){
-    if(audio.src!==S.music.url)audio.src=S.music.url;
-    audio.play().catch(function(){});
-  }else if(S.music.preset&&S.music.preset!=='custom'){
     var presets={
       bg1:'https://cdn.pixabay.com/download/audio/2022/10/30/audio_347111d50c.mp3',
       bg2:'https://cdn.pixabay.com/download/audio/2022/03/24/audio_4c0c1c40c4.mp3',
@@ -918,85 +893,6 @@ function closeDrawOverlay(){
   document.getElementById('drawBtn').disabled=false;S.isDrawing=false;
 }
 
-function showDrawReady(){
-  const overlay=document.getElementById('drawOverlay');overlay.classList.add('show');
-  document.getElementById('drawRolling').style.display='none';
-  document.getElementById('drawResult').classList.remove('show');
-  const ready=document.getElementById('drawReady');
-  ready.classList.add('show');
-  const available=S.prizes.filter(p=>p.won<p.count);
-  if(!available.length){toast('没有可抽的奖品');closeDrawOverlay();return}
-  const prize=available[Math.min(S.drawReadyIndex,available.length-1)];
-  ready.innerHTML='<div class="draw-ready-prize">'+
-    (prize.img?'<img class="draw-ready-img" src="'+prize.img+'">':'')+
-    '<div class="draw-ready-name" style="color:'+prize.color+'">'+prize.name+'</div>'+
-    '<div class="draw-ready-info">剩余数量: '+(prize.count-prize.won)+' / '+prize.count+'</div>'+
-    '<div class="draw-ready-count">每轮抽 '+S.drawReadyCount+' 人</div>'+
-    '<div class="draw-ready-hint">← → 切换奖品 · ↑ ↓ 调整人数 · Enter/Space 开始抽奖</div>'+
-    '</div>';
-  // 键盘控制
-  if(!S._drawKeyHandler){
-    S._drawKeyHandler=function(e){
-      if(!document.getElementById('drawOverlay').classList.contains('show'))return;
-      if(document.getElementById('drawReady').classList.contains('show')){
-        if(e.key==='ArrowLeft'){e.preventDefault();const av=S.prizes.filter(p=>p.won<p.count);S.drawReadyIndex=(S.drawReadyIndex-1+av.length)%av.length;showDrawReady()}
-        else if(e.key==='ArrowRight'){e.preventDefault();const av=S.prizes.filter(p=>p.won<p.count);S.drawReadyIndex=(S.drawReadyIndex+1)%av.length;showDrawReady()}
-        else if(e.key==='ArrowUp'){e.preventDefault();S.drawReadyCount=Math.min(50,S.drawReadyCount+1);showDrawReady()}
-        else if(e.key==='ArrowDown'){e.preventDefault();S.drawReadyCount=Math.max(1,S.drawReadyCount-1);showDrawReady()}
-        else if(e.key==='Enter'||e.key===' '){e.preventDefault();beginActualDraw()}
-        else if(e.key==='Escape'){e.preventDefault();closeDrawOverlay()}
-      }
-    };
-    document.addEventListener('keydown',S._drawKeyHandler);
-  }
-}
-
-function beginActualDraw(){
-  const ready=document.getElementById('drawReady');ready.classList.remove('show');
-  const signed=getDrawPool();
-  const available=S.prizes.filter(p=>p.won<p.count);
-  if(!signed.length||!available.length){closeDrawOverlay();return}
-  const count=Math.min(S.drawReadyCount,signed.length);
-  document.getElementById('drawRolling').style.display='flex';
-  document.getElementById('drawResult').classList.remove('show');
-  const rolling=document.getElementById('drawRolling');
-  rolling.innerHTML='';
-  let rollItems=[];
-  for(let i=0;i<count;i++){rollItems.push(document.createElement('div'));rollItems[i].className='draw-name-item';rolling.appendChild(rollItems[i])}
-  let scrollCount=0;
-  const interval=setInterval(()=>{
-    for(let i=0;i<count;i++){const r=signed[Math.floor(Math.random()*signed.length)];rollItems[i].textContent=r.name||'?'}
-    scrollCount++;
-  },80);
-  setTimeout(()=>{
-    clearInterval(interval);
-    const winners=[];
-    const pool=[...signed];
-    for(let i=0;i<count&&pool.length>0;i++){
-      const idx=Math.floor(Math.random()*pool.length);
-      const w=pool[idx];pool.splice(idx,1);
-      const prizeIndex=Math.min(S.drawReadyIndex,available.length-1);
-      const prize=available[prizeIndex];
-      prize.won++;w.won=true;w.prizeId=prize.id;w.prizeName=prize.name;
-      // 找到参与者的phone
-      var pData=S.participants.find(pp=>pp.name===w.name);
-      var phone=pData?pData.phone:'';
-      winners.push({name:w.name,phone:phone||'',prize:prize.name,prizeColor:prize.color,prizeImg:prize.img||'',avatar:w.avatar||S.avatarImages[w.name]||''});
-    }
-    broadcastLottery(winners);
-    showDrawResult(winners,Date.now());
-    document.getElementById('drawBtn').disabled=false;S.isDrawing=false;
-    launchConfetti();
-  },2500);
-}
-
-function closeDrawOverlay(){
-  document.getElementById('drawOverlay').classList.remove('show');
-  document.getElementById('drawReady').classList.remove('show');
-  document.getElementById('drawRolling').style.display='none';
-  document.getElementById('drawResult').classList.remove('show');
-  document.getElementById('drawBtn').disabled=false;S.isDrawing=false;
-}
 function weightedPrize(prizes){const tw=prizes.reduce((s,p)=>s+p.weight,0);let r=Math.random()*tw;for(const p of prizes){r-=p.weight;if(r<=0)return p}return prizes[prizes.length-1]}
 function showDrawResult(winners,drawTime){
   document.getElementById('drawRolling').style.display='none';
