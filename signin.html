@@ -746,10 +746,11 @@ function joinGame(id){
 }
 function handleGameCmd(d){
   if(d.action==='start'){
-    // 只有用户已手动加入相同游戏时才处理start命令
-    if(S.gameType&&d.game===S.gameType){
-      if(d.game==='shake')startShakeRound();else if(d.game==='reaction')startReactionRound();else if(d.game==='quiz')showQuizQuestion(d);
+    // 收到开始命令时自动加入对应游戏（无需用户手动进入）
+    if(!S.gameType||S.gameType!==d.game){
+      joinGame(d.game);
     }
+    if(d.game==='shake')startShakeRound();else if(d.game==='reaction')startReactionRound();else if(d.game==='quiz')showQuizQuestion(d);
   }else if(d.action==='go'&&d.game==='reaction'&&S.gameType==='reaction'){
     reactionGo();
   }else if(d.action==='end'){
