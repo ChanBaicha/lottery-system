@@ -229,7 +229,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 let S={mqtt:null,topic:'',room:'',
-  fields:[],prizes:[],signin:{enable:true},drawCount:1,signFailMsg:'签到失败！请检查您填写的姓名和手机号是否正确。',
+  fields:[],prizes:[],signin:{enabled:true,locationEnabled:false},drawCount:1,signFailMsg:'签到失败！请检查您填写的姓名和手机号是否正确。',
   signFailNoQuizMsg:'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',
   voidedTickets:[],allParticipants:[],allQuizResults:[],
   signedIn:false,myName:'',myData:{},avatarData:'',
@@ -258,6 +258,8 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 let _sb=null,_cloudFlag=false;
 (function init(){
   const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
+  // 从知识问答端跳转携带的自动填充参数
+  S._autoName=p.get('name')||'';S._autoPhone=p.get('phone')||'';S._autoShown=false;
   initCloud();
   connectMQTT();
 })();
@@ -312,6 +314,7 @@ function cloudPullT(){
 function applyCloudConfig(d){
   if(!d||typeof d!=='object')return;
   S.fields=d.fields||S.fields;S.prizes=d.prizes||[];S.signin=d.signin||S.signin;S.drawCount=d.drawCount||1;
+  normalizeSignin();
   S.signFailMsg=d.signFailMsg||S.signFailMsg;
   S.signFailNoQuizMsg=d.signFailNoQuizMsg||S.signFailNoQuizMsg;
   S.voidedTickets=d.voidedTickets||[];
@@ -365,7 +368,7 @@ function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getEle
 function handleMsg(t,d){
   if(t.endsWith('config')){
     // MQTT 配置作辅助（云端为权威来源，避免覆盖）
-    if(d.fields)S.fields=d.fields;if(d.prizes)S.prizes=d.prizes;if(d.signin)S.signin=d.signin;
+    if(d.fields)S.fields=d.fields;if(d.prizes)S.prizes=d.prizes;if(d.signin)S.signin=d.signin;normalizeSignin();
     if(d.drawCount)S.drawCount=d.drawCount;
     if(d.signFailMsg)S.signFailMsg=d.signFailMsg;
     if(d.signFailNoQuizMsg)S.signFailNoQuizMsg=d.signFailNoQuizMsg;
@@ -432,7 +435,12 @@ function selectDmColor(c){
   renderDmColorRow();
   toast(c==='random'?'已选择随机彩色弹幕':'已选择弹幕颜色');
 }
-function showSigninFormPage(){hideAllPages();document.getElementById('signinFormPage').style.display='block';renderSignForm()}
+// ========== 签到验证 ==========
+function showSigninFormPage(){
+  normalizeSignin();
+  if(S.signin.enabled===false){toast('签到暂未开放，请稍后再试');return}
+  hideAllPages();document.getElementById('signinFormPage').style.display='block';renderSignForm()
+}
 function backToHome(){
   if(S.gameType){S.gameType=null;shakeListening=false}
   hideAllPages();
@@ -453,15 +461,36 @@ function renderSignForm(){
     return '<div class="f-grp"><label>'+f.name+(f.required?' *':'')+'</label><input id="sign_'+f.id+'" data-required="'+f.required+'" data-name="'+f.name+'" type="'+(f.type==='number'?'number':'text')+'" placeholder="'+(f.placeholder||'')+'"></div>';
   }).join('');
   document.getElementById('signRemarkGrp').style.display='block';
-  if(S.signin.enable&&S.signin.lat!=null){
+  if(S.signin.locationEnabled&&S.signin.lat!=null){
     document.getElementById('signLocCard').style.display='block';
     document.getElementById('signLocDesc').textContent='需要在指定位置('+S.signin.radius+'米内)和时间段内签到';
   }else{
     document.getElementById('signLocCard').style.display='none';
   }
+  // 自动填充（从知识问答端跳转携带的姓名/手机号）
+  if(S._autoName||S._autoPhone){
+    var tf=S.fields.find(function(f){return f.type==='text'});
+    var pf=S.fields.find(function(f){return f.type==='phone'});
+    if(tf&&S._autoName){var tel=document.getElementById('sign_'+tf.id);if(tel)tel.value=S._autoName}
+    if(pf&&S._autoPhone){
+      var ph=S._autoPhone.replace(/XXXX/g,'');
+      var p1=document.getElementById('sign_'+pf.id+'_pre'),p2=document.getElementById('sign_'+pf.id+'_suf');
+      if(p1&&ph.length>=3)p1.value=ph.substr(0,3);
+      if(p2&&ph.length>=7)p2.value=ph.substr(3);
+      var hid=document.getElementById('sign_'+pf.id);
+      if(hid)hid.value=S._autoPhone;
+    }
+  }
+  if(S._autoName&&!S._autoShown){S._autoShown=true;document.getElementById('signinFormPage').style.display='block'}
 }
 
-// ========== 签到验证 ==========
+// 兼容旧配置字段（enable 拆分为 enabled + locationEnabled）
+function normalizeSignin(){
+  var s=S.signin||{};
+  if(s.enabled===undefined)s.enabled=s.enable!==false;
+  if(s.locationEnabled===undefined)s.locationEnabled=s.enable===true;
+  S.signin=s;
+}
 function doSignin(){
   const data={};let valid=true;
   S.fields.forEach(f=>{
@@ -524,7 +553,7 @@ function doSignin(){
   const remark=document.getElementById('signRemark').value.trim();
   if(remark)data.remark=remark;
   if(S.avatarData){data.avatar=S.avatarData;data.fields=data.fields||{};data.fields.avatar=S.avatarData}
-  if(S.signin.enable&&S.signin.lat!=null){
+  if(S.signin.locationEnabled&&S.signin.lat!=null){
     if(!navigator.geolocation){toast('不支持定位');submitSignin(data);return}
     const ls=document.getElementById('signLocStatus');ls.innerHTML='📍 正在获取定位...';ls.style.color='var(--gold)';
     navigator.geolocation.getCurrentPosition(pos=>{
