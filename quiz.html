@@ -454,7 +454,7 @@ function showChoicePage(){
   if(d2){d2.style.background=S.mqtt&&S.mqtt.connected?'#00b894':(S.mqtt?'#e17055':'#fdcb6e');t2.textContent=S.mqtt&&S.mqtt.connected?'在线':(S.mqtt?'离线':'连接中');}
   // 显示签到提示语
   var tip=document.getElementById('choiceSigninTip');
-  if(tip)tip.textContent='签到方式：现场扫描二维码签到';
+  if(tip)tip.textContent='签到方式：'+ (S.signPromptMsg||'请于当日17:00-17:30前往一食堂外电信展台进行现场签到');
 }
 
 // 选项：再次作答
@@ -472,25 +472,37 @@ function choiceAgain(){
 function choiceSignin(){
   // 检查签到配置
   var signin=S.signin||{};
-  var enabled=signin.enable!==false;
+  // 兼容旧字段（enable→enabled/locationEnabled）
+  if(signin.enabled===undefined)signin.enabled=signin.enable!==false;
+  if(signin.locationEnabled===undefined)signin.locationEnabled=signin.enable===true;
+  var enabled=signin.enabled!==false;
   if(!enabled){toast(S.signPromptMsg||'签到暂未开放，请稍后再试');return;}
-  // 检查签到时间窗口
-  var now=new Date();
-  var startOk=true,endOk=true;
-  if(signin.startTime){
-    var st=new Date(signin.startTime);
-    if(now<st)startOk=false;
+  // 启用定位签到验证时，检查签到时间窗口
+  var inWindow=true;
+  if(signin.locationEnabled){
+    var now=new Date();
+    var startOk=true,endOk=true;
+    if(signin.startTime){
+      var st=new Date(signin.startTime);
+      if(now<st)startOk=false;
+    }
+    if(signin.endTime){
+      var et=new Date(signin.endTime);
+      if(now>et)endOk=false;
+    }
+    inWindow=startOk&&endOk;
   }
-  if(signin.endTime){
-    var et=new Date(signin.endTime);
-    if(now>et)endOk=false;
-  }
-  if(!startOk||!endOk){
-    toast(S.signPromptMsg||'当前不在签到时间内');
+  if(!inWindow){
+    // 不在签到时间：显示提示语
+    toast(S.signPromptMsg||'请于当日17:00-17:30前往一食堂外电信展台进行现场签到');
     return;
   }
-  // 在签到时间内：提示去现场扫码
-  toast('请前往现场扫描二维码完成签到');
+  // 在签到时间（或未启用定位验证）：直接跳转到签到端
+  var u=S.quizUserInfo||{};
+  var qs='room='+encodeURIComponent(S.room);
+  if(u.name)qs+='&name='+encodeURIComponent(u.name);
+  if(u.phone)qs+='&phone='+encodeURIComponent(u.phone);
+  location.href='signin.html?'+qs;
 }
 
 // ========== 登记提交 ==========
