@@ -146,9 +146,8 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
       <div style="font-size:3em;margin-bottom:16px">✅</div>
       <div class="card">
         <div style="font-size:1.1em;font-weight:bold;color:var(--grn);margin-bottom:10px">签到成功！</div>
-        <p style="color:var(--sub);font-size:.9em;line-height:2">当前已有 <b id="waitCount" style="color:var(--gold);font-size:1.3em">0</b> 人参与<br><b style="color:var(--gold)">已签到，请耐心等待</b><br>中奖结果将实时推送到此页面</p>
+        <p style="color:var(--sub);font-size:.9em;line-height:2"><b style="color:var(--gold)">已签到，请耐心等待</b></p>
       </div>
-      <div id="signPrizes" style="margin-top:16px"></div>
     </div>
     <!-- 4个功能按钮（签到后同样可用） -->
     <div class="func-grid">
@@ -172,22 +171,6 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
     </div>
   </div>
 
-  <!-- ===== 中奖结果页 ===== -->
-  <div id="signWon" style="display:none;padding:16px;max-width:500px;margin:0 auto;min-height:100vh">
-    <div style="text-align:center;padding:40px 0">
-      <div style="font-size:3em;margin-bottom:16px" id="wonIcon">🎉</div>
-      <div class="card" style="border:2px solid var(--gold)">
-        <div style="font-size:1.2em;font-weight:bold;color:var(--gold);margin-bottom:10px" id="wonTitle">🎊 恭喜中奖！</div>
-        <div id="wonName" style="font-size:1.5em;font-weight:bold;margin-bottom:8px"></div>
-        <div id="wonPrize" style="color:var(--gold);font-size:1.3em"></div>
-        <div id="wonTime" style="color:var(--sub);font-size:.82em;margin-top:8px"></div>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="btn btn-gold" style="flex:1;padding:12px" onclick="showGameModal()">🎮 互动游戏</button>
-        <button class="btn btn-out" style="flex:1;padding:12px" onclick="backToHome()">🏠 返回首页</button>
-      </div>
-    </div>
-  </div>
 
   <!-- ===== 互动游戏页 ===== -->
   <div id="gamePage" style="display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center">
@@ -326,10 +309,6 @@ function applyCloudConfig(d){
   updateSigninUI();
 }
 function updateSigninUI(){
-  if(S.signedIn){
-    var wc=document.getElementById('waitCount');if(wc)wc.textContent=S.allParticipants?S.allParticipants.filter(function(p){return p.signed}).length:0;
-    renderSignPrizes();
-  }
 }
 function restoreSigninState(){
   // 检查当前会话中是否已签到（从云端参与者数据判断）
@@ -342,8 +321,6 @@ function restoreSigninState(){
       var sp=document.getElementById('signPage'),sw=document.getElementById('signWaiting');
       if(sp&&sw&&sp.style.display!=='none'&&sw.style.display==='none'){
         hideAllPages();sw.style.display='block';
-        var wc=document.getElementById('waitCount');if(wc)wc.textContent=S.allParticipants.filter(function(p){return p.signed}).length;
-        renderSignPrizes();
       }
     }
   }
@@ -357,7 +334,6 @@ function connectMQTT(){
     S.mqtt.on('connect',()=>{
       updateMqtt('online');
       S.mqtt.subscribe(S.topic+'config');
-      S.mqtt.subscribe(S.topic+'lottery_result');
       S.mqtt.subscribe(S.topic+'game_cmd');
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'signin',time:Date.now()}));
     });
@@ -378,14 +354,11 @@ function handleMsg(t,d){
     if(d.music)S.music=d.music;applyMusic();
     if(!S.signedIn)renderSignForm();
     if(S.signedIn){
-      document.getElementById('waitCount').textContent=d.participantCount||0;renderSignPrizes();
       var sp=document.getElementById('signPage'),sw=document.getElementById('signWaiting');
       if(sp&&sw&&sp.style.display!=='none'&&sw.style.display==='none'){
         hideAllPages();sw.style.display='block';
       }
     }
-  }else if(t.endsWith('lottery_result')){
-    handleLotteryResult(d.winners||[]);
   }else if(t.endsWith('game_cmd')){
     handleGameCmd(d);
   }
@@ -393,7 +366,7 @@ function handleMsg(t,d){
 
 // ========== 页面导航 ==========
 function hideAllPages(){
-  ['signPage','avatarPage','danmakuPage','signinFormPage','signWaiting','signWon','gamePage'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
+  ['signPage','avatarPage','danmakuPage','signinFormPage','signWaiting','gamePage'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none'});
 }
 function showAvatarPage(){hideAllPages();document.getElementById('avatarPage').style.display='block';updateAvatarPagePreview();renderPresetAvatars()}
 function renderPresetAvatars(){
@@ -595,8 +568,14 @@ function submitSignin(data){
   S.myData=data;
   // 会话级签到记录（仅本浏览器标签，关闭即清）
   try{sessionStorage.setItem('cj_signin_user_'+S.room,JSON.stringify({name:S.myName,time:Date.now()}))}catch(e){}
-  const id=data.id||uid();data.id=id;data.signed=true;data.signTime=Date.now();
-  // 直接写云端 participants 表（按 pid upsert，不依赖 MQTT 转发）
+  // 查找已有参与者记录，复用其 pid 避免重复登记
+  var existing=null;
+  if(S.allParticipants&&S.allParticipants.length){
+    existing=S.allParticipants.find(function(p){return p.name===data.name&&p.phone===data.phone});
+  }
+  var id=(existing&&(existing.id||existing.pid))||(data.id||uid());
+  data.id=id;data.signed=true;data.signTime=Date.now();
+  // 直接写云端 participants 表（按 pid upsert，更新已有记录而非新建）
   if(_sb){
     var row={room:S.room,pid:id,name:data.name||'',phone:data.phone||'',data:JSON.parse(JSON.stringify(data))};
     _sb.from('participants').upsert(row,{onConflict:'room,pid'}).then(function(res){
@@ -607,8 +586,6 @@ function submitSignin(data){
   if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'sign_in',JSON.stringify({id:id,name:data.name||'',phone:data.phone||'',lat:data.lat,lng:data.lng,distance:data.distance,signTime:data.signTime,fields:data}));
   hideAllPages();
   document.getElementById('signWaiting').style.display='block';
-  var wc=document.getElementById('waitCount');if(wc)wc.textContent=(S.allParticipants?S.allParticipants.filter(function(p){return p.signed}).length:0)+1;
-  renderSignPrizes();
   if(S.avatarData){
     document.getElementById('avatarPreview').style.display='block';
     var imgEl=document.getElementById('avatarImg');
@@ -638,31 +615,7 @@ function showFailModal(msg){
 }
 function closeFailModal(){document.getElementById('failModal').classList.remove('show')}
 
-function renderSignPrizes(){
-  const c=document.getElementById('signPrizes');if(!S.prizes.length){c.innerHTML='';return}
-  c.innerHTML='<div class="card"><div style="font-weight:bold;margin-bottom:10px">🎁 奖品池</div>'+S.prizes.map(p=>'<div style="display:flex;align-items:center;gap:10px;padding:8px;background:var(--card2);border-radius:8px;margin-bottom:6px"><div style="width:20px;height:20px;border-radius:50%;background:'+p.color+';flex-shrink:0"></div><div style="flex:1;font-size:.9em">'+p.name+'</div><div style="color:var(--sub);font-size:.82em">×'+p.count+'</div></div>').join('')+'</div>';
-}
-function handleLotteryResult(winners){
-  if(!S.signedIn)return;
-  hideAllPages();
-  document.getElementById('signWon').style.display='block';
-  const won=winners.find(w=>w.name===S.myName);
-  if(won){
-    document.getElementById('wonIcon').textContent='🎉';
-    document.getElementById('wonTitle').textContent='🎊 恭喜中奖！';
-    document.getElementById('wonName').textContent=won.name;
-    document.getElementById('wonPrize').textContent='获得：'+won.prize;
-    document.getElementById('wonTime').textContent=fmt(Date.now());
-    if(navigator.vibrate)navigator.vibrate([200,100,200,100,200]);
-    toast('恭喜中奖！',5000);
-  }else{
-    document.getElementById('wonIcon').textContent='🙏';
-    document.getElementById('wonTitle').textContent='本轮中奖名单';
-    document.getElementById('wonName').textContent=winners.map(w=>w.name).join('、');
-    document.getElementById('wonPrize').textContent='继续等待下一轮吧~';
-    document.getElementById('wonTime').textContent=fmt(Date.now());
-  }
-}
+
 function calcDist(la1,lo1,la2,lo2){const R=6371000,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)*Math.sin(dLo/2);return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
 
 // ========== 背景音乐 ==========
