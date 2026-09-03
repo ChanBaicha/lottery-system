@@ -466,12 +466,9 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="dmNeedReview" onchange="saveDanmakuSettings()"> <span>弹幕需审核后显示（开启后弹幕先到后台，审核通过才上大屏）</span></label>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="dmAnonymous" checked onchange="saveDanmakuSettings()"> <span>允许匿名弹幕（不显示发送者姓名）</span></label>
         <div class="f-row">
-          <div class="f-grp" style="max-width:160px"><label>弹幕显示模式</label><select id="dmMode" onchange="saveDanmakuSettings()"><option value="scroll">滚动弹幕</option><option value="top">顶部固定</option><option value="bottom">底部固定</option></select></div>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;align-self:flex-end;padding-bottom:8px"><input type="checkbox" id="dmColorful" checked onchange="saveDanmakuSettings()"> <span>彩色弹幕</span></label>
-        </div>
-        <div class="f-row">
           <div class="f-grp" style="max-width:120px"><label>弹幕速度（秒）</label><input id="dmSpeed" type="number" min="3" max="30" value="8"></div>
           <div class="f-grp" style="max-width:120px"><label>弹幕字号</label><input id="dmFontSize" type="number" min="12" max="60" value="28"></div>
+          <div class="f-grp" style="max-width:120px"><label>弹幕最大条数</label><input id="dmMax" type="number" min="10" max="200" value="50"></div>
         </div>
         <button class="btn btn-pri" onclick="saveDanmakuSettings()">💾 保存弹幕设置</button>
       </div>
@@ -646,7 +643,7 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   signPromptMsg:'请于当日17:00-17:30前往一食堂外电信展台进行现场签到',
   flowInterval:0,
   gameConfig:{shakeDuration:10,reactionDuration:15,reactionIntervalType:'random',reactionFixedInterval:2,reactionMinInterval:1,reactionMaxInterval:3,quizRounds:3,quizInterval:5,autoStartThreshold:0},
-  danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,mode:'scroll',colorful:true,history:[]},
+  danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,max:50,history:[]},
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
   voidedWinners:[],
   quizConfig:{questions:[],rounds:1,questionCount:10,mode:'sequential',shuffleOptions:true},
@@ -820,7 +817,7 @@ function broadcastConfig(){
     participants:S.participants.map(function(p){var pc=p.preCalc||{};return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,operator:p.operator||'',registerTime:p.registerTime||null,voided:p.voided||false,team:p.team||'',ticket:p.ticket||p['抽奖券编码']||'',preCalc:{totalSum:pc.totalSum||0,phoneSum:pc.phoneSum||0,ticketSum:pc.ticketSum||0,sumLast4:pc.sumLast4||0,sumAllUnit:pc.sumAllUnit||0,sumLast4Unit:pc.sumLast4Unit||0,phoneEven:pc.phoneEven||false,last4Even:pc.last4Even||false,allEven:pc.allEven||false}}}),
     signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg||'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',signPromptMsg:S.signPromptMsg||'请于当日17:00-17:30前往一楼展台进行现场签到',flowInterval:S.flowInterval,
     gameConfig:S.gameConfig,
-    danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview,mode:S.danmaku.mode||'scroll',colorful:S.danmaku.colorful!==false},
+    danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,max:S.danmaku.max||50,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview},
     music:S.music,
     quizConfig:S.quizConfig,
     quizFields:S.quizFields,
@@ -1671,8 +1668,7 @@ function saveDanmakuSettings(){
   S.danmaku.anonymous=document.getElementById('dmAnonymous').checked;
   S.danmaku.speed=parseInt(document.getElementById('dmSpeed').value)||8;
   S.danmaku.fontSize=parseInt(document.getElementById('dmFontSize').value)||28;
-  S.danmaku.mode=document.getElementById('dmMode').value||'scroll';
-  S.danmaku.colorful=document.getElementById('dmColorful').checked;
+  S.danmaku.max=parseInt(document.getElementById('dmMax').value)||50;
   document.getElementById('dmReviewSection').style.display=S.danmaku.needReview?'block':'none';
   saveLocal();broadcastConfig();toast('弹幕设置已保存')
 }
