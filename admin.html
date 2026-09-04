@@ -1990,15 +1990,15 @@ function cloudPull(){
       if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
       _cloudFlag=true;try{mergeCloudParticipants(pr.data||[])}finally{setTimeout(function(){_cloudFlag=false},500)}
     });
-    // 拉答题结果（云端为空也清空本地）
+    // 拉答题结果
     _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
       if(qr.error){console.warn('云端答题拉取失败',qr.error.message);return}
-      _cloudFlag=true;try{mergeCloudQuizResults(qr.data||[])}finally{setTimeout(function(){_cloudFlag=false},500)}
+      if(qr.data&&qr.data.length){_cloudFlag=true;try{mergeCloudQuizResults(qr.data)}finally{setTimeout(function(){_cloudFlag=false},500)}}
     });
-    // 拉抽奖记录（云端为空也清空本地）
+    // 拉抽奖记录
     _sb.from('lottery_records').select('*').eq('room',S.room).then(function(lr){
       if(lr.error){console.warn('云端抽奖拉取失败',lr.error.message);return}
-      _cloudFlag=true;try{mergeCloudLotteries(lr.data||[])}finally{setTimeout(function(){_cloudFlag=false},500)}
+      if(lr.data&&lr.data.length){_cloudFlag=true;try{mergeCloudLotteries(lr.data)}finally{setTimeout(function(){_cloudFlag=false},500)}}
     });
   });
 }
@@ -2114,18 +2114,14 @@ function removeP(rowId){
 }
 // ---- 答题结果合并 ----
 function mergeCloudQuizResults(rows){
-  if(!rows)rows=[];
+  if(!rows||!rows.length)return;
   S.quizResults=S.quizResults||[];
-  if(!rows.length){
-    S.quizResults=[];
-  }else{
-    var keySet={};S.quizResults.forEach(function(r){keySet[(r.name||'')+'|'+(r.phone||'')+'|'+(r.round||1)]=1});
-    rows.forEach(function(row){
-      var d=row.data||{};
-      var k=(d.name||row.name||'')+'|'+(d.phone||row.phone||'')+'|'+(d.round||row.round||1);
-      if(!keySet[k]){S.quizResults.push(d);keySet[k]=1}
-    });
-  }
+  var keySet={};S.quizResults.forEach(function(r){keySet[(r.name||'')+'|'+(r.phone||'')+'|'+(r.round||1)]=1});
+  rows.forEach(function(row){
+    var d=row.data||{};
+    var k=(d.name||row.name||'')+'|'+(d.phone||row.phone||'')+'|'+(d.round||row.round||1);
+    if(!keySet[k]){S.quizResults.push(d);keySet[k]=1}
+  });
   if(S.loggedIn)renderQuizResults();
   saveLocal();
 }
@@ -2139,17 +2135,13 @@ function upsertCloudQuizResult(row){
 }
 // ---- 抽奖记录合并 ----
 function mergeCloudLotteries(rows){
-  if(!rows)rows=[];
+  if(!rows||!rows.length)return;
   S.records=S.records||[];
-  if(!rows.length){
-    S.records=[];
-  }else{
-    var keySet={};S.records.forEach(function(r){keySet[r.time||0]=1});
-    rows.forEach(function(row){
-      var d=row.data||{};d.time=d.time||row.time;
-      if(!keySet[d.time]){S.records.push(d);keySet[d.time]=1}
-    });
-  }
+  var keySet={};S.records.forEach(function(r){keySet[r.time||0]=1});
+  rows.forEach(function(row){
+    var d=row.data||{};d.time=d.time||row.time;
+    if(!keySet[d.time]){S.records.push(d);keySet[d.time]=1}
+  });
   if(S.loggedIn)renderRecords();
   saveLocal();
 }
