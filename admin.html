@@ -1985,20 +1985,20 @@ function cloudPull(){
   _sb.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
     if(res.error){console.warn('云端配置拉取失败',res.error.message);return}
     if(res.data&&res.data.data){_cloudFlag=true;applyCloudData(res.data.data,false);setTimeout(function(){_cloudFlag=false},500)}
-    // 拉参与者（全量覆盖，以云端为准）
+    // 拉参与者（全量覆盖，以云端为准——云端为空也清空本地）
     _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
       if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
-      if(pr.data){_cloudFlag=true;try{mergeCloudParticipants(pr.data)}finally{setTimeout(function(){_cloudFlag=false},500)}}
+      _cloudFlag=true;try{mergeCloudParticipants(pr.data||[])}finally{setTimeout(function(){_cloudFlag=false},500)}
     });
-    // 拉答题结果
+    // 拉答题结果（云端为空也清空本地）
     _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
       if(qr.error){console.warn('云端答题拉取失败',qr.error.message);return}
-      if(qr.data&&qr.data.length){_cloudFlag=true;try{mergeCloudQuizResults(qr.data)}finally{setTimeout(function(){_cloudFlag=false},500)}}
+      _cloudFlag=true;try{mergeCloudQuizResults(qr.data||[])}finally{setTimeout(function(){_cloudFlag=false},500)}
     });
-    // 拉抽奖记录
+    // 拉抽奖记录（云端为空也清空本地）
     _sb.from('lottery_records').select('*').eq('room',S.room).then(function(lr){
       if(lr.error){console.warn('云端抽奖拉取失败',lr.error.message);return}
-      if(lr.data&&lr.data.length){_cloudFlag=true;try{mergeCloudLotteries(lr.data)}finally{setTimeout(function(){_cloudFlag=false},500)}}
+      _cloudFlag=true;try{mergeCloudLotteries(lr.data||[])}finally{setTimeout(function(){_cloudFlag=false},500)}
     });
   });
 }
@@ -2065,20 +2065,25 @@ function cloudPush(){
 }
 // ---- 参与者云端合并 ----
 function mergeCloudParticipants(rows){
-  if(!rows||!rows.length)return;
-  var pidSet={};S.participants=S.participants||[];
-  S.participants.forEach(function(p){pidSet[p.id||p.pid]=1});
-  rows.forEach(function(row){
-    var pid=row.pid;
-    if(pidSet[pid]){ // 本地已有，合并云端字段
-      var lp=S.participants.find(function(p){return (p.id||p.pid)===pid});
-      if(lp)Object.assign(lp,row.data||{});
-    }else{
-      var np=row.data||{};
-      if(!np.id)np.id=row.pid;
-      S.participants.push(np);
-    }
-  });
+  if(!rows)rows=[];
+  S.participants=S.participants||[];
+  if(!rows.length){
+    S.participants=[];
+  }else{
+    var pidSet={};
+    S.participants.forEach(function(p){pidSet[p.id||p.pid]=1});
+    rows.forEach(function(row){
+      var pid=row.pid;
+      if(pidSet[pid]){
+        var lp=S.participants.find(function(p){return (p.id||p.pid)===pid});
+        if(lp)Object.assign(lp,row.data||{});
+      }else{
+        var np=row.data||{};
+        if(!np.id)np.id=row.pid;
+        S.participants.push(np);
+      }
+    });
+  }
   if(S.loggedIn){renderParticipants()}
   saveLocal();
 }
@@ -2109,14 +2114,18 @@ function removeP(rowId){
 }
 // ---- 答题结果合并 ----
 function mergeCloudQuizResults(rows){
-  if(!rows||!rows.length)return;
+  if(!rows)rows=[];
   S.quizResults=S.quizResults||[];
-  var keySet={};S.quizResults.forEach(function(r){keySet[(r.name||'')+'|'+(r.phone||'')+'|'+(r.round||1)]=1});
-  rows.forEach(function(row){
-    var d=row.data||{};
-    var k=(d.name||row.name||'')+'|'+(d.phone||row.phone||'')+'|'+(d.round||row.round||1);
-    if(!keySet[k]){S.quizResults.push(d);keySet[k]=1}
-  });
+  if(!rows.length){
+    S.quizResults=[];
+  }else{
+    var keySet={};S.quizResults.forEach(function(r){keySet[(r.name||'')+'|'+(r.phone||'')+'|'+(r.round||1)]=1});
+    rows.forEach(function(row){
+      var d=row.data||{};
+      var k=(d.name||row.name||'')+'|'+(d.phone||row.phone||'')+'|'+(d.round||row.round||1);
+      if(!keySet[k]){S.quizResults.push(d);keySet[k]=1}
+    });
+  }
   if(S.loggedIn)renderQuizResults();
   saveLocal();
 }
@@ -2130,13 +2139,17 @@ function upsertCloudQuizResult(row){
 }
 // ---- 抽奖记录合并 ----
 function mergeCloudLotteries(rows){
-  if(!rows||!rows.length)return;
+  if(!rows)rows=[];
   S.records=S.records||[];
-  var keySet={};S.records.forEach(function(r){keySet[r.time||0]=1});
-  rows.forEach(function(row){
-    var d=row.data||{};d.time=d.time||row.time;
-    if(!keySet[d.time]){S.records.push(d);keySet[d.time]=1}
-  });
+  if(!rows.length){
+    S.records=[];
+  }else{
+    var keySet={};S.records.forEach(function(r){keySet[r.time||0]=1});
+    rows.forEach(function(row){
+      var d=row.data||{};d.time=d.time||row.time;
+      if(!keySet[d.time]){S.records.push(d);keySet[d.time]=1}
+    });
+  }
   if(S.loggedIn)renderRecords();
   saveLocal();
 }
