@@ -275,7 +275,9 @@ var S={
   bridgeAckTimer:null,
   bridgeSteps:[],
   bridgeCurrentStep:-1,
-  bridgeStepTimer:null
+  bridgeStepTimer:null,
+  bridgeHeartbeat:null,
+  _lastBridgePong:0
 };
 var SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
@@ -564,6 +566,11 @@ function cloudPull(){
     if(res.error){console.warn('配置拉取失败',res.error.message);return}
     if(res.data&&res.data.data){_cloudFlag=true;applyCloudConfig(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
   });
+  var pendingUpdates=2;
+  function debouncedUpdate(){
+    pendingUpdates--;
+    if(pendingUpdates<=0){updatePool()}
+  }
   // 分批拉取 participants（最小字段，避免大数据量超时）
   cloudPullPage('participants','pid,name,phone,data->signed,data->won,data->prizeId,data->team,data->avatar',0,[],function(rows){
     if(rows.length){
@@ -574,7 +581,7 @@ function cloudPull(){
       });
       setTimeout(function(){_cloudFlag=false},500);
     }
-    updatePool();
+    debouncedUpdate();
   });
   // 分批拉取 quiz_results（最小字段，避免大数据量超时）
   cloudPullPage('quiz_results','name,phone,round,data->correctCount,data->totalCount,data->totalTimeMs',0,[],function(rows){
@@ -586,7 +593,7 @@ function cloudPull(){
       buildQuizMap();
       setTimeout(function(){_cloudFlag=false},500);
     }
-    updatePool();
+    debouncedUpdate();
   });
 }
 // 分批拉取指定表（fetch+REST Range头，每批200条）
@@ -626,7 +633,8 @@ function updatePool(){
     return S.quizMap[(p.name||'')+'|'+(p.phone||'')];
   }).map(preCalcParticipant);
   document.getElementById('actCount').textContent=S.eligiblePool.length;
-  if(S.addedRules.length)executeAllRulesLocal();
+  // 不再自动触发规则执行——只在用户点击"执行"按钮时主动触发
+  // 避免数据刷新时本地计算覆盖 TeleAgent 的智能筛选结果
 }
 
 // ========== MQTT ==========
@@ -652,6 +660,18 @@ function connectMQTT(){
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'agent-draw',time:Date.now()}));
       S.mqtt.publish(S.topic+'teleagent_ping',JSON.stringify({type:'ping',from:'agent-draw',time:Date.now()}));
     });
+    // 心跳定时器：每5秒发送ping，检测桥接是否在线
+    if(S.bridgeHeartbeat)clearInterval(S.bridgeHeartbeat);
+    S.bridgeHeartbeat=setInterval(function(){
+      if(S.mqtt&&S.mqtt.connected){
+        S.mqtt.publish(S.topic+'teleagent_ping',JSON.stringify({type:'ping',from:'agent-draw',time:Date.now()}));
+      }
+      // 如果超过10秒没收到桥接回复，标记为离线
+      if(S.bridgeOnline&&(Date.now()-(S._lastBridgePong||0))>10000){
+        S.bridgeOnline=false;
+        updateBridgeUI();
+      }
+    },5000);
     S.mqtt.on('message',function(t,m){try{var d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
     S.mqtt.on('error',function(){updateMqtt('offline')});
     S.mqtt.on('reconnect',function(){updateMqtt('connecting')});
@@ -700,6 +720,7 @@ function handleMsg(t,d){
 function handleBridgeStatus(d){
   var wasOnline=S.bridgeOnline;
   S.bridgeOnline=d.online===true||d.online==='true';
+  if(S.bridgeOnline)S._lastBridgePong=Date.now();
   updateBridgeUI();
   if(S.bridgeOnline&&!wasOnline){
     // 刚上线，取消降级定时器
@@ -765,11 +786,7 @@ function handleBridgeResult(d){
     });
     renderLuckyList();
     updateLuckyTags(S.addedRules.length);
-    if(d.steps&&d.steps>S.bridgeSteps.length){
-      toast('TeleAgent 执行完成，命中 '+d.finalList.length+' 人');
-    }else{
-      toast('TeleAgent 执行完成，命中 '+d.finalList.length+' 人');
-    }
+    toast('TeleAgent 执行完成，命中 '+d.finalList.length+' 人');
   }else if(!d.success){
     toast('TeleAgent 执行失败：'+(d.error||'未知错误')+'，已降级为本地计算');
     // 降级为本地计算
@@ -861,15 +878,15 @@ function executeRulesViaBridge(){
   };
   // 发送请求
   S.mqtt.publish(S.topic+'teleagent_req',JSON.stringify(req));
-  // 设置5秒ack超时，降级为本地计算
+  // 设置15秒ack超时，降级为本地计算
   S.bridgeAckTimer=setTimeout(function(){
     if(!S.bridgeExecuting){
-      toast('TeleAgent 未响应，降级为本地计算');
+      toast('TeleAgent 未响应（15秒超时），降级为本地计算');
       S.bridgeOnline=false;
       updateBridgeUI();
       executeAllRulesLocal();
     }
-  },5000);
+  },15000);
   // 显示思考区域
   showThinkingArea(true);
   S.bridgeSteps=[];
