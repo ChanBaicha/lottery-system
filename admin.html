@@ -1215,8 +1215,30 @@ function renderQuizResults(){
   l.innerHTML=best.map(function(r,i){
     var accuracy=r.totalCount>0?(r.correctCount/r.totalCount*100).toFixed(0):0;
     var roundInfo=r.allRoundCount>1?' <span style="font-size:.78em;color:var(--gold)">'+r.allRoundCount+'轮最佳</span>':' <span style="font-size:.78em;color:var(--sub)">第'+r.round+'轮</span>';
-    return '<div class="section" style="padding:10px 14px;margin-bottom:6px"><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0">'+((r.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+r.name+roundInfo+'</div><div style="font-size:.8em;color:var(--sub)">手机号:'+maskPhoneQ(r.phone)+' · 正确:'+r.correctCount+'/'+r.totalCount+' · 正确率:'+accuracy+'% · 总用时:'+(r.totalTimeMs/1000).toFixed(2)+'s</div></div></div></div>';
+    return '<div class="section" style="padding:10px 14px;margin-bottom:6px" id="qr-'+i+'"><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0">'+((r.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+r.name+roundInfo+'</div><div style="font-size:.8em;color:var(--sub)">手机号:'+maskPhoneQ(r.phone)+' · 正确:'+r.correctCount+'/'+r.totalCount+' · 正确率:'+accuracy+'% · 总用时:'+(r.totalTimeMs/1000).toFixed(2)+'s</div></div><button class="btn btn-dng" style="padding:4px 10px;font-size:.8em;flex-shrink:0" onclick="deleteQuizResult('+i+')">🗑️ 删除</button></div></div>';
   }).join('');
+}
+function deleteQuizResult(idx){
+  var best=getBestQuizResults();
+  if(idx<0||idx>=best.length)return;
+  var r=best[idx];
+  if(!confirm('确定删除「'+r.name+'」（'+maskPhoneQ(r.phone)+'）的第'+r.round+'轮答题记录？'))return;
+  // 找到本地 S.quizResults 中匹配的全部记录（可能有多轮）
+  var key=(r.name||'')+'|'+(r.phone||'');
+  var before=S.quizResults.length;
+  S.quizResults=S.quizResults.filter(function(qr){
+    return !((qr.name||'')+'|'+(qr.phone||'')===key);
+  });
+  var removed=before-S.quizResults.length;
+  saveLocal();renderQuizResults();
+  toast('已删除「'+r.name+'」的 '+removed+' 条答题记录');
+  // 同步删除云端
+  if(_sb){
+    _sb.from('quiz_results').delete().eq('room',S.room).eq('name',r.name).eq('phone',r.phone).then(function(res){
+      if(res.error)console.warn('云端答题记录删除失败',res.error.message);
+      else console.log('云端已删除',r.name,r.phone);
+    });
+  }
 }
 function maskPhoneQ(p){if(!p)return'';return p.substr(0,3)+'XXXX'+p.substr(-4)}
 function exportQuizResults(){
