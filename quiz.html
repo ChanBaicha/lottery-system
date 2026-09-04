@@ -501,64 +501,32 @@ function refreshQuizStateUI(){
     }
   }catch(e){}
 }
-// 已答题用户记录（云端为权威，localStorage 仅作离线兜底）
+// 已答题用户记录：仅以云端为唯一依据，不读本地缓存
 function getQuizDoneList(){
-  try{
-    var local=JSON.parse(localStorage.getItem('cj_quiz_done_'+S.room)||'[]');
-    // 合并云端已答用户（_qdoneCache 来自云端 quiz_state）
-    if(_qdoneCache&&_qdoneCache.length){
-      var merged=local.slice();
-      _qdoneCache.forEach(function(u){
-        if(!merged.some(function(m){return m.name===u.name&&m.phone===u.phone})){
-          merged.push(u);
-        }
-      });
-      return merged;
-    }
-    return local;
-  }catch(e){return _qdoneCache||[]}
+  return _qdoneCache||[];
 }
 function markQuizDone(name,phone){
   // 云端同步（quiz_state 表）
   var rounds=getQuizRoundsDone(name,phone)||0;
   if(rounds<1)rounds=1;
   cloudQuizPushRound(name,phone,rounds);
-  // 本地兜底记录
-  try{
-    var list=JSON.parse(localStorage.getItem('cj_quiz_done_'+S.room)||'[]');
-    if(!list.some(function(u){return u.name===name&&u.phone===phone})){
-      list.push({name:name,phone:phone,time:Date.now()});
-      localStorage.setItem('cj_quiz_done_'+S.room,JSON.stringify(list));
-    }
-  }catch(e){}
 }
 function hasQuizDone(name,phone){
-  // 云端优先
-  if(_qdoneCache&&_qdoneCache.length){
-    if(_qdoneCache.some(function(u){return u.name===name&&u.phone===phone}))return true;
-  }
+  // 仅以云端为准
   return getQuizDoneList().some(function(u){return u.name===name&&u.phone===phone});
 }
-// 获取用户已完成的轮次数（云端 quiz_state 为权威，localStorage 兜底）
+// 获取用户已完成的轮次数：仅以云端为准
 function getQuizRoundsDone(name,phone){
   try{
     var key=name+'|'+phone;
     if(_qroundsCache&&_qroundsCache[key]!==undefined)return _qroundsCache[key];
-    var rounds=JSON.parse(localStorage.getItem('cj_quiz_rounds_'+S.room)||'{}');
-    return rounds[key]||0;
+    return 0;
   }catch(e){return 0}
 }
 function markQuizRoundDone(name,phone){
   // 云端：轮次+1（以云端为准）
   var cur=getQuizRoundsDone(name,phone)||0;
   cloudQuizPushRound(name,phone,cur+1);
-  // 本地兜底
-  try{
-    var rounds=JSON.parse(localStorage.getItem('cj_quiz_rounds_'+S.room)||'{}');
-    var key=name+'|'+phone;
-    rounds[key]=(rounds[key]||0)+1;
-    localStorage.setItem('cj_quiz_rounds_'+S.room,JSON.stringify(rounds));
-  }catch(e){}
 }
 function refresh(){}
 
