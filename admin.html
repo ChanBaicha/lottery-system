@@ -498,10 +498,12 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <!-- Excel 导入 -->
     <div class="section" style="margin-bottom:12px">
       <div style="font-weight:bold;margin-bottom:8px;font-size:.95em">📥 Excel 批量导入登记数据</div>
-      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">导入含<b>姓名、手机号（前3位+XXXX+后4位格式）、发展战队</b>等列的Excel文件。导入后将<b>替换</b>当前全部登记数据。</p>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">导入含<b>姓名、手机号（前3位+XXXX+后4位格式）、发展战队</b>等列的Excel文件。<b>替换导入</b>将覆盖当前全部登记数据；<b>增量导入</b>只添加新人员（按姓名+手机号去重，已有的人员不受影响）。</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <input type="file" id="ptExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importParticipantsExcel(this)">
-        <button class="btn btn-pri" onclick="document.getElementById('ptExcelFile').click()">📂 导入Excel</button>
+        <button class="btn btn-pri" onclick="document.getElementById('ptExcelFile').click()">📂 替换导入</button>
+        <input type="file" id="ptExcelIncrFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importParticipantsIncremental(this)">
+        <button class="btn btn-suc" onclick="document.getElementById('ptExcelIncrFile').click()">➕ 增量导入</button>
         <button class="btn btn-out" onclick="downloadPtTemplate()">📄 下载导入模板</button>
       </div>
     </div>
@@ -1803,6 +1805,64 @@ function importParticipantsExcel(input){
         });
       }
       toast('已导入 '+newParticipants.length+' 条登记数据（含预计算）');
+    }catch(err){toast('Excel解析失败：'+err.message)}
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+function importParticipantsIncremental(input){
+  var file=input.files[0];
+  if(!file)return;
+  if(typeof XLSX==='undefined'){toast('Excel库加载中，请稍后重试');input.value='';return}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(rows.length<2){toast('Excel中无有效数据');input.value='';return}
+      var header=rows[0].map(function(h){return String(h||'').trim()});
+      var nameIdx=-1,phoneIdx=-1,teamIdx=-1;
+      header.forEach(function(h,i){
+        var lh=h.toLowerCase();
+        if(h==='姓名'||h==='名字'||lh==='name')nameIdx=i;
+        else if(h==='手机号'||h==='手机'||h==='电话'||lh==='phone'||lh==='mobile')phoneIdx=i;
+        else if(h==='发展战队'||h==='战队'||h==='团队'||h==='部门'||lh==='team'||lh==='group')teamIdx=i;
+      });
+      if(nameIdx<0){toast('未找到「姓名」列，请检查Excel表头');input.value='';return}
+      if(phoneIdx<0){toast('未找到「手机号」列，请检查Excel表头');input.value='';return}
+      // 构建已有人员集合（按 name|phone 去重）
+      S.participants=S.participants||[];
+      var existSet={};
+      S.participants.forEach(function(p){existSet[(p.name||'')+'|'+(p.phone||'')]=1});
+      var newParticipants=[];
+      var skipCount=0;
+      rows.forEach(function(row,i){
+        if(i===0)return;
+        var name=String(row[nameIdx]||'').trim();
+        if(!name)return;
+        var phone=String(row[phoneIdx]||'').trim();
+        var phoneDigits=phone.replace(/[^0-9]/g,'');
+        if(phoneDigits.length>=7){
+          phone=phoneDigits.substr(0,3)+'XXXX'+phoneDigits.substr(-4);
+        }
+        var key=name+'|'+phone;
+        if(existSet[key]){skipCount++;return}
+        existSet[key]=1;
+        var team=teamIdx>=0?String(row[teamIdx]||'').trim():'';
+        newParticipants.push({
+          id:uid(),name:name,phone:phone,team:team,
+          signed:false,won:false,prizeId:null,
+          registerTime:Date.now(),operator:'Excel增量导入',_dirty:true
+        });
+      });
+      if(!newParticipants.length){toast('全部 '+(skipCount)+' 条数据已存在，无新增');input.value='';return}
+      if(!confirm('增量导入 '+newParticipants.length+' 条新数据（跳过 '+skipCount+' 条已有数据）。\n已有数据不受影响。确认继续？')){input.value='';return}
+      // 预计算数字数据
+      newParticipants.forEach(function(p){p.preCalc=preCalcParticipant(p)});
+      S.participants=S.participants.concat(newParticipants);
+      saveLocal();renderParticipants();broadcastConfig();cloudPush();
+      toast('增量导入 '+newParticipants.length+' 条新数据（跳过 '+skipCount+' 条已有）');
     }catch(err){toast('Excel解析失败：'+err.message)}
     input.value='';
   };
