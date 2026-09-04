@@ -207,7 +207,7 @@ let S={
   answers:[],allRoundResults:[],
   quizUserInfo:null,
   qStartTime:0,totalStartTime:0,
-  _retryTimer:null
+  _retryTimer:null,_hbTimer:null,_lastOnline:0
 };
 // 答题轮次：优先从云端配置读取，默认3
 function getMaxRounds(){return(S.quizConfig&&S.quizConfig.rounds)?parseInt(S.quizConfig.rounds)||3:3}
@@ -259,6 +259,7 @@ function connectMQTT(){
       updateMqtt('online');
       S.mqtt.subscribe(S.topic+'config');
       S.mqtt.subscribe(S.topic+'quiz_result');
+      // 每次（重）连接都重新拉取配置，避免断线重连后停留在无配置/旧配置状态
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'quiz',time:Date.now()}));
       if(S._retryTimer)clearInterval(S._retryTimer);
       S._retryTimer=setInterval(()=>{
@@ -268,9 +269,26 @@ function connectMQTT(){
           clearInterval(S._retryTimer);S._retryTimer=null;
         }
       },5000);
+      // 心跳保活：每5秒发心跳，防止移动网络NAT静默断开导致的"假在线"；
+      // 若连续30秒未连接成功，强制重建连接以恢复订阅与配置拉取
+      S._lastOnline=Date.now();
+      if(S._hbTimer)clearInterval(S._hbTimer);
+      S._hbTimer=setInterval(()=>{
+        if(S.mqtt&&S.mqtt.connected){
+          S._lastOnline=Date.now();
+          try{S.mqtt.publish(S.topic+'quiz_ping',JSON.stringify({type:'ping',from:'quiz',time:Date.now()}),{qos:0})}catch(e){}
+        }else if(S._lastOnline&&(Date.now()-S._lastOnline)>30000){
+          updateMqtt('connecting');
+          try{S.mqtt.end(true)}catch(e){}
+          connectMQTT();
+        }
+      },5000);
     });
     S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
-    S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
+    S.mqtt.on('error',()=>updateMqtt('offline'));
+    S.mqtt.on('offline',()=>updateMqtt('offline'));
+    S.mqtt.on('reconnect',()=>updateMqtt('connecting'));
+    S.mqtt.on('close',()=>updateMqtt('offline'));
   }catch(e){updateMqtt('offline')}
 }
 function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getElementById('mText');if(!d)return;d.style.background=s==='online'?'#00b894':s==='offline'?'#e17055':'#fdcb6e';t.textContent=s==='online'?'在线':s==='offline'?'离线':'连接中';const d2=document.getElementById('mDot2'),t2=document.getElementById('mText2');if(d2){d2.style.background=d.style.background;t2.textContent=t.textContent}const d0=document.getElementById('mDot0'),t0=document.getElementById('mText0');if(d0){d0.style.background=d.style.background;t0.textContent=t.textContent}}
