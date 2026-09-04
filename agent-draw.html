@@ -186,7 +186,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             <input class="custom-rule-input" id="customRuleInput" placeholder="用自然语言描述筛选条件..." onkeydown="if(event.key==='Enter')addCustomRule()">
             <button class="btn-custom-exec" onclick="addCustomRule()">执行</button>
           </div>
-          <div class="custom-hint">示例：姓王且手机尾号是8、姓王或姓李且答题超过60分、笔画大于15、手机号含520</div>
+          <div class="custom-hint">用自然语言描述筛选条件，TeleAgent 会自动理解并执行，例如：姓王且手机尾号是8、答题超过60分的人、笔画最多的前3人</div>
         </div>
       </div>
     </div>
@@ -843,9 +843,12 @@ function executeRulesViaBridge(){
     executeAllRulesLocal();
     return;
   }
-  // 构造请求
+  // 构造请求：自定义规则直接发送原始自然语言文本，不做本地解析/校验
   S.bridgeReqId=uid();
   var rulesPayload=S.addedRules.map(function(ar){
+    if(ar.rule.id===999){
+      return{id:999,rawText:ar.param};
+    }
     return{id:ar.rule.id,param:ar.param};
   });
   var req={
@@ -874,13 +877,13 @@ function executeRulesViaBridge(){
   toast('已发送至 TeleAgent，等待执行...');
 }
 function executeAllRulesLocal(){
-  // 原有的本地规则执行逻辑（降级方案）
+  // 降级方案：TeleAgent离线时本地执行
+  // 自定义规则（id=999）仍使用本地NLP解析作为降级
   if(!S.eligiblePool.length){
     S.luckyList=[];
     renderLuckyList();
     return;
   }
-  // 本地也支持自定义规则解析
   var customParsed={};
   S.addedRules.forEach(function(ar){
     if(ar.rule.id===999&&!customParsed[ar.seq]){
@@ -908,7 +911,7 @@ function executeAllRulesLocal(){
   S.addedRules.forEach(function(ar,i){
     if(ar.rule.id===999){
       var parsed=customParsed[ar.seq];
-      var descText=parsed&&parsed.conditions.length?parsed.conditions.map(function(c){return c.desc}).join(' + '):'解析失败';
+      var descText=parsed&&parsed.conditions.length?parsed.conditions.map(function(c){return c.desc}).join(' + '):'无具体条件，全员保留';
       S.bridgeSteps.push({type:'rule_result',text:'规则'+(i+1)+'：「🤖 '+ar.param+'」\n→ '+descText+'\n命中：'+matched.length+' 人'});
     }else{
       var matched2=S.eligiblePool.slice();
