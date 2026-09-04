@@ -743,7 +743,7 @@ function handleLotteryResult(d){
   d.winners.forEach(w=>{const p=S.participants.find(p=>p.name===w.name);if(p){p.won=true;p.prizeId=w.prize;p.prizeName=w.prize}});
   // 更新奖品中奖计数
   d.winners.forEach(w=>{const pr=S.prizes.find(p=>p.name===w.prize);if(pr)pr.won++});
-  saveLocal();renderRecords();renderParticipants();renderPrizes();
+  saveLocal();renderRecords();renderParticipants();renderPrizes();cloudPush();
   toast('🎉 抽奖完成：'+d.winners.map(w=>w.name).join('、'))
 }
 function handleWinnerVoid(d){
@@ -830,9 +830,11 @@ function broadcastConfig(){
     quizIntro:S.quizIntro||'',
     quizResults:getBestQuizResults().map(function(qr){return{name:qr.name||'',phone:qr.phone||'',gender:qr.gender||'',round:qr.round||1,correctCount:qr.correctCount||0,totalCount:qr.totalCount||0,totalTimeMs:qr.totalTimeMs||0,time:qr.time||0,allRoundCount:qr.allRoundCount||1,bestCorrectCount:qr.bestCorrectCount||qr.correctCount||0,bestAccuracy:qr.bestAccuracy||'0',bestTotalTimeMs:qr.bestTotalTimeMs||qr.totalTimeMs||0,dataBreakdown:qr.dataBreakdown||null}}),
     lotteryRule:S.lotteryRule||{enable:false,hitList:[]},
-    agentDrawEnabled:true,
-    time:Date.now()
-  }))
+     agentDrawEnabled:true,
+     time:Date.now()
+   }));
+  // 管理员主动操作时推送云端（云端回调触发的 broadcastConfig 被 _cloudFlag 守卫拦截，不会循环）
+  cloudPush();
 }
 function broadcastLottery(winner,prize){
   if(!S.mqtt||!S.mqtt.connected)return;
@@ -1604,7 +1606,7 @@ function addElement(type){
   else S.screen.elements.push({id,type:'image',src:'',x:100,y:100,width:200,height:150});
   renderElements();saveLocal()
 }
-function delElement(id){S.screen.elements=S.screen.elements.filter(e=>e.id!==id);renderElements();saveLocal()}
+function delElement(id){S.screen.elements=S.screen.elements.filter(e=>e.id!==id);renderElements();saveLocal();cloudPush()}
 function renderElements(){
   document.getElementById('elList').innerHTML=S.screen.elements.map(e=>{
     if(e.type==='text'){
@@ -1623,8 +1625,8 @@ function renderElements(){
     }
   }).join('')||'<div style="color:var(--sub);text-align:center;padding:12px;font-size:.85em">暂无自定义元素</div>'
 }
-function saveElText(id){const e=S.screen.elements.find(x=>x.id===id);if(!e)return;e.content=document.getElementById('elTxt_'+id).value;e.size=parseInt(document.getElementById('elSize_'+id).value)||24;e.color=document.getElementById('elColor_'+id).value;e.bold=document.getElementById('elBold_'+id).checked;saveLocal()}
-function saveElImg(id){const e=S.screen.elements.find(x=>x.id===id);if(!e)return;e.width=parseInt(document.getElementById('elW_'+id).value)||200;e.height=parseInt(document.getElementById('elH_'+id).value)||150;saveLocal()}
+function saveElText(id){const e=S.screen.elements.find(x=>x.id===id);if(!e)return;e.content=document.getElementById('elTxt_'+id).value;e.size=parseInt(document.getElementById('elSize_'+id).value)||24;e.color=document.getElementById('elColor_'+id).value;e.bold=document.getElementById('elBold_'+id).checked;saveLocal();cloudPush()}
+function saveElImg(id){const e=S.screen.elements.find(x=>x.id===id);if(!e)return;e.width=parseInt(document.getElementById('elW_'+id).value)||200;e.height=parseInt(document.getElementById('elH_'+id).value)||150;saveLocal();cloudPush()}
 function elImageInput(id){return document.getElementById('elImgFile_'+id)}
 function uploadElImage(id,file){
   if(!file){return}
@@ -1642,7 +1644,7 @@ function uploadElImage(id,file){
       const cv=document.createElement('canvas');cv.width=w;cv.height=h;
       cv.getContext('2d').drawImage(img,0,0,w,h);
       e.src=cv.toDataURL('image/jpeg',0.75);
-      renderElements();saveLocal();toast('图片已上传');
+      renderElements();saveLocal();cloudPush();toast('图片已上传');
     };
     img.src=r.result;
   };
@@ -1728,13 +1730,13 @@ function approveDanmaku(idx){
     if(d.color)fwd.color=d.color;
     S.mqtt.publish(S.topic+'danmaku_show',JSON.stringify(fwd));
   }
-  saveLocal();renderDanmakuReview();renderDanmakuHistory();toast('弹幕已通过')
+  saveLocal();renderDanmakuReview();renderDanmakuHistory();cloudPush();toast('弹幕已通过')
 }
 function rejectDanmaku(idx){
   const pending=S.danmaku.history.filter(d=>d.status==='pending');
   const d=pending[idx];if(!d)return;
   d.status='rejected';
-  saveLocal();renderDanmakuReview();renderDanmakuHistory();toast('弹幕已拒绝')
+  saveLocal();renderDanmakuReview();renderDanmakuHistory();cloudPush();toast('弹幕已拒绝')
 }
 function renderDanmakuHistory(){
   const l=document.getElementById('dmHistory');
@@ -2113,7 +2115,7 @@ function cloudInit(){
         var row=payload.new||{};
         if(payload.eventType==='DELETE'){removeCloudParticipant((row.pid||row.id||''))}
         else if(row.pid){upsertCloudParticipant(row)}
-        renderParticipants();renderRecords();broadcastConfig();
+        renderParticipants();renderRecords();
       })
       .subscribe();
     // 订阅 quiz_results（答题结果）
@@ -2169,7 +2171,6 @@ function applyCloudData(d,isRemote){
     S.topic='cj2026/'+S.room+'/';
     document.getElementById('roomIdDisp').textContent=S.room;
     if(S.loggedIn)renderAll();
-    saveLocal();
   }catch(e){console.warn('应用云端数据失败',e)}
 }
 function pickCfg(){
@@ -2251,21 +2252,19 @@ function mergeCloudParticipants(rows){
     });
   }
   if(S.loggedIn){renderParticipants()}
-  saveLocal();
 }
 function upsertCloudParticipant(row){
-  // realtime payload 已含全量行（pid/name/phone/data），直接合并本地，无需再查库
   var np=row.data||{};
   if(!np.id)np.id=row.pid;
   var pid=row.pid||np.id;
   var lp=S.participants.find(function(p){return (p.id||p.pid)===pid});
   if(lp){Object.assign(lp,np);lp._synced=true}else{np._synced=true;S.participants.push(np)}
-  renderParticipants();saveLocal();
+  renderParticipants();
 }
 function removeCloudParticipant(pid){
   if(!pid)return;
   S.participants=(S.participants||[]).filter(function(p){return (p.id!==pid)&&(p.pid!==pid)});
-  renderParticipants();saveLocal();
+  renderParticipants();
 }
 function removeP(rowId){
   // 先从云端删除（按 pid），再本地移除（保证两端一致）
@@ -2276,7 +2275,7 @@ function removeP(rowId){
   }
   // 本地按 id 或 pid 移除
   S.participants=(S.participants||[]).filter(function(p){return (p.id!==rowId)&&(p.pid!==rowId)});
-  renderParticipants();saveLocal();
+  renderParticipants();saveLocal();cloudPush();
 }
 // ---- 答题结果合并 ----
 function mergeCloudQuizResults(rows){
@@ -2289,7 +2288,6 @@ function mergeCloudQuizResults(rows){
     if(!keySet[k]){S.quizResults.push(d);keySet[k]=1}
   });
   if(S.loggedIn)renderQuizResults();
-  saveLocal();
 }
 function upsertCloudQuizResult(row){
   var d=row.data||{};if(!d.id)d.id='qr_'+row.id;
@@ -2297,7 +2295,7 @@ function upsertCloudQuizResult(row){
   S.quizResults=S.quizResults||[];
   var exist=S.quizResults.find(function(r){return (r.name||'')+'|'+(r.phone||'')+'|'+(r.round||1)===k});
   if(exist){Object.assign(exist,d)}else{S.quizResults.push(d)}
-  renderQuizResults();saveLocal();
+  renderQuizResults();
 }
 // ---- 抽奖记录合并 ----
 function mergeCloudLotteries(rows){
@@ -2309,19 +2307,17 @@ function mergeCloudLotteries(rows){
     if(!keySet[d.time]){S.records.push(d);keySet[d.time]=1}
   });
   if(S.loggedIn)renderRecords();
-  saveLocal();
 }
 function upsertCloudLottery(row){
   var d=row.data||{};d.time=d.time||row.time;
   S.records=S.records||[];
   var exist=S.records.find(function(r){return r.time===d.time});
   if(exist){Object.assign(exist,d)}else{S.records.push(d)}
-  renderRecords();saveLocal();
+  renderRecords();
 }
 // ========== 存储渲染 ==========
-// 保存配置到本地（仅账号与设置，业务数据一律云端为准，本地仅作账号登录读取）
+// 保存配置到本地缓存（不自动推送云端，云端为权威来源）
 function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,lotteryRule:S.lotteryRule||{}}))}catch(e){}
-  cloudPush();
 }
 // 只读本地账号（登录需要），业务数据（参与者/答题/设置）一律以云端为准，不恢复本地缓存
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d&&d.accounts&&d.accounts.length){S.accounts=d.accounts;S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}}catch(e){}}
