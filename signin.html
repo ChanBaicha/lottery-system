@@ -720,7 +720,20 @@ function sendPageDanmaku(){
 }
 
 // ========== 互动游戏 ==========
+function checkGameEligibility(){
+  // 必须已签到（有昵称）且设置了头像才能参与游戏
+  if(!S.signedIn||!S.myName){
+    toast('请先签到设置昵称后再参与游戏');
+    return false;
+  }
+  if(!S.avatarData){
+    toast('请先设置头像后再参与游戏');
+    return false;
+  }
+  return true;
+}
 function showGameModal(){
+  if(!checkGameEligibility())return;
   const menu=document.getElementById('gameMenu');
   menu.innerHTML='';
   const games=[
@@ -742,10 +755,16 @@ function joinGame(id){
   S.gameType=id;
   hideAllPages();
   document.getElementById('gamePage').style.display='flex';
+  // 重置游戏区域：显示内容区，隐藏结果区
+  document.getElementById('gameContent').style.display='';
+  document.getElementById('gameResult').style.display='none';
+  document.getElementById('gameResult').innerHTML='';
   if(id==='shake')initShakeGame();else if(id==='reaction')initReactionGame();else if(id==='quiz')initQuizGame();
 }
 function handleGameCmd(d){
   if(d.action==='start'){
+    // 前置校验：未签到或未设置头像不允许参与
+    if(!checkGameEligibility())return;
     // 收到开始命令时自动加入对应游戏（无需用户手动进入）
     if(!S.gameType||S.gameType!==d.game){
       joinGame(d.game);
@@ -885,7 +904,10 @@ function quizSelect(btn,answer){
   toast('已选择：'+answer);
 }
 function showGameResult(d){
-  const r=document.getElementById('gameResult');r.style.display='block';
+  const r=document.getElementById('gameResult');
+  // 隐藏游戏内容区，只显示结果
+  document.getElementById('gameContent').style.display='none';
+  r.style.display='block';
   var gameNames={shake:'摇一摇',reaction:'反应速度',quiz:'趣味抢答'};
   var gameName=gameNames[d.game]||'互动游戏';
   var myName=S.myName||'';
@@ -919,6 +941,10 @@ function showGameResult(d){
 function exitGame(){
   S.gameType=null;shakeListening=false;S.quizAnswer=null;S.reactionReady=false;S.reactionPenaltyUntil=0;
   stopShakeBatch();
+  // 重置游戏区域显示状态
+  document.getElementById('gameContent').style.display='';
+  document.getElementById('gameResult').style.display='none';
+  document.getElementById('gameResult').innerHTML='';
   backToHome();
 }
 </script>
