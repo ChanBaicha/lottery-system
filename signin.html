@@ -463,6 +463,8 @@ function normalizeSignin(){
   S.signin=s;
 }
 function doSignin(){
+  normalizeSignin();
+  if(S.signin.enabled===false){toast('签到暂未开放，请稍后再试');return}
   const data={};let valid=true;
   S.fields.forEach(f=>{
     if(f.type==='avatar')return;
@@ -490,36 +492,37 @@ function doSignin(){
     if(f.type==='text'&&!sName)sName=data[f.name]||'';
     if(f.type==='phone'&&!sPhone)sPhone=data[f.name]||'';
   });
-  if(S.allParticipants&&S.allParticipants.length){
-    if(!sName||!sPhone){
-      showFailModal('请完整填写姓名和手机号');
-      return;
-    }
-    const matched=S.allParticipants.find(p=>{
-      const pName=p.name||'';
-      const pPhone=p.phone||'';
-      return pName===sName&&pPhone===sPhone;
-    });
-    if(!matched){
-      showFailModal(S.signFailMsg);
-      return;
-    }
-    // 校验是否已完成知识问答（姓名+手机号匹配答题记录）
-    if(S.allQuizResults&&S.allQuizResults.length){
-      var quizMatched=S.allQuizResults.find(function(qr){
-        var qrName=(qr.name||'').trim();
-        var qrPhone=qr.phone||'';
-        return qrName===sName&&qrPhone===sPhone;
-      });
-      if(!quizMatched){
-        showFailModal(S.signFailNoQuizMsg);
-        return;
-      }
-    }else{
-      // 无答题数据，提示需先答题
-      showFailModal(S.signFailNoQuizMsg);
-      return;
-    }
+  if(!sName||!sPhone){
+    showFailModal('请完整填写姓名和手机号');
+    return;
+  }
+  // 必须在登记清单内才能签到
+  if(!S.allParticipants||!S.allParticipants.length){
+    showFailModal('登记数据加载中，请稍后再试');
+    return;
+  }
+  const matched=S.allParticipants.find(p=>{
+    const pName=p.name||'';
+    const pPhone=p.phone||'';
+    return pName===sName&&pPhone===sPhone;
+  });
+  if(!matched){
+    showFailModal(S.signFailMsg);
+    return;
+  }
+  // 校验是否已完成知识问答（姓名+手机号匹配答题记录）
+  if(!S.allQuizResults||!S.allQuizResults.length){
+    showFailModal(S.signFailNoQuizMsg);
+    return;
+  }
+  var quizMatched=S.allQuizResults.find(function(qr){
+    var qrName=(qr.name||'').trim();
+    var qrPhone=qr.phone||'';
+    return qrName===sName&&qrPhone===sPhone;
+  });
+  if(!quizMatched){
+    showFailModal(S.signFailNoQuizMsg);
+    return;
   }
   const remark=document.getElementById('signRemark').value.trim();
   if(remark)data.remark=remark;
