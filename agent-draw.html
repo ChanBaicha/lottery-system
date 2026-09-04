@@ -109,7 +109,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .game-desc{color:var(--gold);font-size:1.1em}
 .game-close{position:absolute;top:20px;right:20px;padding:10px 24px;border-radius:20px;background:var(--red);color:#fff;cursor:pointer;font-size:1em;z-index:20}
 #gameCanvas{position:absolute;top:0;left:0;width:100%;height:100%}
-.game-result{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:30;display:none}
+.game-result{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:30;display:none;background:rgba(0,0,0,.85);border-radius:20px;padding:40px 60px;max-width:80%;max-height:80%;overflow-y:auto}
 .game-result.show{display:block}
 .game-result h2{font-size:3em;margin-bottom:16px}
 .game-result .rank{font-size:1.3em;margin:6px 0;padding:6px 20px;border-radius:12px}
@@ -1261,6 +1261,8 @@ function startShakeRound(){
 }
 function endShakeGame(sorted){
   document.getElementById('gameDesc').textContent='游戏结束！';
+  // 清空 Canvas，避免排行榜与结果重叠
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
   var result=document.getElementById('gameResult');
   result.innerHTML='<h2>🏆 摇一摇大赛结果</h2>'+sorted.slice(0,3).map(function(e,i){return'<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+' - '+e[1]+'次</div>'}).join('');
   result.classList.add('show');
@@ -1414,6 +1416,8 @@ function runQuizGame(){
 function endQuizGame(){
   var q=quizState.current;var correct=Object.entries(quizState.answers).filter(function(e){return e[1]===q.a});
   document.getElementById('gameDesc').textContent='正确答案：'+q.a;
+  // 清空 Canvas，避免题目与结果重叠
+  gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
   var result=document.getElementById('gameResult');
   var html='<h2>🧠 抢答结果</h2><div class="rank" style="background:rgba(0,184,148,.2)">✅ 正确答案：'+q.a+'</div>';
   if(correct.length){
