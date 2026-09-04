@@ -710,10 +710,19 @@ function sendPageDanmaku(){
   const text=document.getElementById('dmPageInput').value.trim();
   if(!text){toast('请输入弹幕内容');return}
   if(text.length>50){toast('弹幕最多50字');return}
-  var nick=document.getElementById('wxNickname')?document.getElementById('wxNickname').value.trim():'';
-  var msg={text:text,name:nick||S.myName||'匿名',time:Date.now()};
+  // 优先用已保存的昵称，wxNickname 输入框可能在头像页未渲染
+  var nick=S.myName||'';
+  if(!nick){
+    var nickEl=document.getElementById('wxNickname');
+    if(nickEl)nick=nickEl.value.trim();
+  }
+  var msg={text:text,name:nick||'匿名',time:Date.now()};
   if(S.avatarData)msg.avatar=S.avatarData;
+  if(S.dmColor)msg.color=S.dmColor;
+  // 发给 admin 审计/转发
   S.mqtt.publish(S.topic+'danmaku',JSON.stringify(msg));
+  // 同时直接发到 danmaku_show，确保大屏和抽奖端都能收到（不依赖 admin 在线转发）
+  S.mqtt.publish(S.topic+'danmaku_show',JSON.stringify(msg));
   document.getElementById('dmPageInput').value='';
   toast('弹幕已发送');
   backToHome();
@@ -721,9 +730,9 @@ function sendPageDanmaku(){
 
 // ========== 互动游戏 ==========
 function checkGameEligibility(){
-  // 必须已签到（有昵称）且设置了头像才能参与游戏
-  if(!S.signedIn||!S.myName){
-    toast('请先签到设置昵称后再参与游戏');
+  // 只需设置了头像和昵称即可参与游戏，不需要签到
+  if(!S.myName){
+    toast('请先设置昵称后再参与游戏');
     return false;
   }
   if(!S.avatarData){
