@@ -458,7 +458,8 @@ function renderSignForm(){
 // 兼容旧配置字段（enable 拆分为 enabled + locationEnabled）
 function normalizeSignin(){
   var s=S.signin||{};
-  if(s.enabled===undefined)s.enabled=s.enable!==false;
+  // 云端配置未到达前默认关闭签到（防止竞态：页面刚加载时 S.signin 为空对象，enabled 为 undefined 会误判为开启）
+  if(s.enabled===undefined)s.enabled=s.enable===true;
   if(s.locationEnabled===undefined)s.locationEnabled=s.enable===true;
   S.signin=s;
 }
