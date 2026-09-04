@@ -216,6 +216,8 @@ let S={mqtt:null,topic:'',room:'',
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
   gameType:null,shakeCount:0,shakeListening:false,reactionReady:false,reactionPenaltyUntil:0,quizAnswer:null,
   shakeBatchTimer:null,shakePending:0,
+  reactionScore:0,reactionActive:false,reactionTimer:null,
+  quizTotalRounds:0,quizCurrentRound:0,quizRoundTime:0,
   dmColor:'#fff',
   _avatarTmp:'',
   _formRendered:false
@@ -773,7 +775,7 @@ function joinGame(id){
 }
 function handleGameCmd(d){
   if(d.action==='start'){
-    // 前置校验：未签到或未设置头像不允许参与
+    // 前置校验：未设置头像不允许参与
     if(!checkGameEligibility())return;
     // 收到开始命令时自动加入对应游戏（无需用户手动进入）
     if(!S.gameType||S.gameType!==d.game){
@@ -782,10 +784,13 @@ function handleGameCmd(d){
     if(d.game==='shake')startShakeRound();else if(d.game==='reaction')startReactionRound();else if(d.game==='quiz')showQuizQuestion(d);
   }else if(d.action==='go'&&d.game==='reaction'&&S.gameType==='reaction'){
     reactionGo();
+  }else if(d.action==='round_end'&&d.game==='quiz'&&S.gameType==='quiz'){
+    showQuizRoundEnd(d);
   }else if(d.action==='end'){
     // 只处理当前游戏的end命令
     if(d.game===S.gameType){
       if(d.game==='shake')stopShakeBatch();
+      if(d.game==='reaction')stopReactionGame();
       showGameResult(d);
     }
   }else if(d.action==='close'){
@@ -839,79 +844,97 @@ function stopShakeBatch(){
     S.shakePending=0;
   }
 }
-// 反应速度
+// 反应速度（随机绿点+点击计数）
 function initReactionGame(){
   document.getElementById('gameTitle').textContent='⚡ 反应速度测试';
   document.getElementById('gameDesc').textContent='等待大屏信号...';
-  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><p style="color:var(--sub);line-height:2">大屏变绿后<br>最快点击下方按钮者获胜</p><p style="color:var(--red);font-size:.8em;margin-top:8px">⚠️ 提前点击将被惩罚3秒禁止点击</p></div>';
-  S.reactionReady=false;
-  S.reactionPenaltyUntil=0;
-  S.reactionStarted=false;
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><p style="color:var(--sub);line-height:2">大屏倒计时后开始<br>手机上会随机出现绿点<br>点击越多个数越多排名越高！</p></div>';
+  S.reactionScore=0;S.reactionActive=false;
 }
 function startReactionRound(){
   document.getElementById('gameDesc').textContent='准备...';
-  document.getElementById('gameContent').innerHTML='<div class="card" id="reactionZone" style="text-align:center;background:#e17055;border-color:var(--red);cursor:pointer" onclick="reactionEarlyClick()"><div style="font-size:1.2em;font-weight:bold;color:#fff">🔴 等待信号</div><p style="color:rgba(255,255,255,.7);font-size:.85em;margin-top:8px">屏幕变绿后立刻点击<br><b>提前点击将被罚3秒</b></p></div>';
-  S.reactionReady=false;
-  S.reactionPenalty=0;
-  S.reactionPenaltyUntil=0;
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><div style="font-size:2em;margin:20px 0">⏳</div><p style="color:var(--sub)">等待大屏倒计时结束</p></div>';
+  S.reactionScore=0;S.reactionActive=false;
 }
 function reactionGo(){
-  document.getElementById('gameDesc').textContent='快点击！';
-  document.getElementById('gameContent').innerHTML='<div class="card" id="reactionZone" style="text-align:center;background:#00b894;border-color:var(--grn);cursor:pointer" onclick="reactionClick()"><div style="font-size:1.4em;font-weight:bold;color:#fff">🟢 点击！</div><p style="color:rgba(255,255,255,.7);font-size:.85em;margin-top:8px">尽快点击此区域</p></div>';
-  S.reactionReady=true;
+  S.reactionScore=0;S.reactionActive=true;
+  document.getElementById('gameDesc').textContent='快点击绿点！';
+  spawnReactionDot();
 }
-function reactionEarlyClick(){
-  // 惩罚：提前点击（红灯状态）禁止点击3秒
-  var now=Date.now();
-  if(S.reactionPenaltyUntil&&now<S.reactionPenaltyUntil){
-    toast('⏳ 惩罚中，请等待...',1500);
-    return;
-  }
-  if(S.reactionReady)return;
-  S.reactionPenaltyUntil=now+3000;
-  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center;background:#e17055;border:3px solid #fff;animation:pulse 0.5s infinite"><div style="font-size:1.3em;font-weight:bold;color:#fff;margin-bottom:8px">🚫 抢跑惩罚！</div><p style="color:#fff;font-size:.9em;margin-bottom:12px">提前点击，禁止操作 <b id="penaltyCount" style="font-size:1.4em">3</b> 秒</p><div style="color:rgba(255,255,255,.8);font-size:.8em">⏳ 请等待倒计时结束再点击</div></div>';
-  // 倒计时动画
-  var n=3;
-  var iv=setInterval(function(){
-    n--;
-    var el=document.getElementById('penaltyCount');
-    if(el)el.textContent=Math.max(n,0);
-    if(n<=0){clearInterval(iv);
-      if(S.reactionReady){return}
-      // 恢复等待信号界面（若仍处于红灯阶段）
-      if(!S.reactionReady){
-        document.getElementById('gameContent').innerHTML='<div class="card" id="reactionZone" style="text-align:center;background:#e17055;border-color:var(--red);cursor:pointer" onclick="reactionEarlyClick()"><div style="font-size:1.2em;font-weight:bold;color:#fff">🔴 等待信号</div><p style="color:rgba(255,255,255,.7);font-size:.85em;margin-top:8px">屏幕变绿后立刻点击</p></div>';
-      }
-    }
-  },1000);
-  if(navigator.vibrate)navigator.vibrate([200,100,200]);
+function spawnReactionDot(){
+  if(!S.reactionActive)return;
+  var container=document.getElementById('gameContent');
+  container.style.position='relative';
+  container.innerHTML='';
+  var card=document.createElement('div');
+  card.className='card';
+  card.style.cssText='position:relative;width:100%;height:300px;overflow:hidden;background:#1a1a2e;border:2px solid var(--bd)';
+  var scoreLabel=document.createElement('div');
+  scoreLabel.style.cssText='position:absolute;top:8px;left:50%;transform:translateX(-50%);font-size:1.3em;font-weight:bold;color:var(--gold);z-index:10';
+  scoreLabel.id='reactionScore';
+  scoreLabel.textContent='0';
+  card.appendChild(scoreLabel);
+  // 随机生成绿点
+  var dot=document.createElement('div');
+  var dotSize=50;
+  var cardW=card.offsetWidth||300;
+  var cardH=300;
+  // 适配屏幕：确保绿点不会超出可视区域
+  var maxX=Math.max(0,cardW-dotSize-20);
+  var maxY=Math.max(0,cardH-dotSize-20);
+  var x=10+Math.random()*maxX;
+  var y=30+Math.random()*maxY;
+  dot.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;width:'+dotSize+'px;height:'+dotSize+'px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#55efc4,#00b894);box-shadow:0 0 15px rgba(0,184,148,.5);cursor:pointer;transition:none';
+  dot.onclick=function(){
+    if(!S.reactionActive)return;
+    S.reactionScore++;
+    var sl=document.getElementById('reactionScore');
+    if(sl)sl.textContent=S.reactionScore;
+    if(navigator.vibrate)navigator.vibrate(20);
+    if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'reaction_click',JSON.stringify({name:S.myName||'匿名'}));
+    // 0.5秒后生成下一个绿点
+    setTimeout(function(){spawnReactionDot()},500);
+  };
+  card.appendChild(dot);
+  container.appendChild(card);
 }
-function reactionClick(){
-  if(!S.reactionReady)return;
-  // 若处于惩罚期，禁止点击
-  var now=Date.now();
-  if(S.reactionPenaltyUntil&&now<S.reactionPenaltyUntil){toast('⏳ 惩罚中，请稍候...');return}
-  S.reactionReady=false;
-  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><div style="font-size:2em;margin:20px 0">✅</div><p style="color:var(--grn);font-weight:bold">已点击！</p><p style="color:var(--sub);font-size:.85em;margin-top:8px">等待排名结果...</p></div>';
-  if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'reaction_click',JSON.stringify({name:S.myName||'匿名'}));
+function stopReactionGame(){
+  S.reactionActive=false;
+  if(S.reactionTimer){clearTimeout(S.reactionTimer);S.reactionTimer=null}
 }
-// 趣味抢答
+// 趣味抢答（多轮）
 function initQuizGame(){
   document.getElementById('gameTitle').textContent='🧠 趣味抢答';
   document.getElementById('gameDesc').textContent='等待大屏出题...';
-  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><p style="color:var(--sub);line-height:2">大屏出题后<br>在手机端选择答案</p></div>';
-  S.quizAnswer=null;
+  document.getElementById('gameContent').innerHTML='<div class="card" style="text-align:center"><p style="color:var(--sub);line-height:2">大屏出题后<br>在手机端选择答案<br>答得越快排名越高！</p></div>';
+  S.quizAnswer=null;S.quizTotalRounds=0;S.quizCurrentRound=0;
 }
 function showQuizQuestion(d){
-  document.getElementById('gameDesc').textContent='请选择答案！';
-  const q=d.question||'题目';const opts=d.options||['A','B','C','D'];
-  document.getElementById('gameContent').innerHTML='<div class="card"><div style="font-size:1.1em;font-weight:bold;margin-bottom:16px;text-align:center">'+q+'</div>'+opts.map((o,i)=>'<button class="btn btn-out" style="width:100%;padding:14px;margin-bottom:8px;text-align:left;justify-content:flex-start" onclick="quizSelect(this,\''+o.replace(/'/g,"\\'")+'\')"><b style="margin-right:8px">'+'ABCD'[i]+'.</b> '+o+'</button>').join('')+'</div>';
+  S.quizAnswer=null;
+  S.quizCurrentRound=d.round||1;
+  S.quizTotalRounds=d.totalRounds||1;
+  S.quizRoundTime=Date.now();
+  document.getElementById('gameDesc').textContent='第'+S.quizCurrentRound+'/'+S.quizTotalRounds+'轮 · 请选择答案！';
+  var q=d.question||'题目';var opts=d.options||['A','B','C','D'];
+  document.getElementById('gameContent').innerHTML='<div class="card"><div style="font-size:.8em;color:var(--gold);margin-bottom:8px;text-align:center">第'+S.quizCurrentRound+'/'+S.quizTotalRounds+'轮</div><div style="font-size:1.1em;font-weight:bold;margin-bottom:16px;text-align:center">'+q+'</div>'+opts.map(function(o,i){return'<button class="btn btn-out" style="width:100%;padding:14px;margin-bottom:8px;text-align:left;justify-content:flex-start" onclick="quizSelect(this,\''+o.replace(/'/g,"\\'")+'\')"><b style="margin-right:8px">'+'ABCD'[i]+'.</b> '+o+'</button>'}).join('')+'</div>';
 }
 function quizSelect(btn,answer){
   if(S.quizAnswer)return;S.quizAnswer=answer;
-  document.querySelectorAll('#gameContent .btn').forEach(b=>{b.style.opacity=.5;b.disabled=true});btn.style.opacity=1;btn.style.borderColor='var(--pri)';btn.style.color='#fff';
+  var timeUsed=Date.now()-S.quizRoundTime;
+  document.querySelectorAll('#gameContent .btn').forEach(function(b){b.style.opacity=.5;b.disabled=true});btn.style.opacity=1;btn.style.borderColor='var(--pri)';btn.style.color='#fff';
   if(S.mqtt&&S.mqtt.connected)S.mqtt.publish(S.topic+'quiz_answer',JSON.stringify({name:S.myName||'匿名',answer:answer}));
-  toast('已选择：'+answer);
+  toast('已选择：'+answer+' 用时'+(timeUsed/1000).toFixed(1)+'秒');
+}
+function showQuizRoundEnd(d){
+  document.getElementById('gameDesc').textContent='第'+(d.round||S.quizCurrentRound)+'轮结束 · 正确答案：'+(d.correct||'');
+  var correctNames=d.correctNames||[];
+  var isCorrect=correctNames.indexOf(S.myName)>=0;
+  var html='<div class="card" style="text-align:center"><div style="font-size:.8em;color:var(--gold);margin-bottom:8px">第'+(d.round||S.quizCurrentRound)+'轮结果</div>';
+  html+='<div style="font-size:1.2em;font-weight:bold;margin-bottom:12px;color:'+(isCorrect?'var(--grn)':'var(--red)')+'">'+(isCorrect?'✅ 答对了！':'❌ 答错了')+'</div>';
+  html+='<div style="color:var(--sub);margin-bottom:8px">正确答案：<b style="color:var(--grn)">'+(d.correct||'')+'</b></div>';
+  if(correctNames.length){html+='<div style="font-size:.85em;color:var(--sub)">本轮答对：'+correctNames.join('、')+'</div>'}
+  html+='<p style="color:var(--sub);font-size:.85em;margin-top:12px">等待下一轮...</p></div>';
+  document.getElementById('gameContent').innerHTML=html;
 }
 function showGameResult(d){
   const r=document.getElementById('gameResult');
@@ -931,7 +954,11 @@ function showGameResult(d){
   if(myRank){
     var medal=['🥇','🥈','🥉'][myRank.rank-1]||'🎉 第'+myRank.rank+'名';
     var scoreText='';
-    if(myRank.score){scoreText=d.game==='reaction'?(myRank.score/1000).toFixed(3)+'秒':myRank.score+'次'}
+    if(myRank.score){
+      if(d.game==='reaction')scoreText=myRank.score+'次';
+      else if(d.game==='quiz')scoreText=(myRank.score/1000).toFixed(1)+'秒';
+      else scoreText=myRank.score+'次';
+    }
     html+='<div class="card" style="border:3px solid var(--gold);text-align:center;background:linear-gradient(135deg,rgba(253,203,110,.15),rgba(253,203,110,.05))"><div style="font-size:.85em;color:var(--gold);margin-bottom:6px">🎁 礼品派发凭证</div><div style="font-size:2.5em;margin:8px 0">'+medal+'</div><div style="font-size:1.1em;font-weight:bold;margin-bottom:4px">'+myRank.name+'</div><div style="font-size:.85em;color:var(--sub);margin-bottom:8px">'+gameName+(scoreText?' · '+scoreText:'')+'</div><div style="font-size:.75em;color:var(--sub);border-top:1px solid var(--bd);padding-top:8px">请截图此页面作为领奖凭证</div></div>';
   }
   // 完整排名列表
@@ -939,7 +966,12 @@ function showGameResult(d){
     html+='<div class="card" style="border:2px solid var(--gold);text-align:center"><div style="font-size:1.1em;font-weight:bold;color:var(--gold);margin-bottom:12px">🏆 完整排名</div>'+d.rankings.map(function(p){
       var isMe=p.name===myName;
       var medal=['🥇','🥈','🥉'][p.rank-1]||'🎉';
-      var scoreText=p.score?(d.game==='reaction'?(p.score/1000).toFixed(3)+'秒':p.score+'次'):'';
+      var scoreText='';
+      if(p.score){
+        if(d.game==='reaction')scoreText=p.score+'次';
+        else if(d.game==='quiz')scoreText=(p.score/1000).toFixed(1)+'秒';
+        else scoreText=p.score+'次';
+      }
       return '<div style="padding:8px 16px;border-radius:10px;margin-bottom:6px;'+(isMe?'background:rgba(253,203,110,.25);border:1px solid var(--gold)':'background:rgba(253,203,110,.1)')+';font-size:.95em;'+(isMe?'font-weight:bold':'')+'">'+medal+' '+p.name+(scoreText?' - '+scoreText:'')+(isMe?' <span style="color:var(--gold);font-size:.8em">（我）</span>':'')+'</div>';
     }).join('')+'</div>';
   }
@@ -949,8 +981,8 @@ function showGameResult(d){
   r.innerHTML=html;
 }
 function exitGame(){
-  S.gameType=null;shakeListening=false;S.quizAnswer=null;S.reactionReady=false;S.reactionPenaltyUntil=0;
-  stopShakeBatch();
+  S.gameType=null;shakeListening=false;S.quizAnswer=null;S.reactionReady=false;S.reactionPenaltyUntil=0;S.reactionActive=false;S.reactionScore=0;
+  stopShakeBatch();stopReactionGame();
   // 重置游戏区域显示状态
   document.getElementById('gameContent').style.display='';
   document.getElementById('gameResult').style.display='none';
