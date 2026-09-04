@@ -470,53 +470,67 @@ function applyMusic(){
   }
 }
 
-// ========== 弹幕显示 ==========
+// ========== 弹幕循环滚动 ==========
+var dmQueue=[]; // 弹幕队列：按时间顺序保存
+var dmActiveSlots=0; // 当前屏幕上活跃弹幕数
 function showDanmaku(text,name,avatar,color){
   if(!S.danmakuSettings.enable)return;
   var badWords=S.danmakuSettings.badWords||[];
   for(var i=0;i<badWords.length;i++){if(text.includes(badWords[i]))return}
-  var layer=document.getElementById('danmakuLayer');
-  // 数量限制：超过最大条数时移除最旧的
+  // 加入弹幕队列（按时间顺序追加）
+  dmQueue.push({text:text,name:name||'',avatar:avatar||'',time:Date.now()});
+  // 队列长度不超过最大条数的3倍（避免无限增长）
+  var maxQueue=(S.danmakuSettings.max||50)*3;
+  while(dmQueue.length>maxQueue)dmQueue.shift();
+  // 如果当前屏幕上弹幕数未达上限，立即展示
   var maxDM=S.danmakuSettings.max||50;
-  var existing=layer.children;
-  while(existing.length>=maxDM){existing[0].remove()}
+  if(dmActiveSlots<maxDM){renderNextDanmaku()}
+}
+function renderNextDanmaku(){
+  if(!dmQueue.length)return;
+  var maxDM=S.danmakuSettings.max||50;
+  if(dmActiveSlots>=maxDM)return;
+  var item=dmQueue.shift();
+  var layer=document.getElementById('danmakuLayer');
   var div=document.createElement('div');
   div.className='dm-item';
   var fontSize=S.danmakuSettings.fontSize||28;
   var speed=S.danmakuSettings.speed||8;
-  // 颜色：始终随机
   var colors=['#fff','#fdcb6e','#fd79a8','#a29bfe','#00b894','#0984e3','#e17055','#55efc4','#ff6b81','#74b9ff'];
   var c=colors[Math.floor(Math.random()*colors.length)];
   div.style.fontSize=fontSize+'px';
   div.style.color=c;
   div.style.top=(Math.random()*60+5)+'%';
   div.style.animationDuration=speed+'s';
-  // 头像
-  if(avatar){
+  if(item.avatar){
     var av=document.createElement('span');
     av.className='dm-avatar';
-    if(typeof avatar==='string'&&avatar.indexOf('emoji:')===0){
+    if(typeof item.avatar==='string'&&item.avatar.indexOf('emoji:')===0){
       av.classList.add('dm-avatar-emoji');
-      av.textContent=avatar.substr(6);
+      av.textContent=item.avatar.substr(6);
     }else{
-      av.innerHTML='<img src="'+avatar+'">';
+      av.innerHTML='<img src="'+item.avatar+'">';
     }
     div.appendChild(av);
   }
-  // 昵称
-  if(name){
+  if(item.name){
     var nick=document.createElement('span');
     nick.className='dm-nick';
-    nick.textContent=name+':';
+    nick.textContent=item.name+':';
     div.appendChild(nick);
   }
-  // 文本
   var tx=document.createElement('span');
-  tx.textContent=text;
+  tx.textContent=item.text;
   div.appendChild(tx);
+  dmActiveSlots++;
   layer.appendChild(div);
-  // 清理
-  setTimeout(function(){div.remove()},speed*1000+500);
+  // 弹幕动画结束后：从队列取下一条继续滚动（循环）
+  setTimeout(function(){
+    div.remove();
+    dmActiveSlots--;
+    // 立即补充下一条（如果队列里还有）
+    if(dmQueue.length)renderNextDanmaku();
+  },speed*1000+500);
 }
 
 // ========== 自定义元素 ==========
