@@ -554,8 +554,8 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
         <div class="f-grp"><label>🕔 签到截止时间</label><input id="sgEnd" type="datetime-local"></div>
       </div>
       <div class="f-grp" style="margin-top:8px">
-        <label>📢 未在签到时间内的提示语（答题端显示）</label>
-        <input id="sgPromptMsg" placeholder="如：请于当日17:00-17:30前往一食堂外电信展台进行现场签到" style="width:100%;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em">
+        <label>📢 签到不可用提示语（签到端显示，含未到时间/不在范围/未登记/未答题等情况）</label>
+        <input id="sgPromptMsg" placeholder="请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答" style="width:100%;padding:12px 14px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em">
       </div>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:8px"><input type="checkbox" id="sgEnabled" checked> 开启签到（勾选后参与才可进行签到）</label>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:8px"><input type="checkbox" id="sgLocVerify"> 启用定位签到验证（勾选后应用签到定位和签到时间）</label>
@@ -645,7 +645,7 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   participants:[],records:[],baseLink:'',
   signFailMsg:'签到失败！请检查您填写的姓名和手机号是否正确。',
   signFailNoQuizMsg:'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',
-  signPromptMsg:'请于当日17:00-17:30前往一食堂外电信展台进行现场签到',
+  signPromptMsg:'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',
   flowInterval:0,
   gameConfig:{shakeDuration:10,reactionDuration:15,reactionIntervalType:'random',reactionFixedInterval:2,reactionMinInterval:1,reactionMaxInterval:3,quizRounds:3,quizInterval:5,autoStartThreshold:0},
   danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,max:50,history:[]},
@@ -820,7 +820,7 @@ function broadcastConfig(){
     prizes:S.prizes,fields:S.fields,screen:S.screen,signin:S.signin,drawCount:S.drawCount,
     accounts:S.accounts,baseLink:S.baseLink,participantCount:S.participants.length,
     participants:S.participants.map(function(p){var pc=p.preCalc||{};return{name:p.name,phone:p.phone||'',avatar:p.avatar||'',signed:p.signed,won:p.won,operator:p.operator||'',registerTime:p.registerTime||null,voided:p.voided||false,team:p.team||'',ticket:p.ticket||p['抽奖券编码']||'',preCalc:{totalSum:pc.totalSum||0,phoneSum:pc.phoneSum||0,ticketSum:pc.ticketSum||0,sumLast4:pc.sumLast4||0,sumAllUnit:pc.sumAllUnit||0,sumLast4Unit:pc.sumLast4Unit||0,phoneEven:pc.phoneEven||false,last4Even:pc.last4Even||false,allEven:pc.allEven||false}}}),
-    signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg||'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',signPromptMsg:S.signPromptMsg||'请于当日17:00-17:30前往一楼展台进行现场签到',flowInterval:S.flowInterval,
+    signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg||'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',signPromptMsg:S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',flowInterval:S.flowInterval,
     gameConfig:S.gameConfig,
     danmaku:{enable:S.danmaku.enable,speed:S.danmaku.speed,fontSize:S.danmaku.fontSize,max:S.danmaku.max||50,anonymous:S.danmaku.anonymous,badWords:S.danmaku.badWords,needReview:S.danmaku.needReview},
     music:S.music,
@@ -2060,7 +2060,7 @@ function saveSigninConfig(){
   const lat=parseFloat(document.getElementById('sgLat').value),lng=parseFloat(document.getElementById('sgLng').value),r=parseInt(document.getElementById('sgRadius').value)||500;
   if(locVerify&&(isNaN(lat)||isNaN(lng))){toast('启用定位验证需填写有效经纬度');return}
   S.signin={lat:locVerify?lat:null,lng:locVerify?lng:null,radius:r,startTime:document.getElementById('sgStart').value||null,endTime:document.getElementById('sgEnd').value||null,enabled:enabled,locationEnabled:locVerify};
-  S.signPromptMsg=document.getElementById('sgPromptMsg').value.trim()||'请于当日17:00-17:30前往一食堂外电信展台进行现场签到';
+  S.signPromptMsg=document.getElementById('sgPromptMsg').value.trim()||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答';
   saveLocal();broadcastConfig();document.getElementById('sgStatus').innerHTML='<span style="color:var(--grn)">✓ 签到配置已保存并同步</span>';toast('签到配置已保存')
 }
 
@@ -2320,7 +2320,7 @@ function upsertCloudLottery(row){
 }
 // ========== 存储渲染 ==========
 // 保存配置到本地（仅账号与设置，业务数据一律云端为准，本地仅作账号登录读取）
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于当日17:00-17:30前往一楼展馆外现场签到',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,lotteryRule:S.lotteryRule||{}}))}catch(e){}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,lotteryRule:S.lotteryRule||{}}))}catch(e){}
   cloudPush();
 }
 // 只读本地账号（登录需要），业务数据（参与者/答题/设置）一律以云端为准，不恢复本地缓存
@@ -2348,7 +2348,7 @@ function renderAll(){
   if(S.signin.lat){document.getElementById('sgLat').value=S.signin.lat;document.getElementById('sgLng').value=S.signin.lng;document.getElementById('sgRadius').value=S.signin.radius;if(S.signin.startTime)document.getElementById('sgStart').value=S.signin.startTime;if(S.signin.endTime)document.getElementById('sgEnd').value=S.signin.endTime}
   var sgEn=document.getElementById('sgEnabled');if(sgEn)sgEn.checked=S.signin.enabled!==false&&S.signin.enable!==false;
   var sgLv=document.getElementById('sgLocVerify');if(sgLv)sgLv.checked=S.signin.locationEnabled===true||(S.signin.locationEnabled===undefined&&S.signin.enable===true);
-  var spm=document.getElementById('sgPromptMsg');if(spm)spm.value=S.signPromptMsg||'请于当日17:00-17:30前往一食堂外电信展台进行现场签到';
+  var spm=document.getElementById('sgPromptMsg');if(spm)spm.value=S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答';
   if(S.baseLink)document.getElementById('linkBase').value=S.baseLink;
   var mc=S.music||{enable:false,preset:'',url:'',name:'',volume:0.5};
   var mPreset=document.getElementById('scMusicPreset');if(mPreset)mPreset.value=mc.preset||'';
