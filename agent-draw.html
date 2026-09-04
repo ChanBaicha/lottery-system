@@ -546,25 +546,45 @@ function cloudPull(){
     if(res.error){console.warn('配置拉取失败',res.error.message);return}
     if(res.data&&res.data.data){_cloudFlag=true;applyCloudConfig(res.data.data);setTimeout(function(){_cloudFlag=false},500)}
   });
-  _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
-    if(pr.error){console.warn('参与者拉取失败',pr.error.message);return}
-    if(pr.data){
+  // 分批拉取 participants（最小字段，避免大数据量超时）
+  cloudPullPage('participants','pid,name,phone,data->signed,data->won,data->prizeId,data->team,data->avatar',0,[],function(rows){
+    if(rows.length){
       _cloudFlag=true;
-      S.participants=pr.data.map(function(r){var d=r.data||{};if(!d.id)d.id=r.pid;return d});
+      S.participants=rows.map(function(r){
+        var d={id:r.pid||r.pid,name:r.name,phone:r.phone,signed:r.signed,won:r.won,prizeId:r.prizeId,team:r.team,avatar:r.avatar};
+        return d;
+      });
       setTimeout(function(){_cloudFlag=false},500);
     }
     updatePool();
   });
-  _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
-    if(qr.error){console.warn('答题拉取失败',qr.error.message);return}
-    if(qr.data){
+  // 分批拉取 quiz_results（最小字段，避免大数据量超时）
+  cloudPullPage('quiz_results','name,phone,round,data->correctCount,data->totalCount,data->totalTimeMs',0,[],function(rows){
+    if(rows.length){
       _cloudFlag=true;
-      S.quizResults=qr.data.map(function(r){return r.data||{}});
+      S.quizResults=rows.map(function(r){
+        return {name:r.name,phone:r.phone,round:r.round,correctCount:r.correctCount,totalCount:r.totalCount,totalTimeMs:r.totalTimeMs};
+      });
       buildQuizMap();
       setTimeout(function(){_cloudFlag=false},500);
     }
     updatePool();
   });
+}
+// 分批拉取指定表（fetch+REST Range头，每批200条）
+function cloudPullPage(table,cols,offset,acc,cb){
+  var url=SB_URL+'/rest/v1/'+table+'?room=eq.'+S.room+'&select='+encodeURIComponent(cols)+'&offset='+offset+'&limit=200';
+  fetch(url,{headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}})
+    .then(function(res){
+      if(!res.ok)throw new Error(table+' 拉取失败 '+res.status);
+      return res.json();
+    })
+    .then(function(rows){
+      acc=acc.concat(rows);
+      if(rows.length===200){cloudPullPage(table,cols,offset+200,acc,cb)}
+      else{cb(acc)}
+    })
+    .catch(function(e){console.warn(table+' 拉取失败',e.message);cb(acc)});
 }
 function applyCloudConfig(d){
   if(!d||typeof d!=='object')return;
