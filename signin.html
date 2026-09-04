@@ -651,6 +651,7 @@ function saveAvatarNick(){
   if(!nick){nick=randomNick(true);}
   var nickEl=document.getElementById('wxNickname');
   if(nickEl)nickEl.value=nick;
+  S.myName=nick;
   if(S._avatarTmp){
     S.avatarData=S._avatarTmp;
     S._avatarTmp='';
