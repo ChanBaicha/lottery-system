@@ -201,6 +201,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <div class="section">
       <h3 style="font-size:1.05em;margin-bottom:10px">✅ 参与条件</h3>
       <div style="display:flex;flex-direction:column;gap:10px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="lrReg" checked> <span>已完成登记</span></label>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="lrSigned" checked> <span>已完成现场签到</span></label>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="lrQuiz" checked> <span>已完成知识问答</span></label>
         <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="lrNotWon" checked> <span>尚未中奖（配合防重复）</span></label>
@@ -491,6 +492,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <div style="padding:8px 16px;background:var(--card);border-radius:20px;font-size:.9em">已登记 <b id="totalCnt" style="color:var(--gold)">0</b> · 已签到 <b id="signedCnt" style="color:var(--grn)">0</b> · 已答题 <b id="quizCnt" style="color:var(--pri-l)">0</b> · 未答题 <b id="noQuizCnt" style="color:var(--red)">0</b></div>
       <select id="ptOpFilter" onchange="filterParticipants(this.value)" style="padding:8px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.9em"><option value="">全部来源</option></select>
       <button class="btn btn-out" onclick="exportParticipants()">📋 导出名单</button>
+      <button class="btn btn-out" onclick="dedupParticipants()">🔁 云端去重</button>
       <button class="btn btn-dng" onclick="clearParticipants()">🗑️ 清空全部</button>
     </div>
     <!-- Excel 导入 -->
@@ -652,7 +654,7 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   quizBoardName:'新办手机号码',
   quizIntro:'🎉 欢迎参加趣味知识问答！\n\n📌 温馨提示：\n1. 每人最多可参与 3 次答题，系统自动取最好成绩\n2. 请如实填写姓名和手机号码，需与签到信息一致\n3. 答题开始后请专注作答，争取最佳成绩\n4. 成绩将自动同步至抽奖系统\n\n祝您答题愉快，好运连连！',
   quizResults:[],
-  lotteryRule:{enable:false,signed:true,quiz:true,notWon:true,nameKeywords:'',nameStart:'',nameEnd:'',phonePrefix:'',phoneSuffix:'',phoneCalc:'',hitList:[],ruleDesc:'',runTime:null}
+  lotteryRule:{enable:false,reg:true,signed:true,quiz:true,notWon:true,nameKeywords:'',nameStart:'',nameEnd:'',phonePrefix:'',phoneSuffix:'',phoneCalc:'',hitList:[],ruleDesc:'',runTime:null}
 };
 let currentTab='prizes';
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
@@ -775,15 +777,15 @@ function restoreVoidedWinner(idx){
 function handleRegister(d){
   if(!d.data)return;
   const exist=S.participants.find(p=>p.id===d.data.id);
-  if(exist){Object.assign(exist,d.data)}else{S.participants.push(d.data)}
+  if(exist){Object.assign(exist,d.data);exist._dirty=true}else{d.data._dirty=true;S.participants.push(d.data)}
   saveLocal();renderParticipants();broadcastConfig();
   toast('📥 '+d.operator+' 登记了: '+(d.data.name||'新参与者'))
 }
 function handleSignIn(d){
   if(!d.name)return;
   const exist=S.participants.find(p=>p.name===d.name&&(p.phone||'')===(d.phone||''));
-  if(exist){exist.signed=true;exist.signTime=d.signTime;exist.lat=d.lat;exist.lng=d.lng;exist.distance=d.distance}
-  else{S.participants.push({id:d.id||uid(),name:d.name,phone:d.phone||'',signed:true,won:false,prizeId:null,signTime:d.signTime,lat:d.lat,lng:d.lng,distance:d.data,fields:d.fields||{}})}
+  if(exist){exist.signed=true;exist.signTime=d.signTime;exist.lat=d.lat;exist.lng=d.lng;exist.distance=d.distance;exist._dirty=true}
+  else{S.participants.push({id:d.id||uid(),name:d.name,phone:d.phone||'',signed:true,won:false,prizeId:null,signTime:d.signTime,lat:d.lat,lng:d.lng,distance:d.data,fields:d.fields||{},_dirty:true})}
   saveLocal();renderParticipants();broadcastConfig();toast('✅ '+d.name+' 已签到')
 }
 function handleDanmaku(d){
@@ -1215,7 +1217,7 @@ function renderQuizResults(){
   l.innerHTML=best.map(function(r,i){
     var accuracy=r.totalCount>0?(r.correctCount/r.totalCount*100).toFixed(0):0;
     var roundInfo=r.allRoundCount>1?' <span style="font-size:.78em;color:var(--gold)">'+r.allRoundCount+'轮最佳</span>':' <span style="font-size:.78em;color:var(--sub)">第'+r.round+'轮</span>';
-    return '<div class="section" style="padding:10px 14px;margin-bottom:6px" id="qr-'+i+'"><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0">'+((r.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+r.name+roundInfo+'</div><div style="font-size:.8em;color:var(--sub)">手机号:'+maskPhoneQ(r.phone)+' · 正确:'+r.correctCount+'/'+r.totalCount+' · 正确率:'+accuracy+'% · 总用时:'+(r.totalTimeMs/1000).toFixed(2)+'s</div></div><button class="btn btn-dng" style="padding:4px 10px;font-size:.8em;flex-shrink:0" onclick="deleteQuizResult('+i+')">🗑️ 删除</button></div></div>';
+    return '<div class="section" style="padding:10px 14px;margin-bottom:6px" id="qr-'+i+'"><div style="display:flex;align-items:center;gap:10px"><div style="width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:bold;flex-shrink:0">'+((r.name||'?')[0])+'</div><div style="flex:1"><div style="font-weight:bold">'+r.name+roundInfo+'</div><div style="font-size:.8em;color:var(--sub)">手机号:'+maskPhoneQ(r.phone)+' · 正确:'+r.correctCount+'/'+r.totalCount+' · 正确率:'+accuracy+'% · 总用时:'+(r.totalTimeMs/1000).toFixed(2)+'s · 提交时间:'+(r.time?fmt(r.time):'—')+'</div></div><button class="btn btn-dng" style="padding:4px 10px;font-size:.8em;flex-shrink:0" onclick="deleteQuizResult('+i+')">🗑️ 删除</button></div></div>';
   }).join('');
 }
 function deleteQuizResult(idx){
@@ -1281,6 +1283,7 @@ function clearQuizResults(){
 function readLotteryRuleUI(){
   var r=S.lotteryRule||{};
   r.enable=document.getElementById('lrEnable').checked;
+  r.reg=document.getElementById('lrReg').checked;
   r.signed=document.getElementById('lrSigned').checked;
   r.quiz=document.getElementById('lrQuiz').checked;
   r.notWon=document.getElementById('lrNotWon').checked;
@@ -1335,9 +1338,19 @@ function matchPhoneCalc(phone,desc){
       var key=(q.name||'')+'|'+(q.phone||'');
       if(!seen[key]){seen[key]=1;quizDone.push({name:q.name,phone:q.phone,bestCorrectCount:q.bestCorrectCount||q.correctCount,bestAccuracy:q.bestAccuracy||q.accuracy,dataBreakdown:q.dataBreakdown||null})}
     });
-    // 待匹配候选 = 已登记参与者（含完整手机号 + 签到状态）
+    // 待匹配候选池：默认=已登记参与者；取消勾选「已完成登记」时，扩充到已答题人员
+    var pool=S.participants.slice();
+    if(r.reg===false){
+      quizDone.forEach(function(q){
+        var maskedPhone=q.phone.replace(/X/g,'').length===11?q.phone:q.phone;
+        var exists=pool.some(function(p){return (p.name||'').trim()===(q.name||'').trim()&&(p.phone===q.phone)});
+        if(!exists&&q.name){
+          pool.push({name:q.name,phone:q.phone,signed:false,won:false,fromQuiz:true});
+        }
+      });
+    }
     var hit=[];
-    S.participants.forEach(function(p){
+    pool.forEach(function(p){
       if(r.signed&&!p.signed)return;
       if(r.notWon&&p.won)return;
       var name=(p.name||'').trim();
@@ -1363,7 +1376,7 @@ function matchPhoneCalc(phone,desc){
         });
         if(!qzMatch)return;
       }
-      hit.push({name:name,phone:phone,gender:p.gender||'',signed:true,won:p.won||false,bestCorrectCount:qzMatch?qzMatch.bestCorrectCount:0,bestAccuracy:qzMatch?qzMatch.bestAccuracy:'0'});
+      hit.push({name:name,phone:phone,gender:p.gender||'',signed:!!p.signed,won:p.won||false,bestCorrectCount:qzMatch?qzMatch.bestCorrectCount:0,bestAccuracy:qzMatch?qzMatch.bestAccuracy:'0'});
     });
     r.hitList=hit;
     r.runTime=Date.now();
@@ -1399,6 +1412,7 @@ function renderLotteryRule(){
   var r=S.lotteryRule||{};var list=r.hitList||[];
   document.getElementById('lrHitCount').textContent=list.length;
   document.getElementById('lrEnable').checked=!!r.enable;
+  document.getElementById('lrReg').checked=r.reg!==false;
   document.getElementById('lrSigned').checked=r.signed!==false;
   document.getElementById('lrQuiz').checked=r.quiz!==false;
   document.getElementById('lrNotWon').checked=r.notWon!==false;
@@ -1423,7 +1437,7 @@ function exportHitList(){
 function clearLotteryRule(){
   if(!confirm('确定一键清空抽奖规则与命中清单？'))return;
   var r=S.lotteryRule||{};
-  S.lotteryRule={enable:false,signed:true,quiz:true,notWon:true,nameKeywords:'',nameStart:'',nameEnd:'',phonePrefix:'',phoneSuffix:'',phoneCalc:'',hitList:[],ruleDesc:'',runTime:null};
+  S.lotteryRule={enable:false,reg:true,signed:true,quiz:true,notWon:true,nameKeywords:'',nameStart:'',nameEnd:'',phonePrefix:'',phoneSuffix:'',phoneCalc:'',hitList:[],ruleDesc:'',runTime:null};
   saveLocal();broadcastConfig();renderLotteryRule();toast('已清空规则，可重新制定');
 }
 // TeleAgent 辅助
@@ -1434,6 +1448,7 @@ function buildTeleAgentPrompt(){
   // 规则描述（结构化拼装，便于 AI 理解）
   var conds=[];
   if(r.enable)conds.push('启用抽奖规则');
+  if(r.reg)conds.push('已完成登记');
   if(r.signed)conds.push('已完成现场签到');
   if(r.quiz)conds.push('已完成知识问答');
   if(r.notWon)conds.push('尚未中奖');
@@ -1878,6 +1893,65 @@ function delParticipant(id){
   S.participants=S.participants.filter(p=>p.id!==id);
   saveLocal();renderParticipants();broadcastConfig();toast('已删除')}
 function clearParticipants(){if(!S.participants.length){toast('暂无参与者');return}if(confirm('确定清空所有参与者？')){S.participants=[];saveLocal();renderParticipants();broadcastConfig();toast('已清空');if(_sb){_sb.from('participants').delete().eq('room',S.room).then(function(res){if(res.error)console.warn('云端参与者清空失败',res.error.message)})}}}
+// 云端去重：按 姓名+手机号（完全一致）去重，保留最新一条，本地与云端同步清理
+function dedupParticipants(){
+  var list=S.participants||[];
+  if(!list.length){toast('暂无参与者');return}
+  // 统计重复组
+  var map={};
+  list.forEach(function(p,i){
+    var key=(p.name||'')+'|'+(p.phone||'');
+    if(!map[key])map[key]=[];
+    map[key].push({p:p,idx:i});
+  });
+  var dupGroups=Object.keys(map).filter(function(k){return map[k].length>1});
+  if(!dupGroups.length){toast('未发现重复的参与者（按姓名+手机号）');return}
+  var dupTotal=dupGroups.reduce(function(s,k){return s+map[k].length},0);
+  var keepCount=dupGroups.length;
+  if(!confirm('检测到 '+keepCount+' 组重复（共 '+dupTotal+' 条记录），将每组保留最新一条，删除其余 '+(dupTotal-keepCount)+' 条。\n是否执行去重？'))return;
+  // 每组保留最新（signTime/登记时间最大）的一条
+  var keepKeys={};
+  dupGroups.forEach(function(k){
+    var group=map[k].slice().sort(function(a,b){
+      var tA=a.p.signTime||a.p.time||0,tB=b.p.signTime||b.p.time||0;
+      return tB-tA;
+    });
+    keepKeys[k]=group[0].idx;
+  });
+  var removedCount=0;
+  S.participants=list.filter(function(p,i){
+    var key=(p.name||'')+'|'+(p.phone||'');
+    if(map[key].length>1&&keepKeys[key]!==i){removedCount++;return false}
+    return true;
+  });
+  saveLocal();renderParticipants();broadcastConfig();
+  toast('已去重：保留 '+keepCount+' 组，删除 '+removedCount+' 条重复');
+  // 同步云端：删除该房间在云端的重复记录（按 name+phone 匹配删除重复，保留最新 pid）
+  if(_sb){
+    _sb.from('participants').select('pid,name,phone').eq('room',S.room).then(function(res){
+      if(res.error||!res.data||!res.data.length)return;
+      var cmap={};
+      res.data.forEach(function(row){
+        var key=(row.name||'')+'|'+(row.phone||'');
+        if(!cmap[key])cmap[key]=[];
+        cmap[key].push(row);
+      });
+      var dupPids=[];
+      Object.keys(cmap).forEach(function(k){
+        if(cmap[k].length>1){
+          // 保留第一条，其余删除
+          cmap[k].slice(1).forEach(function(row){dupPids.push(row.pid)});
+        }
+      });
+      if(dupPids.length){
+        _sb.from('participants').delete().in('pid',dupPids).then(function(dr){
+          if(dr.error)console.warn('云端去重删除失败',dr.error.message);
+          else toast('云端已清理 '+dupPids.length+' 条重复记录');
+        });
+      }
+    });
+  }
+}
 function voidTodaySigned(){
   if(!S.participants.length){toast('暂无参与者');return}
   // 筛选当日已签到的参与者
@@ -2035,7 +2109,7 @@ function applyCloudData(d,isRemote){
     S.topic='cj2026/'+S.room+'/';
     document.getElementById('roomIdDisp').textContent=S.room;
     if(S.loggedIn)renderAll();
-    try{localStorage.setItem('cj_admin',JSON.stringify({config:pickCfg(),participants:S.participants,records:S.records,quizResults:S.quizResults}))}catch(e){}
+    saveLocal();
   }catch(e){console.warn('应用云端数据失败',e)}
 }
 function pickCfg(){
@@ -2053,15 +2127,23 @@ function cloudPush(){
       setTimeout(function(){_cloudFlag=false},500);
       if(res.error)console.warn('云端配置写入失败',res.error.message);
     });
-    // 全量同步参与者（upsert 去重）
+    // 增量同步参与者：仅上传新增或变更过的记录，避免重复数据过多
     var ptData=S.participants||[];
     if(ptData.length){
-      var rows=ptData.map(function(p){
-        return {room:S.room,pid:p.id||p.pid||p['抽奖券编码']||p.name+'_'+p.phone,name:p.name||'?',phone:p.phone||'',data:JSON.parse(JSON.stringify(p))};
-      });
-      _sb.from('participants').upsert(rows,{onConflict:'room,pid'}).then(function(res){
-        if(res.error)console.warn('云端参与者写入失败',res.error.message);
-      });
+      // 找出本地有变更（无 _synced 标记或 _dirty 标记）的参与者
+      var dirty=ptData.filter(function(p){return !p._synced||p._dirty});
+      if(dirty.length){
+        var rows=dirty.map(function(p){
+          return {room:S.room,pid:p.id||p.pid||p['抽奖券编码']||p.name+'_'+p.phone,name:p.name||'?',phone:p.phone||'',data:JSON.parse(JSON.stringify(p))};
+        });
+        _sb.from('participants').upsert(rows,{onConflict:'room,pid'}).then(function(res){
+          if(res.error){console.warn('云端参与者写入失败',res.error.message);return}
+          // 上传成功：清除脏标记，避免重复上传
+          dirty.forEach(function(p){delete p._dirty;p._synced=true});
+          S._cloudPtDedup=S._cloudPtDedup||{};
+          dirty.forEach(function(p){S._cloudPtDedup[(p.name||'')+'|'+(p.phone||'')]=1});
+        });
+      }
     }
     // 全量同步答题结果（表去重按 name+phone+round）
     var qrData=S.quizResults||[];
@@ -2099,9 +2181,11 @@ function mergeCloudParticipants(rows){
       if(pidSet[pid]){
         var lp=S.participants.find(function(p){return (p.id||p.pid)===pid});
         if(lp)Object.assign(lp,row.data||{});
+        if(lp)lp._synced=true;
       }else{
         var np=row.data||{};
         if(!np.id)np.id=row.pid;
+        np._synced=true;
         S.participants.push(np);
       }
     });
@@ -2115,7 +2199,7 @@ function upsertCloudParticipant(row){
   if(!np.id)np.id=row.pid;
   var pid=row.pid||np.id;
   var lp=S.participants.find(function(p){return (p.id||p.pid)===pid});
-  if(lp){Object.assign(lp,np)}else{S.participants.push(np)}
+  if(lp){Object.assign(lp,np);lp._synced=true}else{np._synced=true;S.participants.push(np)}
   renderParticipants();saveLocal();
 }
 function removeCloudParticipant(pid){
@@ -2175,10 +2259,12 @@ function upsertCloudLottery(row){
   renderRecords();saveLocal();
 }
 // ========== 存储渲染 ==========
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,participants:S.participants,records:S.records,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于当日17:00-17:30前往一楼展馆外现场签到',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,quizResults:S.quizResults||[],lotteryRule:S.lotteryRule||{}}))}catch(e){}
+// 保存配置到本地（仅账号与设置，业务数据一律云端为准，本地仅作账号登录读取）
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于当日17:00-17:30前往一楼展馆外现场签到',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,lotteryRule:S.lotteryRule||{}}))}catch(e){}
   cloudPush();
 }
-function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d){Object.assign(S,d);if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')});saveLocal()}}}catch(e){}}
+// 只读本地账号（登录需要），业务数据（参与者/答题/设置）一律以云端为准，不恢复本地缓存
+function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d&&d.accounts&&d.accounts.length){S.accounts=d.accounts;S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}}catch(e){}}
 function initCloudSync(){cloudInit();}
 function renderAll(){
   renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();
