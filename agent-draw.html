@@ -41,6 +41,15 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .rule-item .rule-del{width:26px;height:26px;border-radius:8px;background:var(--red);color:#fff;cursor:pointer;font-size:.82em;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .btn-add-rule{padding:8px 14px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--sub);cursor:pointer;font-size:.85em;transition:.2s;margin-top:6px;width:100%}
 .btn-add-rule:hover{border-color:var(--pri);color:var(--pri-l)}
+.custom-rule-box{margin-top:10px;padding:10px;border-radius:10px;background:rgba(108,92,231,.08);border:1px solid rgba(108,92,231,.25)}
+.custom-rule-label{font-size:.78em;color:var(--pri-l);margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.custom-rule-row{display:flex;gap:8px;align-items:center}
+.custom-rule-input{flex:1;padding:9px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.85em}
+.custom-rule-input::placeholder{color:var(--sub);font-size:.78em}
+.custom-rule-input:focus{outline:none;border-color:var(--pri)}
+.btn-custom-exec{padding:9px 16px;border-radius:10px;background:var(--pri);color:#fff;font-weight:bold;cursor:pointer;font-size:.85em;white-space:nowrap}
+.btn-custom-exec:active{transform:scale(.97)}
+.custom-hint{font-size:.68em;color:var(--sub);margin-top:6px;line-height:1.5}
 .lucky-area{flex:1;display:flex;flex-direction:column;min-height:0}
 .lucky-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .lucky-title{font-size:1.1em;font-weight:bold;color:var(--gold)}
@@ -171,6 +180,14 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
         </div>
         <div class="rule-list" id="ruleList"></div>
         <button class="btn-add-rule" onclick="addRuleOnly()">＋ 增加规则</button>
+        <div class="custom-rule-box">
+          <div class="custom-rule-label"><span style="font-size:1.1em">🤖</span> TeleAgent 自定义规则</div>
+          <div class="custom-rule-row">
+            <input class="custom-rule-input" id="customRuleInput" placeholder="用自然语言描述筛选条件..." onkeydown="if(event.key==='Enter')addCustomRule()">
+            <button class="btn-custom-exec" onclick="addCustomRule()">执行</button>
+          </div>
+          <div class="custom-hint">示例：姓王且手机尾号是8、姓王或姓李且答题超过60分、笔画大于15、手机号含520</div>
+        </div>
       </div>
     </div>
     <div class="right-panel">
@@ -863,9 +880,23 @@ function executeAllRulesLocal(){
     renderLuckyList();
     return;
   }
+  // 本地也支持自定义规则解析
+  var customParsed={};
+  S.addedRules.forEach(function(ar){
+    if(ar.rule.id===999&&!customParsed[ar.seq]){
+      customParsed[ar.seq]=parseNLLocal(ar.param);
+    }
+  });
   var matched=S.eligiblePool.slice();
   S.addedRules.forEach(function(ar){
-    matched=matched.filter(function(d){return ar.rule.test(d,ar.param)});
+    if(ar.rule.id===999){
+      var parsed=customParsed[ar.seq];
+      if(parsed&&parsed.conditions.length){
+        matched=matched.filter(function(d){return parsed.conditions.every(function(c){return c.test(d)})});
+      }
+    }else{
+      matched=matched.filter(function(d){return ar.rule.test(d,ar.param)});
+    }
   });
   S.luckyList=matched;
   renderLuckyList();
@@ -873,14 +904,21 @@ function executeAllRulesLocal(){
   // 本地执行也展示简单的思考过程
   showThinkingArea(true);
   S.bridgeSteps=[];
-  S.bridgeSteps.push({type:'info',text:'TeleAgent 离线，使用浏览器本地计算\
-资格池：'+S.eligiblePool.length+' 人'});
+  S.bridgeSteps.push({type:'info',text:'TeleAgent 离线，使用浏览器本地计算\n资格池：'+S.eligiblePool.length+' 人'});
   S.addedRules.forEach(function(ar,i){
-    var before=S.eligiblePool.length;
-    var matched2=S.eligiblePool.slice();
-    for(var j=0;j<=i;j++){matched2=matched2.filter(function(d){return S.addedRules[j].rule.test(d,S.addedRules[j].param)})}
-    S.bridgeSteps.push({type:'rule_result',text:'规则'+(i+1)+'：「'+ar.rule.desc(ar.param)+'」\
-命中：'+matched2.length+' 人'});
+    if(ar.rule.id===999){
+      var parsed=customParsed[ar.seq];
+      var descText=parsed&&parsed.conditions.length?parsed.conditions.map(function(c){return c.desc}).join(' + '):'解析失败';
+      S.bridgeSteps.push({type:'rule_result',text:'规则'+(i+1)+'：「🤖 '+ar.param+'」\n→ '+descText+'\n命中：'+matched.length+' 人'});
+    }else{
+      var matched2=S.eligiblePool.slice();
+      for(var j=0;j<=i;j++){
+        var ar2=S.addedRules[j];
+        if(ar2.rule.id===999){var p2=customParsed[ar2.seq];if(p2&&p2.conditions.length){matched2=matched2.filter(function(d){return p2.conditions.every(function(c){return c.test(d)})})}}
+        else{matched2=matched2.filter(function(d){return ar2.rule.test(d,ar2.param)})}
+      }
+      S.bridgeSteps.push({type:'rule_result',text:'规则'+(i+1)+'：「'+ar.rule.desc(ar.param)+'」\n命中：'+matched2.length+' 人'});
+    }
   });
   S.bridgeSteps.push({type:'final',text:'本地计算完成，最终命中 '+S.luckyList.length+' 人'});
   S.bridgeCurrentStep=0;
@@ -897,6 +935,58 @@ function executeAllRulesLocal(){
       S.bridgeStepTimer=null;
     }
   },800);
+}
+// 本地简化版自然语言解析（降级时使用，覆盖常见句式）
+function parseNLCondition(t){
+  var m;
+  if(m=t.match(/^姓(?:氏是|氏为|氏)?([\u4e00-\u9fa5])$/))return{desc:'姓氏为"'+m[1]+'"',test:function(d){return(d.name||'')[0]===m[1]}};
+  if(m=t.match(/^姓([\u4e00-\u9fa5])(?:或|、)姓([\u4e00-\u9fa5])/))return{desc:'姓氏为"'+m[1]+'"或"'+m[2]+'"',test:function(d){var n=(d.name||'')[0];return n===m[1]||n===m[2]}};
+  if(m=t.match(/^姓(?:氏)?(?:是|为)?([\u4e00-\u9fa5]{2,5})之一$/)){var ss=m[1].split('');return{desc:'姓氏为'+ss.join('/')+'之一',test:function(d){return ss.indexOf((d.name||'')[0])>=0}}}
+  if(m=t.match(/^名(?:字含|字有|中含|字包含|含|有)([\u4e00-\u9fa5]+)/))return{desc:'名字包含"'+m[1]+'"',test:function(d){return(d.name||'').indexOf(m[1])>=0}};
+  if(m=t.match(/^(?:姓名|名字)是([\u4e00-\u9fa5]{2,4})$/))return{desc:'姓名为"'+m[1]+'"',test:function(d){return d.name===m[1]}};
+  if(m=t.match(/^(?:姓名)?笔画(?:大于|超过|多于)(\d+)/))return{desc:'姓名笔画>'+m[1],test:function(d){return d.stroke>parseInt(m[1])}};
+  if(m=t.match(/^(?:姓名)?笔画(?:小于|少于|不足)(\d+)/))return{desc:'姓名笔画<'+m[1],test:function(d){return d.stroke<parseInt(m[1])}};
+  if(m=t.match(/^(?:姓名)?笔画(?:等于|是|为)(\d+)/))return{desc:'姓名笔画='+m[1],test:function(d){return d.stroke===parseInt(m[1])}};
+  if(m=t.match(/^姓(?:氏)?笔画(?:大于|超过|多于)(\d+)/))return{desc:'姓氏笔画>'+m[1],test:function(d){return d.strokeSurname>parseInt(m[1])}};
+  if(m=t.match(/^姓(?:氏)?笔画(?:小于|少于|不足)(\d+)/))return{desc:'姓氏笔画<'+m[1],test:function(d){return d.strokeSurname<parseInt(m[1])}};
+  if(m=t.match(/^名(?:字)?笔画(?:大于|超过|多于)(\d+)/))return{desc:'名字笔画>'+m[1],test:function(d){return d.strokeGivenName>parseInt(m[1])}};
+  if(m=t.match(/^名(?:字)?笔画(?:小于|少于|不足)(\d+)/))return{desc:'名字笔画<'+m[1],test:function(d){return d.strokeGivenName<parseInt(m[1])}};
+  if(m=t.match(/^(?:姓名)?笔画数字根(?:是|为)(\d+)/))return{desc:'姓名笔画数字根='+m[1],test:function(d){return digitRoot(d.stroke)===parseInt(m[1])}};
+  if(m=t.match(/^手机(?:号)?(?:尾号|末位|最后一位|末尾)(?:是|为)?(\d+)/))return{desc:'手机尾号为'+m[1],test:function(d){return(d.phone||'').endsWith(m[1])}};
+  if(m=t.match(/^手机(?:号)?(?:含|包含|含有|包括)(\d+)/))return{desc:'手机号包含"'+m[1]+'"',test:function(d){return(d.phone||'').indexOf(m[1])>=0}};
+  if(m=t.match(/^手机(?:号)?以(\d{3})开头$/))return{desc:'手机号以'+m[1]+'开头',test:function(d){return(d.phone||'').startsWith(m[1])}};
+  if(m=t.match(/^手机(?:号)?前三?位(?:是|为)(\d{3})/))return{desc:'手机号前三位为'+m[1],test:function(d){return(d.phone||'').startsWith(m[1])}};
+  if(m=t.match(/^手机后四?位(?:是|为)(\d{4})/))return{desc:'手机后四位为'+m[1],test:function(d){return(d.phone||'').substr(-4)===m[1]}};
+  if(m=t.match(/^手机(?:号)?数字之和?(?:大于|超过|多于)(\d+)/))return{desc:'手机号数字之和>'+m[1],test:function(d){return d.phoneSum>parseInt(m[1])}};
+  if(m=t.match(/^手机(?:号)?数字之和?(?:小于|少于|不足)(\d+)/))return{desc:'手机号数字之和<'+m[1],test:function(d){return d.phoneSum<parseInt(m[1])}};
+  if(m=t.match(/^手机后四?位之和?(?:大于|超过)(\d+)/))return{desc:'手机后四位之和>'+m[1],test:function(d){return d.last4Sum>parseInt(m[1])}};
+  if(m=t.match(/^手机后四?位之和?(?:小于|少于)(\d+)/))return{desc:'手机后四位之和<'+m[1],test:function(d){return d.last4Sum<parseInt(m[1])}};
+  if(m=t.match(/^手机(?:号)?数字根(?:是|为)(\d+)/))return{desc:'手机号数字根='+m[1],test:function(d){return digitRoot(d.phoneSum)===parseInt(m[1])}};
+  if(m=t.match(/^答题(?:得分|分数)?(?:超过|大于|多于)(\d+)/))return{desc:'答题得分>'+m[1]+'分',test:function(d){return d.quizScore>parseInt(m[1])}};
+  if(m=t.match(/^答题(?:得分|分数)?(?:少于|小于|不足)(\d+)/))return{desc:'答题得分<'+m[1]+'分',test:function(d){return d.quizScore<parseInt(m[1])}};
+  if(m=t.match(/^答题(?:得分|分数)?(?:等于|是|为)(\d+)/))return{desc:'答题得分='+m[1]+'分',test:function(d){return d.quizScore===parseInt(m[1])}};
+  if(m=t.match(/^答题(?:用时|时间)?(?:少于|小于|不足)(\d+)秒?/))return{desc:'答题用时<'+m[1]+'秒',test:function(d){return d.timeSec<parseInt(m[1])}};
+  if(m=t.match(/^答题(?:用时|时间)?(?:超过|大于|多于)(\d+)秒?/))return{desc:'答题用时>'+m[1]+'秒',test:function(d){return d.timeSec>parseInt(m[1])}};
+  if(/^已(?:参加)?答题$/.test(t))return{desc:'已答题',test:function(d){return d.quizScore>0||d.timeSec>0}};
+  if(/^未(?:参加)?答题$/.test(t)||/^没(?:有)?答题$/.test(t))return{desc:'未答题',test:function(d){return!d.quizScore&&!d.timeSec}};
+  if(m=t.match(/^答(?:题)?(?:正确|对)(?:数|题)?(?:大于|超过|多于)(\d+)/))return{desc:'答对题数>'+m[1],test:function(d){return d.quizScore>parseInt(m[1])}};
+  if(m=t.match(/^(?:姓名)?笔画(?:和|与|\+|加)手机(?:号)?数字之和?(?:大于|超过)(\d+)/))return{desc:'笔画+手机数字之和>'+m[1],test:function(d){return(d.stroke+d.phoneSum)>parseInt(m[1])}};
+  return null;
+}
+function parseNLLocal(text){
+  var normalized=(text||'').trim().replace(/\s+/g,'');
+  var andParts=normalized.split(/且|并且|，|,/).filter(function(s){return s&&s.trim()});
+  var conditions=[];
+  for(var i=0;i<andParts.length;i++){
+    var part=andParts[i].trim();if(!part)continue;
+    var orParts=part.split(/或(者)?/).filter(function(s){return s&&s!=='者'&&s.trim()});
+    if(orParts.length>1){
+      var orConds=[];
+      for(var j=0;j<orParts.length;j++){var sub=orParts[j].trim();if(!sub)continue;var c=parseNLCondition(sub);if(c)orConds.push(c)}
+      if(orConds.length){var ot=orConds.map(function(c){return c.test});conditions.push({desc:'('+orConds.map(function(c){return c.desc}).join(' 或 ')+')',test:function(d){return ot.some(function(t){return t(d)})}})}
+    }else{var c=parseNLCondition(part);if(c)conditions.push(c)}
+  }
+  return{conditions:conditions,logic:'AND'};
 }
 
 // ========== 规则管理 ==========
@@ -974,6 +1064,18 @@ function executeRule(){
   resetRuleInput();
   executeRulesViaBridge();
 }
+// ========== 自定义自然语言规则 ==========
+var CUSTOM_RULE={id:999,name:'自定义规则',cat:'自定义',pType:'text',pLabel:'自然语言',fields:[],
+  test:function(){return true},desc:function(p){return'🤖 '+p}};
+function addCustomRule(){
+  var input=document.getElementById('customRuleInput');
+  var text=input.value.trim();
+  if(!text){toast('请输入自然语言规则描述');input.focus();return}
+  S.addedRules.push({seq:++S.ruleSeq,rule:CUSTOM_RULE,param:text});
+  renderRuleList();
+  input.value='';
+  executeRulesViaBridge();
+}
 function deleteRule(seq){
   S.addedRules=S.addedRules.filter(function(r){return r.seq!==seq});
   renderRuleList();
@@ -994,10 +1096,12 @@ function renderRuleList(){
   if(!S.addedRules.length){box.innerHTML='';return}
   box.innerHTML=S.addedRules.map(function(r){
     var color=CAT_COLORS[r.rule.cat]||'#6c5ce7';
+    var catLabel=r.rule.cat;
+    if(r.rule.id===999){color='#6c5ce7';catLabel='🤖自定义'}
     return'<div class="rule-item">'+
       '<span class="rule-tag">规则'+r.seq+'</span>'+
-      '<span class="rule-cat" style="background:'+color+';color:#fff">'+r.rule.cat+'</span>'+
-      '<span class="rule-desc">'+r.rule.desc(r.param)+'</span>'+
+      '<span class="rule-cat" style="background:'+color+';color:#fff">'+catLabel+'</span>'+
+      '<span class="rule-desc">'+escHtml(r.rule.desc(r.param))+'</span>'+
       '<button class="rule-del" onclick="deleteRule('+r.seq+')">✕</button>'+
     '</div>';
   }).join('');
