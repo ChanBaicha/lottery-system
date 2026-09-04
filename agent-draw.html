@@ -54,9 +54,9 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .lucky-rank.top1{background:var(--gold);color:#333}
 .lucky-rank.top2{background:#c0c0c0;color:#333}
 .lucky-rank.top3{background:#cd7f32;color:#333}
-.lucky-info{flex:1;min-width:0}
-.lucky-name{font-weight:bold;font-size:.92em}
-.lucky-detail{font-size:.76em;color:var(--sub);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lucky-info{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.lucky-name{font-weight:bold;font-size:.88em;white-space:nowrap}
+.lucky-detail{font-size:.88em;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lucky-tag{padding:2px 8px;border-radius:8px;background:rgba(0,184,148,.15);color:var(--grn);font-size:.72em;white-space:nowrap}
 .lucky-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--sub);font-size:.9em;text-align:center}
 .bottom-bar{display:flex;gap:10px;align-items:center}
@@ -1020,8 +1020,8 @@ function renderLuckyList(){
       avatarHtml+
       '<div class="lucky-rank '+rankCls+'">'+(i+1)+'</div>'+
       '<div class="lucky-info">'+
-        '<div class="lucky-name">'+escHtml(d.name)+'</div>'+
-        '<div class="lucky-detail">'+detail+'</div>'+
+        '<span class="lucky-name">'+escHtml(d.name)+'</span>'+
+        '<span class="lucky-detail">'+detail+'</span>'+
       '</div>'+
       '<div class="lucky-tag">'+tagText+'</div>'+
     '</div>';
