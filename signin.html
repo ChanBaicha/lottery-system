@@ -192,6 +192,16 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   </div>
 </div>
 
+<!-- 签到不可用提示弹窗（不透明背景，居中醒目） -->
+<div class="modal-bg" id="signinBlockModal" style="background:rgba(0,0,0,1)" onclick="if(event.target===this)closeSigninBlockModal()">
+  <div class="modal-card" style="max-width:380px;position:relative">
+    <button class="btn btn-out" style="position:absolute;top:10px;right:10px;padding:4px 10px;font-size:.8em;border-radius:8px" onclick="closeSigninBlockModal()">✕</button>
+    <div style="font-size:2.5em;margin-bottom:14px">⚠️</div>
+    <p id="signinBlockMsg" style="color:#fff;font-size:1.05em;line-height:2;margin-bottom:20px;font-weight:bold;text-align:center"></p>
+    <button class="btn btn-pri" style="width:100%;padding:12px" onclick="closeSigninBlockModal()">我知道了</button>
+  </div>
+</div>
+
 <!-- 游戏选择弹窗 -->
 <div class="modal-bg" id="gameModal" onclick="if(event.target===this)closeGameModal()">
   <div class="modal-card" style="max-width:350px">
@@ -211,6 +221,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 let S={mqtt:null,topic:'',room:'',
   fields:[],prizes:[],signin:{enabled:true,locationEnabled:false},drawCount:1,signFailMsg:'签到失败！请检查您填写的姓名和手机号是否正确。',
   signFailNoQuizMsg:'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',
+  signPromptMsg:'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',
   voidedTickets:[],allParticipants:[],allQuizResults:[],
   signedIn:false,myName:'',myData:{},avatarData:'',
   danmakuSettings:{enable:true,anonymous:true},
@@ -300,6 +311,7 @@ function applyCloudConfig(d){
   normalizeSignin();
   S.signFailMsg=d.signFailMsg||S.signFailMsg;
   S.signFailNoQuizMsg=d.signFailNoQuizMsg||S.signFailNoQuizMsg;
+  S.signPromptMsg=d.signPromptMsg||S.signPromptMsg;
   S.voidedTickets=d.voidedTickets||[];
   S.danmakuSettings=d.danmaku||{enable:true,anonymous:true};
   if(d.music)S.music=d.music;
@@ -348,6 +360,7 @@ function handleMsg(t,d){
     if(d.drawCount)S.drawCount=d.drawCount;
     if(d.signFailMsg)S.signFailMsg=d.signFailMsg;
     if(d.signFailNoQuizMsg)S.signFailNoQuizMsg=d.signFailNoQuizMsg;
+    if(d.signPromptMsg)S.signPromptMsg=d.signPromptMsg;
     if(d.voidedTickets)S.voidedTickets=d.voidedTickets;
     if(d.danmaku)S.danmakuSettings=d.danmaku;
     if(d.music)S.music=d.music;applyMusic();
@@ -393,9 +406,32 @@ function randomNick(silent){
 }
 function showDanmakuPage(){hideAllPages();document.getElementById('danmakuPage').style.display='block';document.getElementById('dmPageInput').focus()}
 // ========== 签到验证 ==========
-function showSigninFormPage(){
+// 统一校验：是否满足签到前置条件，不满足返回 {ok:false,reason:''}
+function checkSigninEligibility(){
   normalizeSignin();
-  if(S.signin.enabled===false){toast('签到暂未开放，请稍后再试');return}
+  var msg=S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答';
+  // 1. 签到开关
+  if(S.signin.enabled===false)return{ok:false,reason:msg};
+  // 2. 签到时间窗口校验（仅当配置了时间时检查）
+  if(S.signin.startTime||S.signin.endTime){
+    var now=new Date();
+    if(S.signin.startTime){var st=new Date(S.signin.startTime);if(now<st)return{ok:false,reason:msg}}
+    if(S.signin.endTime){var et=new Date(S.signin.endTime);if(now>et)return{ok:false,reason:msg}}
+  }
+  // 3. 登记数据未加载
+  if(!S.allParticipants||!S.allParticipants.length)return{ok:false,reason:msg};
+  // 4. 答题记录未加载
+  if(!S.allQuizResults||!S.allQuizResults.length)return{ok:false,reason:msg};
+  return{ok:true}
+}
+function showSigninBlockModal(msg){
+  document.getElementById('signinBlockMsg').textContent=msg||S.signPromptMsg;
+  document.getElementById('signinBlockModal').classList.add('show');
+}
+function closeSigninBlockModal(){document.getElementById('signinBlockModal').classList.remove('show')}
+function showSigninFormPage(){
+  var ck=checkSigninEligibility();
+  if(!ck.ok){showSigninBlockModal(ck.reason);return}
   S._formRendered=false;
   hideAllPages();document.getElementById('signinFormPage').style.display='block';renderSignForm()
 }
