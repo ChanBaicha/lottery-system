@@ -1220,20 +1220,20 @@ function runQuizRound(roundIdx,totalRounds,interval){
     // 记录本轮结果
     var roundEnd=Date.now();
     var correct=Object.entries(quizState.answers).filter(function(e){return e[1]===q.a});
-    // 记录每人本轮用时
-    Object.keys(quizState.answers).forEach(function(name){
+    // 记录每人本轮用时（所有参与者都纳入计时）
+    var allNames=S.participants.map(function(p){return p.name}).filter(function(n){return n});
+    Object.keys(quizState.answers).forEach(function(n){if(allNames.indexOf(n)<0)allNames.push(n)});
+    allNames.forEach(function(name){
       var answerTimeForUser=quizState.roundTimes[name]||(roundEnd-quizState.roundStart);
       if(!quizState.totalTime[name])quizState.totalTime[name]=0;
       if(quizState.answers[name]===q.a){
         // 答对：加实际用时
         quizState.totalTime[name]+=answerTimeForUser;
       }else{
-        // 答错：加间隔的1.2倍
+        // 答错或超时未答：加答题间隔的1.2倍
         quizState.totalTime[name]+=Math.round(interval*1.2*1000);
       }
     });
-    // 未答的人也加惩罚
-    // (未答的人不在 answers 中，不处理)
     // 显示本轮结果
     gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
     gameCtx.fillStyle='#00b894';gameCtx.font='bold 40px Microsoft YaHei';gameCtx.textAlign='center';
@@ -1261,7 +1261,7 @@ function endQuizGameFinal(){
   var sorted=Object.entries(quizState.totalTime).sort(function(a,b){return a[1]-b[1]}).slice(0,10);
   document.getElementById('gameDesc').textContent='抢答全部结束！';
   var result=document.getElementById('gameResult');
-  result.innerHTML='<h2>🧠 趣味抢答总排名</h2><div style="color:#aaa;font-size:.85em;margin-bottom:10px">按总答题时长排名（短者优先，答错/超时按轮间间隔1.2倍计）</div>'+sorted.slice(0,3).map(function(e,i){return '<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+' - '+(e[1]/1000).toFixed(1)+'秒</div>'}).join('')||'<div class="rank">无人参与</div>';
+  result.innerHTML='<h2>🧠 趣味抢答总排名</h2><div style="color:#aaa;font-size:.85em;margin-bottom:10px">按答题速度由快到慢排名（答错/超时按答题间隔1.2倍计）</div>'+sorted.slice(0,3).map(function(e,i){return '<div class="rank" style="background:'+['rgba(253,203,110,.2)','rgba(192,192,192,.2)','rgba(205,127,50,.2)'][i]+'">'+['🥇','🥈','🥉'][i]+' '+e[0]+' - '+(e[1]/1000).toFixed(1)+'秒</div>'}).join('')||'<div class="rank">无人参与</div>';
   result.classList.add('show');
   if(S.mqtt){S.mqtt.unsubscribe(S.topic+'quiz_answer');S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'end',game:'quiz',rankings:sorted.slice(0,3).map(function(e,i){return{name:e[0],score:e[1],rank:i+1}})}))}
 }
