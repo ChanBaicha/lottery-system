@@ -68,6 +68,16 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .lucky-detail{font-size:.88em;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lucky-tag{padding:2px 8px;border-radius:8px;background:rgba(0,184,148,.15);color:var(--grn);font-size:.72em;white-space:nowrap}
 .lucky-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--sub);font-size:.9em;text-align:center}
+.lucky-cat-select{padding:6px 10px;border-radius:10px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.82em;cursor:pointer}
+.btn-lucky-arrival{padding:7px 16px;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--acc));color:#333;font-weight:bold;cursor:pointer;font-size:.85em;white-space:nowrap;transition:.2s;border:none}
+.btn-lucky-arrival:active{transform:scale(.97)}
+.btn-lucky-arrival:disabled{opacity:.4;cursor:not-allowed}
+.lucky-arrival-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.92);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.lucky-arrival-modal.show{display:flex}
+.lucky-arrival-card{background:var(--card);border-radius:20px;padding:28px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;border:2px solid var(--gold)}
+.lucky-winner-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--card2);border:1px solid var(--bd);margin-bottom:8px}
+.lucky-winner-del{padding:4px 10px;border-radius:8px;background:var(--red);color:#fff;cursor:pointer;font-size:.76em;white-space:nowrap;border:none}
+.lucky-winner-tag{padding:2px 8px;border-radius:8px;font-size:.72em;white-space:nowrap}
 .bottom-bar{display:flex;gap:10px;align-items:center}
 .bottom-bar .card{flex:1;display:flex;align-items:center;gap:12px;padding:10px 16px}
 .btn-danmaku{padding:8px 16px;border-radius:10px;background:var(--blue);color:#fff;cursor:pointer;font-size:.88em;display:flex;align-items:center;gap:5px}
@@ -194,7 +204,15 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="card lucky-area">
         <div class="lucky-header">
           <div class="lucky-title">🍀 幸运候选</div>
-          <div class="lucky-count" id="luckyCount">0 人</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <select class="lucky-cat-select" id="luckyCatSelect">
+              <option value="西柚达人">西柚达人</option>
+              <option value="幸运小柚子">幸运小柚子</option>
+              <option value="天选之子">天选之子</option>
+            </select>
+            <button class="btn-lucky-arrival" id="btnLuckyArrival" onclick="luckyArrival()">🎁 幸运降临</button>
+            <div class="lucky-count" id="luckyCount">0 人</div>
+          </div>
         </div>
         <div class="lucky-list" id="luckyList">
           <div class="lucky-empty">添加并执行天选规则后<br>命中全部规则的人员将显示在此</div>
@@ -276,7 +294,8 @@ var S={
   bridgeCurrentStep:-1,
   bridgeStepTimer:null,
   bridgeHeartbeat:null,
-  _lastBridgePong:0
+  _lastBridgePong:0,
+  luckyDrawWinners:[]
 };
 var SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
@@ -626,10 +645,13 @@ function buildQuizMap(){
 }
 function updatePool(){
   buildQuizMap();
+  var winnerKeys=(S.luckyDrawWinners||[]).map(function(w){return w.name+'|'+w.phone});
   S.eligiblePool=S.participants.filter(function(p){
     return p.signed&&!p.won;
   }).filter(function(p){
     return S.quizMap[(p.name||'')+'|'+(p.phone||'')];
+  }).filter(function(p){
+    return winnerKeys.indexOf((p.name||'')+'|'+(p.phone||''))<0;
   }).map(preCalcParticipant);
   document.getElementById('actCount').textContent=S.eligiblePool.length;
   // 不再自动触发规则执行——只在用户点击"执行"按钮时主动触发
@@ -656,6 +678,7 @@ function connectMQTT(){
       S.mqtt.subscribe(S.topic+'teleagent_ack');
       S.mqtt.subscribe(S.topic+'teleagent_step');
       S.mqtt.subscribe(S.topic+'teleagent_result');
+      S.mqtt.subscribe(S.topic+'lucky_arrival');
       S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'agent-draw',time:Date.now()}));
       S.mqtt.publish(S.topic+'teleagent_ping',JSON.stringify({type:'ping',from:'agent-draw',time:Date.now()}));
     });
@@ -712,6 +735,8 @@ function handleMsg(t,d){
     handleBridgeStep(d);
   }else if(t.endsWith('teleagent_result')){
     handleBridgeResult(d);
+  }else if(t.endsWith('lucky_arrival')){
+    handleLuckyArrivalMsg(d);
   }
 }
 
@@ -1610,7 +1635,197 @@ document.addEventListener('fullscreenchange',function(){var btn=document.getElem
 // ========== 键盘快捷键 ==========
 document.addEventListener('keydown',function(e){
   if(e.key==='Escape'&&S.gameRunning)closeGame();
+  if(e.key==='Escape'){var m=document.getElementById('luckyArrivalModal');if(m)m.classList.remove('show')}
 });
+
+// ========== 幸运降临 ==========
+function luckyArrival(){
+  if(!S.luckyList.length){toast('当前无幸运候选，请先执行天选规则');return}
+  var cat=document.getElementById('luckyCatSelect').value;
+  // 将候选名单作为中奖人
+  var winners=S.luckyList.map(function(d){
+    return{name:d.name,phone:d.phone,avatar:d.avatar||'',category:cat};
+  });
+  S.luckyDrawWinners=(S.luckyDrawWinners||[]).concat(winners);
+  // 通过 MQTT 广播到后台、签到端
+  if(S.mqtt&&S.mqtt.connected){
+    S.mqtt.publish(S.topic+'lucky_arrival',JSON.stringify({
+      winners:winners,
+      category:cat,
+      time:Date.now()
+    }));
+  }
+  // 显示弹窗
+  showLuckyArrivalModal(winners,cat);
+  // 刷新候选池（排除已中奖人）
+  updatePool();
+  // 刷新候选列表
+  renderLuckyList();
+  launchConfetti();
+}
+
+function showLuckyArrivalModal(winners,cat){
+  var modal=document.getElementById('luckyArrivalModal');
+  if(!modal){
+    modal=document.createElement('div');
+    modal.id='luckyArrivalModal';
+    modal.className='lucky-arrival-modal';
+    modal.onclick=function(e){if(e.target===modal)modal.classList.remove('show')};
+    document.body.appendChild(modal);
+  }
+  var catColors={'西柚达人':'#00b894','幸运小柚子':'#fdcb6e','天选之子':'#fd79a8'};
+  var catColor=catColors[cat]||'#fdcb6e';
+  var html='<div class="lucky-arrival-card">'+
+    '<div style="text-align:center;margin-bottom:16px">'+
+      '<div style="font-size:2em">🎉</div>'+
+      '<div style="font-size:1.3em;font-weight:bold;color:'+catColor+';margin-top:6px">'+escHtml(cat)+'</div>'+
+      '<div style="font-size:.82em;color:var(--sub);margin-top:4px">幸运降临 · 共 '+winners.length+' 人中奖</div>'+
+    '</div>'+
+    '<div id="luckyArrivalList">';
+  winners.forEach(function(w,i){
+    var avatarHtml='';
+    if(w.avatar){
+      if(typeof w.avatar==='string'&&w.avatar.indexOf('emoji:')===0){
+        avatarHtml='<div class="lucky-avatar" style="background:var(--card2);width:32px;height:32px">'+w.avatar.substr(6)+'</div>';
+      }else{
+        avatarHtml='<div class="lucky-avatar" style="width:32px;height:32px"><img src="'+escHtml(w.avatar)+'"></div>';
+      }
+    }else{
+      avatarHtml='<div class="lucky-avatar" style="width:32px;height:32px;font-size:.8em">'+escHtml(w.name?w.name[0]:'?')+'</div>';
+    }
+    html+='<div class="lucky-winner-item" id="luckyWinner_'+i+'">'+
+      avatarHtml+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-weight:bold;font-size:.92em">'+escHtml(w.name)+'</div>'+
+        '<div style="font-size:.78em;color:var(--sub)">'+(w.phone?maskPhone(w.phone):'')+'</div>'+
+      '</div>'+
+      '<span class="lucky-winner-tag" style="background:'+catColor+';color:#333">'+escHtml(cat)+'</span>'+
+      '<button class="lucky-winner-del" onclick="deleteLuckyWinner('+i+')">🗑 不在现场</button>'+
+    '</div>';
+  });
+  html+='</div>'+
+    '<div style="margin-top:14px;text-align:center">'+
+      '<div id="luckyArrivalHint" style="font-size:.78em;color:var(--sub);margin-bottom:12px">如中奖人不在现场，可点击"不在现场"删除并自动补位</div>'+
+      '<button class="btn-lucky-arrival" style="width:100%;padding:12px" onclick="closeLuckyArrivalModal()">✅ 确认</button>'+
+    '</div>'+
+  '</div>';
+  modal.innerHTML=html;
+  modal.classList.add('show');
+}
+
+function closeLuckyArrivalModal(){var m=document.getElementById('luckyArrivalModal');if(m)m.classList.remove('show')}
+
+function deleteLuckyWinner(idx){
+  // 获取弹窗中当前显示的中奖人列表
+  var modal=document.getElementById('luckyArrivalModal');
+  if(!modal||!modal.classList.contains('show'))return;
+  var listEl=document.getElementById('luckyArrivalList');
+  if(!listEl)return;
+  var items=listEl.querySelectorAll('.lucky-winner-item');
+  if(idx>=items.length)return;
+  var removedName=items[idx].querySelector('.lucky-winner-item>div:nth-child(2)')?items[idx].querySelector('div[style*="flex:1"] div').textContent:'';
+  // 从 S.luckyDrawWinners 中移除该人
+  var removed=null;
+  // 找到弹窗中对应的实际索引（通过姓名匹配，因为弹窗列表可能已经变动）
+  var currentDisplay=Array.from(items).map(function(el){
+    var nameEl=el.querySelector('div[style*="flex:1"] div');
+    return nameEl?nameEl.textContent:'';
+  });
+  var displayName=currentDisplay[idx];
+  // 在 luckyDrawWinners 中找到匹配的人
+  var matchIdx=-1;
+  for(var i=S.luckyDrawWinners.length-1;i>=0;i--){
+    if(S.luckyDrawWinners[i].name===displayName){matchIdx=i;break}
+  }
+  if(matchIdx>=0){
+    removed=S.luckyDrawWinners.splice(matchIdx,1)[0];
+  }
+  // 自动补位：从候选池中取下一个未中奖的人
+  var cat=document.getElementById('luckyCatSelect').value;
+  var replacement=null;
+  // 重新构建候选池
+  var winnerKeys=(S.luckyDrawWinners||[]).map(function(w){return w.name+'|'+w.phone});
+  var pool=S.participants.filter(function(p){
+    return p.signed&&!p.won;
+  }).filter(function(p){
+    return S.quizMap[(p.name||'')+'|'+(p.phone||'')];
+  }).filter(function(p){
+    return winnerKeys.indexOf((p.name||'')+'|'+(p.phone||''))<0;
+  });
+  if(pool.length){
+    var nextP=pool[0];
+    replacement={name:nextP.name,phone:nextP.phone,avatar:nextP.avatar||'',category:cat};
+    S.luckyDrawWinners.push(replacement);
+    // 广播新中奖人到后台和签到端
+    if(S.mqtt&&S.mqtt.connected){
+      S.mqtt.publish(S.topic+'lucky_arrival',JSON.stringify({
+        winners:[replacement],
+        category:cat,
+        time:Date.now(),
+        isReplacement:true,
+        replacedName:removed?removed.name:''
+      }));
+    }
+    toast('已删除 '+displayName+'，补位：'+replacement.name);
+  }else{
+    // 没有可补位的人
+    if(S.mqtt&&S.mqtt.connected&&removed){
+      S.mqtt.publish(S.topic+'lucky_arrival',JSON.stringify({
+        winners:[],
+        category:cat,
+        time:Date.now(),
+        isReplacement:true,
+        replacedName:removed.name,
+        noReplacement:true
+      }));
+    }
+    toast('已删除 '+displayName+'，无剩余候选可补位');
+  }
+  // 重新渲染弹窗中的列表
+  refreshLuckyArrivalModal();
+  updatePool();
+}
+
+function refreshLuckyArrivalModal(){
+  var modal=document.getElementById('luckyArrivalModal');
+  if(!modal||!modal.classList.contains('show'))return;
+  var listEl=document.getElementById('luckyArrivalList');
+  if(!listEl)return;
+  var cat=document.getElementById('luckyCatSelect').value;
+  var catColors={'西柚达人':'#00b894','幸运小柚子':'#fdcb6e','天选之子':'#fd79a8'};
+  var catColor=catColors[cat]||'#fdcb6e';
+  var winners=S.luckyDrawWinners.filter(function(w){return w.category===cat});
+  var html='';
+  winners.forEach(function(w,i){
+    var avatarHtml='';
+    if(w.avatar){
+      if(typeof w.avatar==='string'&&w.avatar.indexOf('emoji:')===0){
+        avatarHtml='<div class="lucky-avatar" style="background:var(--card2);width:32px;height:32px">'+w.avatar.substr(6)+'</div>';
+      }else{
+        avatarHtml='<div class="lucky-avatar" style="width:32px;height:32px"><img src="'+escHtml(w.avatar)+'"></div>';
+      }
+    }else{
+      avatarHtml='<div class="lucky-avatar" style="width:32px;height:32px;font-size:.8em">'+escHtml(w.name?w.name[0]:'?')+'</div>';
+    }
+    html+='<div class="lucky-winner-item">'+
+      avatarHtml+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-weight:bold;font-size:.92em">'+escHtml(w.name)+'</div>'+
+        '<div style="font-size:.78em;color:var(--sub)">'+(w.phone?maskPhone(w.phone):'')+'</div>'+
+      '</div>'+
+      '<span class="lucky-winner-tag" style="background:'+catColor+';color:#333">'+escHtml(cat)+'</span>'+
+      '<button class="lucky-winner-del" onclick="deleteLuckyWinner('+i+')">🗑 不在现场</button>'+
+    '</div>';
+  });
+  listEl.innerHTML=html;
+  // 更新标题中的数量
+  var titleEl=modal.querySelector('.lucky-arrival-card > div:first-child > div:last-child');
+  if(titleEl)titleEl.textContent='幸运降临 · 共 '+winners.length+' 人中奖';
+}
+
+function handleLuckyArrivalMsg(d){
+  // 处理来自其他端的幸运降临消息（目前agent-draw是发起方，此函数预留）
+}
 
 </script>
 </body>
