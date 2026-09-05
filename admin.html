@@ -70,6 +70,7 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="records" onclick="switchTab('records')">🏆 中奖记录</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="signin" onclick="switchTab('signin')">📍 签到配置</div>
     <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="links" onclick="switchTab('links')">📱 各端地址</div>
+    <div class="tab" style="padding:12px 18px;cursor:pointer;color:var(--sub);font-size:.95em;white-space:nowrap;border-bottom:3px solid transparent;transition:.2s" data-tab="agentDraw" onclick="switchTab('agentDraw')">🤖 智能体抽奖管理</div>
   </div>
 
   <!-- 奖品管理 -->
@@ -629,6 +630,38 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <button class="btn btn-pri" style="width:100%;margin-top:12px;padding:12px;justify-content:center" onclick="saveBaseLink()">💾 保存地址并同步</button>
     </div>
   </div>
+
+  <!-- 智能体抽奖管理 -->
+  <div class="panel" id="panel-agentDraw">
+    <h2 style="font-size:1.3em;margin-bottom:6px">🤖 智能体抽奖管理</h2>
+    <p style="color:var(--sub);font-size:.85em;margin-bottom:16px">配置智能体抽奖端的候选规则与自定义元素。</p>
+    <div class="section">
+      <h3 style="font-size:1.05em;margin-bottom:10px;color:var(--pri-l)">📋 候选规则</h3>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:12px">勾选要纳入天选候选清单的筛选条件。满足全部勾选条件的参与者才会进入候选池。</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:6px;padding:10px 16px;background:var(--card2);border-radius:10px;cursor:pointer;border:1px solid var(--bd);transition:.2s" onmouseover="this.style.borderColor='var(--pri)'" onmouseout="this.style.borderColor='var(--bd)'"><input type="checkbox" id="adReqReg" style="width:18px;height:18px;accent-color:var(--pri)"> <span style="font-size:.95em">已完成登记</span></label>
+        <label style="display:flex;align-items:center;gap:6px;padding:10px 16px;background:var(--card2);border-radius:10px;cursor:pointer;border:1px solid var(--bd);transition:.2s" onmouseover="this.style.borderColor='var(--pri)'" onmouseout="this.style.borderColor='var(--bd)'"><input type="checkbox" id="adReqQuiz" style="width:18px;height:18px;accent-color:var(--pri)"> <span style="font-size:.95em">已参与答题</span></label>
+        <label style="display:flex;align-items:center;gap:6px;padding:10px 16px;background:var(--card2);border-radius:10px;cursor:pointer;border:1px solid var(--bd);transition:.2s" onmouseover="this.style.borderColor='var(--pri)'" onmouseout="this.style.borderColor='var(--bd)'"><input type="checkbox" id="adReqSign" style="width:18px;height:18px;accent-color:var(--pri)"> <span style="font-size:.95em">已签到</span></label>
+        <label style="display:flex;align-items:center;gap:6px;padding:10px 16px;background:var(--card2);border-radius:10px;cursor:pointer;border:1px solid var(--bd);transition:.2s" onmouseover="this.style.borderColor='var(--pri)'" onmouseout="this.style.borderColor='var(--bd)'"><input type="checkbox" id="adReqNotWon" style="width:18px;height:18px;accent-color:var(--pri)"> <span style="font-size:.95em">未中奖</span></label>
+      </div>
+      <button class="btn btn-pri" style="padding:10px 20px" onclick="saveAgentDrawRule()">💾 保存候选规则</button>
+    </div>
+    <div class="section" style="margin-top:16px">
+      <h3 style="font-size:1.05em;margin-bottom:10px;color:var(--pri-l)">🎨 自定义元素</h3>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:12px">在智能体抽奖端界面添加自定义文字或图片，可多次添加。添加后可在前端直接拖拽位置、调整大小、关闭显示。</p>
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <input id="adTextContent" placeholder="输入自定义文字内容..." style="flex:1;padding:10px 14px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:#fff;font-size:.95em">
+        <button class="btn btn-pri" style="padding:10px 16px;white-space:nowrap" onclick="addAgentDrawElement('text')">➕ 添加文字</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center">
+        <input type="file" id="adImgFile" accept="image/*" style="display:none" onchange="handleAgentDrawImgUpload(this.files[0])">
+        <button class="btn btn-out" style="padding:10px 16px;white-space:nowrap" onclick="document.getElementById('adImgFile').click()">📷 选择图片</button>
+        <span id="adImgName" style="color:var(--sub);font-size:.82em">未选择图片</span>
+        <button class="btn btn-pri" style="padding:10px 16px;white-space:nowrap" onclick="addAgentDrawElement('image')">➕ 添加图片</button>
+      </div>
+      <div id="adElementList" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+  </div>
 </div>
 
 <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
@@ -668,7 +701,8 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   quizBoardName:'新办手机号码',
   quizIntro:'🎉 欢迎参加趣味知识问答！\n\n📌 温馨提示：\n1. 每人最多可参与 3 次答题，系统自动取最好成绩\n2. 请如实填写姓名和手机号码，需与签到信息一致\n3. 答题开始后请专注作答，争取最佳成绩\n4. 成绩将自动同步至抽奖系统\n\n祝您答题愉快，好运连连！',
   quizResults:[],
-  lotteryRule:{enable:false,reg:true,signed:true,quiz:true,notWon:true,nameKeywords:'',nameStart:'',nameEnd:'',phonePrefix:'',phoneSuffix:'',phoneCalc:'',hitList:[],ruleDesc:'',runTime:null}
+  lotteryRule:{enable:false,reg:true,signed:true,quiz:true,notWon:true,nameKeywords:'',nameStart:'',nameEnd:'',phonePrefix:'',phoneSuffix:'',phoneCalc:'',hitList:[],ruleDesc:'',runTime:null},
+  agentDrawConfig:{reqReg:false,reqQuiz:true,reqSign:true,reqNotWon:true,customElements:[]}
 };
 let currentTab='prizes';
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
@@ -865,6 +899,88 @@ function exportLuckyWinners(){
   downloadCSV(csv,'幸运降临中奖名单_'+Date.now()+'.csv');
   toast('已导出');
 }
+
+// ========== 智能体抽奖管理 ==========
+function renderAgentDraw(){
+  var cfg=S.agentDrawConfig||{reqReg:false,reqQuiz:true,reqSign:true,reqNotWon:true,customElements:[]};
+  if(!cfg.customElements)cfg.customElements=[];
+  S.agentDrawConfig=cfg;
+  var cb1=document.getElementById('adReqReg');if(cb1)cb1.checked=cfg.reqReg!==false;
+  var cb2=document.getElementById('adReqQuiz');if(cb2)cb2.checked=cfg.reqQuiz!==false;
+  var cb3=document.getElementById('adReqSign');if(cb3)cb3.checked=cfg.reqSign!==false;
+  var cb4=document.getElementById('adReqNotWon');if(cb4)cb4.checked=cfg.reqNotWon!==false;
+  renderAdElementList();
+}
+function renderAdElementList(){
+  var list=document.getElementById('adElementList');
+  if(!list)return;
+  var cfg=S.agentDrawConfig||{};
+  var els=cfg.customElements||[];
+  if(!els.length){list.innerHTML='<div style="text-align:center;color:var(--sub);padding:16px;font-size:.85em">暂无自定义元素</div>';return}
+  list.innerHTML=els.map(function(el,i){
+    var icon=el.type==='text'?'📝':'🖼️';
+    var preview=el.type==='text'?(el.content||'').substring(0,30):((el.content||'').substring(0,40)+'...');
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);border-radius:10px;border:1px solid var(--bd)">'+
+      '<span style="font-size:1.2em">'+icon+'</span>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:.9em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(preview)+'</div>'+
+        '<div style="font-size:.75em;color:var(--sub)">类型:'+(el.type==='text'?'文字':'图片')+' · 尺寸:'+el.width+'x'+el.height+'</div>'+
+      '</div>'+
+      '<button class="btn btn-out btn-sm" style="padding:4px 10px;font-size:.8em" onclick="delAdElement('+i+')">删除</button>'+
+      '</div>';
+  }).join('');
+}
+function escapeHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function saveAgentDrawRule(){
+  var cfg=S.agentDrawConfig||{customElements:[]};
+  cfg.reqReg=document.getElementById('adReqReg').checked;
+  cfg.reqQuiz=document.getElementById('adReqQuiz').checked;
+  cfg.reqSign=document.getElementById('adReqSign').checked;
+  cfg.reqNotWon=document.getElementById('adReqNotWon').checked;
+  S.agentDrawConfig=cfg;
+  saveLocal();broadcastConfig();toast('候选规则已保存并同步');
+}
+var _adImgTmp='';
+function handleAgentDrawImgUpload(file){
+  if(!file){return}
+  if(!file.type.startsWith('image/')){toast('请选择图片');return}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    _adImgTmp=e.target.result;
+    var nameEl=document.getElementById('adImgName');
+    if(nameEl)nameEl.textContent=file.name;
+  };
+  reader.readAsDataURL(file);
+}
+function addAgentDrawElement(type){
+  var cfg=S.agentDrawConfig||{customElements:[]};
+  if(!cfg.customElements)cfg.customElements=[];
+  if(type==='text'){
+    var text=document.getElementById('adTextContent').value.trim();
+    if(!text){toast('请输入文字内容');return}
+    cfg.customElements.push({id:uid(),type:'text',content:text,x:50,y:50,width:200,height:40,fontSize:18,color:'#fdcb6e',visible:true});
+    document.getElementById('adTextContent').value='';
+  }else if(type==='image'){
+    if(!_adImgTmp){toast('请先选择图片');return}
+    cfg.customElements.push({id:uid(),type:'image',content:_adImgTmp,x:50,y:150,width:150,height:150,visible:true});
+    _adImgTmp='';
+    var nameEl=document.getElementById('adImgName');if(nameEl)nameEl.textContent='未选择图片';
+    var fileEl=document.getElementById('adImgFile');if(fileEl)fileEl.value='';
+  }
+  S.agentDrawConfig=cfg;
+  renderAdElementList();
+  saveLocal();broadcastConfig();
+  toast('元素已添加并同步');
+}
+function delAdElement(idx){
+  var cfg=S.agentDrawConfig||{customElements:[]};
+  if(!cfg.customElements||!cfg.customElements.length)return;
+  cfg.customElements.splice(idx,1);
+  S.agentDrawConfig=cfg;
+  renderAdElementList();
+  saveLocal();broadcastConfig();
+  toast('已删除');
+}
 function handleRegister(d){
   if(!d.data)return;
   const exist=S.participants.find(p=>p.id===d.data.id);
@@ -922,6 +1038,7 @@ function broadcastConfig(){
     quizResults:getBestQuizResults().map(function(qr){return{name:qr.name||'',phone:qr.phone||'',gender:qr.gender||'',round:qr.round||1,correctCount:qr.correctCount||0,totalCount:qr.totalCount||0,totalTimeMs:qr.totalTimeMs||0,time:qr.time||0,allRoundCount:qr.allRoundCount||1,bestCorrectCount:qr.bestCorrectCount||qr.correctCount||0,bestAccuracy:qr.bestAccuracy||'0',bestTotalTimeMs:qr.bestTotalTimeMs||qr.totalTimeMs||0,dataBreakdown:qr.dataBreakdown||null}}),
     lotteryRule:S.lotteryRule||{enable:false,hitList:[]},
     luckyWinners:S.luckyWinners||[],
+    agentDrawConfig:S.agentDrawConfig||{reqReg:false,reqQuiz:true,reqQuiz:true,reqSign:true,reqNotWon:true,customElements:[]},
      agentDrawEnabled:true,
      time:Date.now()
    }));
@@ -2266,7 +2383,7 @@ function cloudPull(){
 function applyCloudData(d,isRemote){
   try{
     if(!d||typeof d!=='object')return;
-    var cfgKeys=['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room','luckyWinners'];
+    var cfgKeys=['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room','luckyWinners','agentDrawConfig'];
     cfgKeys.forEach(function(k){if(d[k]!==undefined)S[k]=d[k]});
     if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}
     if(!S.room||S.room.length<4){S.room=space();S.topic='cj2026/'+S.room+'/'}
@@ -2276,7 +2393,7 @@ function applyCloudData(d,isRemote){
   }catch(e){console.warn('应用云端数据失败',e)}
 }
 function pickCfg(){
-  var o={};['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room','luckyWinners'].forEach(function(k){if(S[k]!==undefined)o[k]=S[k]});return o;
+  var o={};['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room','luckyWinners','agentDrawConfig'].forEach(function(k){if(S[k]!==undefined)o[k]=S[k]});return o;
 }
 function space(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function cloudPush(){
@@ -2419,13 +2536,13 @@ function upsertCloudLottery(row){
 }
 // ========== 存储渲染 ==========
 // 保存配置到本地缓存（不自动推送云端，云端为权威来源）
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,lotteryRule:S.lotteryRule||{},luckyWinners:S.luckyWinners||[]}))}catch(e){}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,lotteryRule:S.lotteryRule||{},luckyWinners:S.luckyWinners||[],agentDrawConfig:S.agentDrawConfig||{reqReg:false,reqQuiz:true,reqSign:true,reqNotWon:true,customElements:[]}}))}catch(e){}
 }
 // 只读本地账号（登录需要），业务数据（参与者/答题/设置）一律以云端为准，不恢复本地缓存
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d&&d.accounts&&d.accounts.length){S.accounts=d.accounts;S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}}catch(e){}}
 function initCloudSync(){cloudInit();}
 function renderAll(){
-  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();renderLuckyWinners();
+  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();renderLuckyWinners();renderAgentDraw();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
   document.getElementById('ltSignFailMsg').value=S.signFailMsg||'';
   var ltNqm=document.getElementById('ltSignFailNoQuizMsg');if(ltNqm)ltNqm.value=S.signFailNoQuizMsg||'';document.getElementById('ltFlowInterval').value=S.flowInterval||0;
