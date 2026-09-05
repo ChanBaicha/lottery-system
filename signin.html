@@ -32,6 +32,12 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
 .func-label{font-size:1em;font-weight:bold}
 .func-desc{font-size:.75em;opacity:.7}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+.lucky-voucher{background:linear-gradient(135deg,#fdcb6e,#fd79a8);border-radius:16px;padding:20px;margin:14px 0;text-align:center;color:#333;box-shadow:0 4px 20px rgba(253,121,168,.3);animation:pulse 2s ease-in-out infinite}
+.lucky-voucher .v-title{font-size:1.2em;font-weight:bold;margin-bottom:8px}
+.lucky-voucher .v-name{font-size:1.4em;font-weight:bold;color:#6c5ce7;margin:4px 0}
+.lucky-voucher .v-cat{font-size:.85em;color:#555;margin-bottom:6px}
+.lucky-voucher .v-tip{font-size:.75em;color:#666;margin-top:8px}
+.lucky-voucher .v-code{display:inline-block;background:rgba(255,255,255,.5);padding:4px 12px;border-radius:8px;font-size:.9em;font-weight:bold;letter-spacing:2px;margin-top:6px}
 </style>
 </head>
 <body>
@@ -145,6 +151,9 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
         <p style="color:var(--sub);font-size:.9em;line-height:2"><b style="color:var(--gold)">已签到，请耐心等待</b></p>
       </div>
     </div>
+    <!-- 幸运降临兑奖凭证（仅中奖人可见） -->
+    <div id="luckyVoucherContainer"></div>
+
     <!-- 4个功能按钮（签到后同样可用） -->
     <div class="func-grid">
       <button class="func-btn" style="background:var(--pri);color:#fff" onclick="showAvatarPage()">
@@ -223,6 +232,7 @@ let S={mqtt:null,topic:'',room:'',
   signFailNoQuizMsg:'未参与知识问答或知识问答登记信息有误，请参与知识问答后获取资格',
   signPromptMsg:'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',
   voidedTickets:[],allParticipants:[],allQuizResults:[],
+  luckyWinners:[],
   signedIn:false,myName:'',myData:{},avatarData:'',
   danmakuSettings:{enable:true,anonymous:true},
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
@@ -316,8 +326,11 @@ function applyCloudConfig(d){
   S.danmakuSettings=d.danmaku||{enable:true,anonymous:true};
   if(d.music)S.music=d.music;
   applyMusic();
+  // 同步幸运降临中奖名单
+  if(d.luckyWinners)S.luckyWinners=d.luckyWinners;
   if(!S.signedIn)renderSignForm();
   updateSigninUI();
+  renderLuckyVoucher();
 }
 function updateSigninUI(){
 }
@@ -344,9 +357,10 @@ function connectMQTT(){
     S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
     S.mqtt.on('connect',()=>{
       updateMqtt('online');
-      S.mqtt.subscribe(S.topic+'config');
-      S.mqtt.subscribe(S.topic+'game_cmd');
-      S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'signin',time:Date.now()}));
+    S.mqtt.subscribe(S.topic+'config');
+     S.mqtt.subscribe(S.topic+'game_cmd');
+     S.mqtt.subscribe(S.topic+'lucky_arrival');
+     S.mqtt.publish(S.topic+'request_config',JSON.stringify({type:'request',from:'signin',time:Date.now()}));
     });
     S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
     S.mqtt.on('error',()=>updateMqtt('offline'));S.mqtt.on('reconnect',()=>updateMqtt('connecting'));S.mqtt.on('close',()=>updateMqtt('offline'));
@@ -362,6 +376,7 @@ function handleMsg(t,d){
     if(d.signFailNoQuizMsg)S.signFailNoQuizMsg=d.signFailNoQuizMsg;
     if(d.signPromptMsg)S.signPromptMsg=d.signPromptMsg;
     if(d.voidedTickets)S.voidedTickets=d.voidedTickets;
+    if(d.luckyWinners)S.luckyWinners=d.luckyWinners;
     if(d.danmaku)S.danmakuSettings=d.danmaku;
     if(d.music)S.music=d.music;applyMusic();
     if(!S.signedIn)renderSignForm();
@@ -373,6 +388,8 @@ function handleMsg(t,d){
     }
   }else if(t.endsWith('game_cmd')){
     handleGameCmd(d);
+  }else if(t.endsWith('lucky_arrival')){
+    handleLuckyArrivalMsg(d);
   }
 }
 
@@ -630,6 +647,57 @@ function submitSignin(data){
     }
   }
   toast('签到成功！');
+  renderLuckyVoucher();
+}
+
+// ========== 幸运降临兑奖凭证 ==========
+function handleLuckyArrivalMsg(d){
+  if(!d)return;
+  // 处理删除补位消息
+  if(d.isReplacement){
+    if(d.replacedName){
+      // 删除被替换的中奖人
+      var idx=S.luckyWinners.findIndex(function(w){return w.name===d.replacedName});
+      if(idx>=0)S.luckyWinners.splice(idx,1);
+    }
+    // 添加补位中奖人
+    if(d.winners&&d.winners.length){
+      d.winners.forEach(function(w){
+        var exist=S.luckyWinners.find(function(lw){return lw.name===w.name&&(lw.phone||'')===(w.phone||'')});
+        if(!exist)S.luckyWinners.push(w);
+      });
+    }
+  }else{
+    // 正常中奖消息
+    if(d.winners&&d.winners.length){
+      d.winners.forEach(function(w){
+        var exist=S.luckyWinners.find(function(lw){return lw.name===w.name&&(lw.phone||'')===(w.phone||'')});
+        if(!exist)S.luckyWinners.push(w);
+      });
+    }
+  }
+  renderLuckyVoucher();
+}
+
+function renderLuckyVoucher(){
+  var container=document.getElementById('luckyVoucherContainer');
+  if(!container)return;
+  // 仅在签到成功等待页显示
+  if(!S.signedIn||!S.myName){container.innerHTML='';return}
+  // 检查当前用户是否在幸运降临中奖名单中
+  var myLucky=(S.luckyWinners||[]).find(function(w){
+    return w.name===S.myName;
+  });
+  if(!myLucky){container.innerHTML='';return}
+  var catName={west:'西柚达人',lucky:'幸运小柚子',chosen:'天选之子'}[myLucky.category]||myLucky.category||'幸运降临';
+  var code='LUCKY'+(myLucky.name||'').substr(0,2)+Date.now().toString(36).substr(-4).toUpperCase();
+  container.innerHTML='<div class="lucky-voucher">'+
+    '<div class="v-title">🎁 幸运降临 · '+catName+'</div>'+
+    '<div class="v-name">'+(myLucky.name||'')+'</div>'+
+    '<div class="v-cat">恭喜你被抽中为「'+catName+'」！</div>'+
+    '<div class="v-code">'+code+'</div>'+
+    '<div class="v-tip">请向工作人员出示此凭证领取奖品</div>'+
+    '</div>';
 }
 
 function showFailModal(msg){
