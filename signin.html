@@ -223,6 +223,16 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
   </div>
 </div>
 
+<!-- 号段提醒弹窗 -->
+<div class="modal-bg" id="phoneWarnModal" onclick="if(event.target===this)closePhoneWarnModal()">
+  <div class="modal-card" style="max-width:380px;position:relative">
+    <button class="btn btn-out" style="position:absolute;top:10px;right:10px;padding:4px 10px;font-size:.8em;border-radius:8px" onclick="closePhoneWarnModal()">✕</button>
+    <div style="font-size:2.5em;margin-bottom:14px">⚠️</div>
+    <p style="color:#fff;font-size:1.05em;line-height:2;margin-bottom:20px;font-weight:bold;text-align:center">请核实输入的号码是否为新办的校园网号码</p>
+    <button class="btn btn-pri" style="width:100%;padding:12px" onclick="closePhoneWarnModal()">我知道了</button>
+  </div>
+</div>
+
 <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -532,6 +542,11 @@ function doSignin(){
       var preVal=pre?pre.value.trim():'';
       var sufVal=suf?suf.value.trim():'';
       if(f.required&&(!preVal||!sufVal)){toast('请完整填写 '+f.name+'（前3位和后4位）');valid=false;return}
+      // 中国电信号段校验
+      if(preVal&&!isChinaTelecomPhone(preVal)){
+        document.getElementById('phoneWarnModal').classList.add('show');
+        valid=false;return;
+      }
       val=preVal+'XXXX'+sufVal; // 拼接为完整格式（前3+XXXX+后4）
       el.value=val; // 同步hidden字段
     }
@@ -705,6 +720,9 @@ function showFailModal(msg){
   document.getElementById('failModal').classList.add('show');
 }
 function closeFailModal(){document.getElementById('failModal').classList.remove('show')}
+function closePhoneWarnModal(){document.getElementById('phoneWarnModal').classList.remove('show')}
+var TEL_PHONE_PREFIXES=['133','149','153','173','177','180','181','189','190','191','193','199'];
+function isChinaTelecomPhone(pre){return TEL_PHONE_PREFIXES.indexOf(pre)>=0}
 
 
 function calcDist(la1,lo1,la2,lo2){const R=6371000,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180;a=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)*Math.sin(dLo/2);return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
