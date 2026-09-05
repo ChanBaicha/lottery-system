@@ -42,6 +42,9 @@ input,button,select,textarea{font-family:inherit;outline:none;border:none}
 .round-pill.best{border-color:var(--gold);background:rgba(253,203,110,.15);color:var(--gold);font-weight:bold}
 .round-pill.current{border-color:var(--pri);background:rgba(108,92,231,.2);color:var(--pri-l)}
 .data-breakdown{background:var(--card2);border-radius:12px;padding:16px;margin-top:14px;border:1px solid rgba(253,203,110,.2)}
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal-card{background:var(--card);border-radius:20px;padding:30px;width:100%;max-width:400px;text-align:center;border:1px solid var(--bd)}
 .data-breakdown-title{font-size:.85em;font-weight:bold;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .data-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03);font-size:.8em}
 .data-row:last-child{border-bottom:none}
@@ -191,6 +194,16 @@ TA新生助手，助你开启全新西柚生活！
   </div>
 </div>
 
+<!-- 号段提醒弹窗 -->
+<div class="modal-bg" id="phoneWarnModal" onclick="if(event.target===this)closePhoneWarnModal()">
+  <div class="modal-card" style="max-width:380px;position:relative">
+    <button class="btn btn-out" style="position:absolute;top:10px;right:10px;padding:4px 10px;font-size:.8em;border-radius:8px" onclick="closePhoneWarnModal()">✕</button>
+    <div style="font-size:2.5em;margin-bottom:14px">⚠️</div>
+    <p style="color:#fff;font-size:1.05em;line-height:2;margin-bottom:20px;font-weight:bold;text-align:center">请核实输入的号码是否为新办的校园网号码</p>
+    <button class="btn btn-pri" style="width:100%;padding:12px" onclick="closePhoneWarnModal()">我知道了</button>
+  </div>
+</div>
+
 <div id="toast" style="position:fixed;bottom:30px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:30px;background:rgba(0,0,0,.85);z-index:9999;font-size:.9em;opacity:0;transition:.3s;pointer-events:none"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -213,6 +226,9 @@ let S={
 function getMaxRounds(){return(S.quizConfig&&S.quizConfig.rounds)?parseInt(S.quizConfig.rounds)||3:3}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function toast(m,d=2000){const t=document.getElementById('toast');t.textContent=m;t.style.opacity='1';setTimeout(()=>t.style.opacity='0',d)}
+function closePhoneWarnModal(){document.getElementById('phoneWarnModal').classList.remove('show')}
+var TEL_PHONE_PREFIXES=['133','149','153','173','177','180','181','189','190','191','193','199'];
+function isChinaTelecomPhone(pre){return TEL_PHONE_PREFIXES.indexOf(pre)>=0}
 function fmtTime(ms){return(ms/1000).toFixed(2)}
 function maskPhone(p){if(!p)return'';return p.substr(0,3)+'XXXX'+p.substr(-4)}
 
@@ -615,6 +631,11 @@ function submitReg(){
   if(!phoneSuf||phoneSuf.length!==4){toast('请输入手机号后4位');return}
   if(!/^\d{3}$/.test(phonePre)){toast('手机号前3位必须为数字');return}
   if(!/^\d{4}$/.test(phoneSuf)){toast('手机号后4位必须为数字');return}
+  // 中国电信号段校验
+  if(!isChinaTelecomPhone(phonePre)){
+    document.getElementById('phoneWarnModal').classList.add('show');
+    return;
+  }
 
   const fullPhone=phonePre+'XXXX'+phoneSuf;
 
