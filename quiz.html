@@ -762,6 +762,11 @@ function selectAnswer(idx,btn){
   var isCorrect=btn.getAttribute('data-correct')==='true';
   var q=S.questions[S.currentQ];
 
+  // 答错题按30秒计时（而非实际用时）
+  if(!isCorrect){
+    elapsed=30000;
+  }
+
   // 标记选中
   var allBtns=document.querySelectorAll('.opt-btn');
   allBtns.forEach(function(b){b.onclick=null});
@@ -783,7 +788,7 @@ function selectAnswer(idx,btn){
   }else{
     fb.style.background='rgba(225,112,85,.15)';
     fb.style.color='var(--red)';
-    fb.textContent='❌ 回答错误！用时 '+fmtTime(elapsed)+'s';
+    fb.textContent='❌ 回答错误！按30秒计时 ('+fmtTime(elapsed)+'s)';
   }
 
   // 记录答案
