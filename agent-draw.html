@@ -410,7 +410,7 @@ function pinyinFirst(name){
 // ========== 现场前X大姓（常用版）==========
 var TOP_SURNAMES_LIST=['王','张','李','刘','陈','杨','黄','赵','周','吴','徐','孙','马','朱','胡','郭','何','高','林','罗','郑','梁','宋','谢','唐','许','韩','冯','邓','曹','彭','曾','汪','董','袁','潘','蒋','蔡','戴','夏','钟','汪','田','方','任','卢','姚','谭','廖','范','白','邹','邱','秦','侯','龙','盛','段','雷','汤','章','鲁','薛','叶','阎','余','丁','沈','蔡','魏','贾','路','姜','崔','牛','卫','傅','安','乔','于','单','管','石','米','柏','水','窦','章','云','苏','潘','葛','奚','范','彭','郎','鲁','韦','昌','马','苗','凤','花','方','俞','任','袁','柳','鲍','史','唐','费','廉','岑','薛','雷','贺','倪','汤','滕','殷','罗','毕','郝','邬','安','常','乐','于','时','傅','皮','卞','齐','康','伍','余','元','卜','顾','孟','平','黄','和','穆','萧','尹','姚','邵','湛','汪','祁','毛','禹','狄','米','贝','明','臧','计','伏','成','戴','谈','宋','茅','庞','纪','舒','董','梁','杜','阮','蓝','闵','席','季','麻','强','贾','路','娄','危','江','童','颜','郭','梅','盛','林','刁','钟','徐','邱','骆','高','夏','蔡','田','樊','胡','凌','霍','虞','万','支','柯','昝','管','卢','莫','经','房','裘','缪','干','解','应','宗','丁','宣','贲','邓','郁','单','杭','洪','包','诸','左','石','崔','吉','钮','龚','程','嵇','邢','滑','裴','陆','荣','翁','荀','羊','於','惠','甄','曲','家','封','芮','羿','储','靳','汲','邴','糜','松','井','段','富','巫','乌','焦','巴','弓','牧','隗','山','谷','车','侯','宓','蓬','全','郗','班','仰','秋','仲','伊','宫','宁','仇','栾','暴','甘','钭','厉','戎','祖','武','符','刘','景','詹','束','龙','叶','幸','司','韶','郜','黎','蓟','薄','印','宿','白','怀','蒲','邰','从','鄂','索','咸','籍','赖','卓','蔺','屠','蒙','池','乔','阴','胥','能','苍','双','闻','莘','党','翟','谭','贡','劳','逄','姬','申','扶','堵','冉','宰','郦','雍','却','桑','桂','濮','牛','寿','通','边','扈','燕','冀','浦','尚','农','温','别','庄','晏','柴','瞿','阎','充','慕','连','茹','习','宦','艾','鱼','容','向','古','易','慎','戈','廖','庾','终','暨','居','衡','步','都','耿','满','弘','匡','国','文','寇','广','禄','阙','东','欧','殳','沃','利','蔚','越','夔','隆','师','巩','厍','聂','晁','勾','敖','融','冷','訾','辛','阚','那','简','饶','空','曾','毋','沙'];
 
-// ========== 天选规则定义（28条）==========
+// ========== 天选规则定义（30条）==========
 var RULES=[
   // A. 姓名笔画维度（4条）
   {id:1,name:'姓名总笔画 mod 2',cat:'宽泛',pType:'select',pLabel:'',pOptions:['偶','奇'],fields:['name'],
@@ -502,7 +502,30 @@ var RULES=[
   // G. 趣味彩蛋（1条）
   {id:28,name:'四维度联合数字根为指定值',cat:'数字根',pType:'text',pLabel:'数字(如1,3,5)',fields:['name','phone','quiz'],
    test:function(d,p){var opts=(p||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())}).filter(function(n){return!isNaN(n)});var total=d.stroke+d.phoneSum+d.timeSec+d.quizScore;return opts.indexOf(digitRoot(total))>=0},
-   desc:function(p){return'(笔画+手机和+答题秒数+得分)一直相加到个位数 = '+p+'之一'}}
+   desc:function(p){return'(笔画+手机和+答题秒数+得分)一直相加到个位数 = '+p+'之一'}},
+  // H. 答题速度排名维度（2条）
+  {id:29,name:'第X题答题速度前Y名',cat:'精准',pType:'text',pLabel:'题号,前N名(如1,3)',fields:['quiz'],
+   isRank:true,
+   rankFunc:function(pool,param){
+     var parts=(param||'').split(/[，,、\s]/).map(function(s){return parseInt(s.trim())});
+     var qNum=parts[0]||1;var topN=parts[1]||3;
+     var key='roundTime_'+qNum;
+     var sorted=pool.filter(function(d){return d[key]!==undefined&&d[key]!==null}).sort(function(a,b){return a[key]-b[key]});
+     var topNames=sorted.slice(0,topN).map(function(d){return d.name});
+     return pool.filter(function(d){return topNames.indexOf(d.name)>=0});
+   },
+   test:function(d,p){return false}, // 占位，实际逻辑由 rankFunc 处理
+   desc:function(p){var parts=(p||'').split(/[，,、\s]/);return'第'+(parts[0]||1)+'题答题速度前'+(parts[1]||3)+'名'}},
+  {id:30,name:'总答题速度前X名',cat:'精准',pType:'text',pLabel:'前N名(如3)',fields:['quiz'],
+   isRank:true,
+   rankFunc:function(pool,param){
+     var topN=parseInt((param||'').trim())||3;
+     var sorted=pool.filter(function(d){return d.quizTotalTime!==undefined}).sort(function(a,b){return a.quizTotalTime-b.quizTotalTime});
+     var topNames=sorted.slice(0,topN).map(function(d){return d.name});
+     return pool.filter(function(d){return topNames.indexOf(d.name)>=0});
+   },
+   test:function(d,p){return false},
+   desc:function(p){return'总答题速度前'+(parseInt((p||'').trim())||3)+'名'}}
 ];
 var CAT_COLORS={'宽泛':'#00b894','较宽泛':'#0984e3','较精准':'#fd79a8','精准':'#e17055','数字根':'#a29bfe'};
 
@@ -536,14 +559,31 @@ function preCalcParticipant(p){
   var timeMs=qr?qr.totalTimeMs||0:0;
   var timeSec=Math.floor(timeMs/1000);
   var timeLast2=timeSec%100;
-  return{
+  // 从趣味抢答游戏中获取每轮答题成绩和总成绩
+  var quizTotalTime=null;
+  var roundTimesData={};
+  if(quizState.totalTime&&(quizState.totalTime[p.name||'']!==undefined)){
+    quizTotalTime=quizState.totalTime[p.name||''];
+  }
+  if(quizState.roundTimesByRound){
+    for(var rn in quizState.roundTimesByRound){
+      if(quizState.roundTimesByRound[rn][p.name||'']!==undefined){
+        roundTimesData['roundTime_'+rn]=quizState.roundTimesByRound[rn][p.name||''];
+      }
+    }
+  }
+   var ret={
     name:p.name||'',phone:phone,signed:p.signed||false,won:p.won||false,prizeId:p.prizeId||null,
     team:p.team||'',avatar:p.avatar||'',
     stroke:sc,strokeSurname:strokeSurname,strokeGivenName:strokeGivenName,pinyinFirst:pf,
     last4Str:last4Str,last4Sum:last4Sum,phoneLast2:phLast2,
     phoneSum:phoneSum,phonePrefixSum:phonePrefixSum,
-    quizScore:quizScore,quizTotal:quizTotal,timeMs:timeMs,timeSec:timeSec,timeLast2:timeLast2
-  }
+    quizScore:quizScore,quizTotal:quizTotal,timeMs:timeMs,timeSec:timeSec,timeLast2:timeLast2,
+    quizTotalTime:quizTotalTime
+  };
+  // 将每轮答题成绩展开到对象上（d.roundTime_1, d.roundTime_2...）
+  for(var rk in roundTimesData){ret[rk]=roundTimesData[rk]}
+  return ret;
 }
 
 // ========== 初始化 ==========
@@ -998,12 +1038,31 @@ function handleBridgeResult(d){
   S.bridgeExecuting=false;
   updateBridgeUI();
   if(d.success&&d.finalList){
-    S.luckyList=d.finalList.map(function(p){
+    var bridgeList=d.finalList.map(function(p){
       return{name:p.name,phone:p.phone,avatar:p.avatar||''};
     });
+    // 对 isRank 规则在本地执行：将 bridge 返回的名单转为 pool，依次应用排名规则
+    var hasRankRules=S.addedRules.some(function(ar){return ar.rule.isRank});
+    if(hasRankRules){
+      // 将 bridgeList 映射到 eligiblePool 中的完整数据对象（用于排名计算）
+      var poolMap={};
+      S.eligiblePool.forEach(function(d){poolMap[d.name]=d});
+      var pool=bridgeList.map(function(p){return poolMap[p.name]||p});
+      // 依次应用所有 isRank 规则
+      S.addedRules.forEach(function(ar){
+        if(ar.rule.isRank){
+          pool=ar.rule.rankFunc(pool,ar.param);
+        }
+      });
+      S.luckyList=pool.map(function(d){
+        return{name:d.name,phone:d.phone,avatar:d.avatar||''};
+      });
+    }else{
+      S.luckyList=bridgeList;
+    }
     renderLuckyList();
     updateLuckyTags(S.addedRules.length);
-    toast('TeleAgent 执行完成，命中 '+d.finalList.length+' 人');
+    toast('TeleAgent 执行完成，命中 '+S.luckyList.length+' 人');
   }else if(!d.success){
     toast('TeleAgent 执行失败：'+(d.error||'未知错误')+'，已降级为本地计算');
     // 降级为本地计算
@@ -1079,13 +1138,19 @@ function executeRulesViaBridge(){
     return;
   }
   // 构造请求：自定义规则直接发送原始自然语言文本，不做本地解析/校验
+  // isRank 类规则在本地执行，不发送给桥接
   S.bridgeReqId=uid();
-  var rulesPayload=S.addedRules.map(function(ar){
+  var rulesPayload=S.addedRules.filter(function(ar){return!ar.rule.isRank}).map(function(ar){
     if(ar.rule.id===999){
       return{id:999,rawText:ar.param};
     }
     return{id:ar.rule.id,param:ar.param};
   });
+  // 如果所有规则都是 isRank 类，直接本地执行
+  if(!rulesPayload.length){
+    executeAllRulesLocal();
+    return;
+  }
   var req={
     type:'execute_rules',
     reqId:S.bridgeReqId,
@@ -1132,6 +1197,9 @@ function executeAllRulesLocal(){
       if(parsed&&parsed.conditions.length){
         matched=matched.filter(function(d){return parsed.conditions.every(function(c){return c.test(d)})});
       }
+    }else if(ar.rule.isRank){
+      // 排名类规则：用 rankFunc 从当前 matched 池中筛选前N名
+      matched=ar.rule.rankFunc(matched,ar.param);
     }else{
       matched=matched.filter(function(d){return ar.rule.test(d,ar.param)});
     }
@@ -1153,6 +1221,7 @@ function executeAllRulesLocal(){
       for(var j=0;j<=i;j++){
         var ar2=S.addedRules[j];
         if(ar2.rule.id===999){var p2=customParsed[ar2.seq];if(p2&&p2.conditions.length){matched2=matched2.filter(function(d){return p2.conditions.every(function(c){return c.test(d)})})}}
+        else if(ar2.rule.isRank){matched2=ar2.rule.rankFunc(matched2,ar2.param)}
         else{matched2=matched2.filter(function(d){return ar2.rule.test(d,ar2.param)})}
       }
       S.bridgeSteps.push({type:'rule_result',text:'规则'+(i+1)+'：「'+ar.rule.desc(ar.param)+'」\n命中：'+matched2.length+' 人'});
@@ -1659,7 +1728,7 @@ var quizState={},quizzes=[
 function runQuizGame(){
   var rounds=(S.gameConfig&&S.gameConfig.quizRounds)||3;
   var interval=(S.gameConfig&&S.gameConfig.quizInterval)||5;
-  quizState={currentRound:0,totalRounds:rounds,answers:{},current:null,scores:{},totalTime:{},roundStart:0,roundTimes:{}};
+  quizState={currentRound:0,totalRounds:rounds,answers:{},current:null,scores:{},totalTime:{},roundStart:0,roundTimes:{},roundTimesByRound:{}};
   gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
   if(S.mqtt){S.mqtt.subscribe(S.topic+'quiz_answer')}
   // 通知手机端开始抢答
@@ -1700,13 +1769,19 @@ function runQuizRound(roundIdx,totalRounds,interval){
     allNames.forEach(function(name){
       var answerTimeForUser=quizState.roundTimes[name]||(roundEnd-quizState.roundStart);
       if(!quizState.totalTime[name])quizState.totalTime[name]=0;
+      var roundScore;
       if(quizState.answers[name]===q.a){
         // 答对：加实际用时
         quizState.totalTime[name]+=answerTimeForUser;
+        roundScore=answerTimeForUser;
       }else{
         // 答错或超时未答：加答题间隔的1.2倍
-        quizState.totalTime[name]+=Math.round(interval*1.2*1000);
+        roundScore=Math.round(interval*1.2*1000);
+        quizState.totalTime[name]+=roundScore;
       }
+      // 存储每轮每个答题人的成绩（用于第X题答题速度规则）
+      if(!quizState.roundTimesByRound[roundIdx+1])quizState.roundTimesByRound[roundIdx+1]={};
+      quizState.roundTimesByRound[roundIdx+1][name]=roundScore;
     });
     // 显示本轮结果
     gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
