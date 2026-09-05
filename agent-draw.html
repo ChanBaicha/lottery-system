@@ -157,7 +157,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .thinking-nav-btn:disabled{opacity:.3;cursor:not-allowed}
 .thinking-nav-btn.active{background:var(--pri);color:#fff}
 .ad-custom-layer{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50;overflow:hidden}
-.ad-custom-el{position:absolute;pointer-events:auto;cursor:move;user-select:none;border:2px dashed transparent;transition:border-color .2s;display:flex;align-items:center;justify-content:center}
+.ad-custom-el{position:absolute;pointer-events:auto;cursor:move;user-select:none;border:2px dashed transparent;transition:border-color .2s;display:flex;align-items:center;justify-content:center;background:rgba(22,27,60,.85);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.4)}
 .ad-custom-el:hover{border-color:rgba(108,92,231,.5)}
 .ad-custom-el.active{border-color:var(--pri)}
 .ad-custom-el .ad-close-btn{position:absolute;top:-10px;right:-10px;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;display:none;font-size:14px;line-height:1;z-index:10;align-items:center;justify-content:center}
@@ -738,15 +738,16 @@ function renderCustomElements(){
       makeResizable(dom,resize,el);
       layer.appendChild(dom);
     }else{
-      // 更新内容（如文字修改）
+      // 更新内容（如文字修改），但不重置位置和大小（防止拖拽后弹回）
       if(el.type==='text'){
         var txt=dom.querySelector('.ad-custom-text');
-        if(txt){txt.textContent=el.content||'';txt.style.fontSize=(el.fontSize||18)+'px';txt.style.color=el.color||'#fdcb6e'}
+        if(txt){txt.textContent=el.content||'';txt.style.color=el.color||'#fdcb6e'}
+        // 文字大小跟随元素尺寸自适应
+        var cw=parseInt(dom.style.width)||el.width;
+        var ch=parseInt(dom.style.height)||el.height;
+        var fs=Math.max(10,Math.round(Math.min(cw*0.15,ch*0.5)));
+        if(txt){txt.style.fontSize=fs+'px'}
       }
-      dom.style.left=el.x+'px';
-      dom.style.top=el.y+'px';
-      dom.style.width=el.width+'px';
-      dom.style.height=el.height+'px';
     }
   });
 }
@@ -807,6 +808,15 @@ function makeResizable(dom,handle,el){
     el.width=nw;el.height=nh;
     dom.style.width=nw+'px';
     dom.style.height=nh+'px';
+    // 文字大小随元素尺寸自适应
+    if(el.type==='text'){
+      var txt=dom.querySelector('.ad-custom-text');
+      if(txt){
+        var fs=Math.max(10,Math.round(Math.min(nw*0.15,nh*0.5)));
+        txt.style.fontSize=fs+'px';
+        el.fontSize=fs;
+      }
+    }
   });
   document.addEventListener('mouseup',function(){if(resizing){resizing=false}});
   handle.addEventListener('touchstart',function(e){
@@ -826,6 +836,15 @@ function makeResizable(dom,handle,el){
     el.width=nw;el.height=nh;
     dom.style.width=nw+'px';
     dom.style.height=nh+'px';
+    // 文字大小随元素尺寸自适应
+    if(el.type==='text'){
+      var txt=dom.querySelector('.ad-custom-text');
+      if(txt){
+        var fs=Math.max(10,Math.round(Math.min(nw*0.15,nh*0.5)));
+        txt.style.fontSize=fs+'px';
+        el.fontSize=fs;
+      }
+    }
     e.preventDefault();
   },{passive:false});
   document.addEventListener('touchend',function(){if(resizing){resizing=false}});
