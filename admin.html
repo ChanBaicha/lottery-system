@@ -905,6 +905,8 @@ function handleDanmaku(d){
 }
 function broadcastConfig(){
   if(!S.mqtt||!S.mqtt.connected)return;
+  // 云端配置未拉取完成前不广播（避免用本地默认空配置覆盖其他端）
+  if(!_cloudReady)return;
   S.mqtt.publish(S.topic+'config',JSON.stringify({
     prizes:S.prizes,fields:S.fields,screen:S.screen,signin:S.signin,drawCount:S.drawCount,
     accounts:S.accounts,baseLink:S.baseLink,participantCount:S.participants.length,
@@ -2242,6 +2244,7 @@ function cloudPull(){
   _sb.from('room_data').select('data').eq('room',S.room).maybeSingle().then(function(res){
     if(res.error){console.warn('云端配置拉取失败',res.error.message);return}
     if(res.data&&res.data.data){_cloudFlag=true;applyCloudData(res.data.data,false);setTimeout(function(){_cloudFlag=false},500)}
+    _cloudReady=true; // 标记云端拉取完成，允许后续 cloudPush
     // 拉参与者（全量覆盖，以云端为准——云端为空也清空本地）
     _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
       if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
@@ -2277,7 +2280,7 @@ function pickCfg(){
 }
 function space(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function cloudPush(){
-  if(!_sb||_cloudFlag)return;
+  if(!_sb||_cloudFlag||!_cloudReady)return;
   clearTimeout(_cloudTimer);
   _cloudTimer=setTimeout(function(){
     _cloudFlag=true;
