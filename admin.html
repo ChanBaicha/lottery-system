@@ -531,6 +531,17 @@ textarea{width:100%;padding:10px;border-radius:8px;background:var(--card2);borde
       <button class="btn btn-dng" onclick="clearRecords()">🗑️ 清空记录</button>
     </div>
     <div id="recList" style="max-height:500px;overflow-y:auto"></div>
+    <div class="section" style="margin-top:16px;border:2px solid var(--gold);border-radius:14px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="font-size:1.05em;color:var(--gold)">🎁 幸运降临中奖名单</h3>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-suc btn-sm" onclick="exportLuckyWinners()">📊 导出Excel</button>
+          <button class="btn btn-dng btn-sm" onclick="clearLuckyWinners()">🗑️ 清空</button>
+        </div>
+      </div>
+      <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">由智能体抽奖端「幸运降临」功能产生的中奖记录，不在天选规则判定范围内。</p>
+      <div id="luckyWinnersList" style="max-height:300px;overflow-y:auto"></div>
+    </div>
     <div class="section" style="margin-top:16px">
       <h3 style="font-size:1.05em;margin-bottom:10px">🗑️ 被删除的中奖人</h3>
       <p style="color:var(--sub);font-size:.82em;margin-bottom:10px">大屏端删除的中奖人将出现在这里，可单条恢复其获奖资格（恢复后获奖资格恢复，奖品计数恢复）。</p>
@@ -651,6 +662,7 @@ let S={mode:'admin',mqtt:null,topic:'cj2026/',room:'',loggedIn:false,
   danmaku:{enable:true,needReview:false,anonymous:true,badWords:[],speed:8,fontSize:28,max:50,history:[]},
   music:{enable:false,preset:'',url:'',name:'',volume:0.5},
   voidedWinners:[],
+  luckyWinners:[],
   quizConfig:{questions:[],rounds:1,questionCount:10,mode:'sequential',shuffleOptions:true},
   quizFields:[{id:'qz_name',name:'姓名',type:'text',required:true},{id:'qz_gender',name:'性别',type:'select',options:'男,女',required:true},{id:'qz_phone',name:'新办手机号码',type:'phone',required:true}],
   quizBoardName:'新办手机号码',
@@ -717,7 +729,7 @@ function connectMQTT(){
   const cid='admin_'+uid();
   try{
     S.mqtt=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{clientId:cid,keepalive:30,clean:true,reconnectPeriod:3000,connectTimeout:10000});
-    S.mqtt.on('connect',()=>{updateConn('online');S.mqtt.subscribe(S.topic+'sign_in');S.mqtt.subscribe(S.topic+'register');S.mqtt.subscribe(S.topic+'game_cmd');S.mqtt.subscribe(S.topic+'request_config');S.mqtt.subscribe(S.topic+'danmaku');S.mqtt.subscribe(S.topic+'lottery_result');S.mqtt.subscribe(S.topic+'winner_void');S.mqtt.subscribe(S.topic+'quiz_register');S.mqtt.subscribe(S.topic+'quiz_result');broadcastConfig()});
+    S.mqtt.on('connect',()=>{updateConn('online');S.mqtt.subscribe(S.topic+'sign_in');S.mqtt.subscribe(S.topic+'register');S.mqtt.subscribe(S.topic+'game_cmd');S.mqtt.subscribe(S.topic+'request_config');S.mqtt.subscribe(S.topic+'danmaku');S.mqtt.subscribe(S.topic+'lottery_result');S.mqtt.subscribe(S.topic+'winner_void');S.mqtt.subscribe(S.topic+'quiz_register');S.mqtt.subscribe(S.topic+'quiz_result');S.mqtt.subscribe(S.topic+'lucky_arrival');broadcastConfig()});
     S.mqtt.on('message',(t,m)=>{try{const d=JSON.parse(m.toString());handleMsg(t,d)}catch(e){}});
     S.mqtt.on('error',()=>updateConn('offline'));S.mqtt.on('reconnect',()=>updateConn('connecting'));S.mqtt.on('close',()=>updateConn('offline'));
   }catch(e){updateConn('offline')}
@@ -733,6 +745,7 @@ function handleMsg(t,d){
   else if(t.endsWith('winner_void')){handleWinnerVoid(d)}
   else if(t.endsWith('quiz_register')){handleQuizRegister(d)}
   else if(t.endsWith('quiz_result')){handleQuizResult(d)}
+  else if(t.endsWith('lucky_arrival')){handleLuckyArrival(d)}
 }
 function handleLotteryResult(d){
   if(!d.winners||!d.winners.length)return;
@@ -775,6 +788,82 @@ function restoreVoidedWinner(idx){
   S.voidedWinners.splice(idx,1);
   saveLocal();renderVoidedWinners();renderParticipants();renderPrizes();renderRecords();broadcastConfig();
   toast('已恢复：'+v.name);
+}
+// ========== 幸运降临 ==========
+function handleLuckyArrival(d){
+  if(!d)return;
+  if(d.isReplacement&&d.replacedName){
+    // 补位消息：先删除被替换的人
+    if(d.replacedName){
+      var idx=S.luckyWinners.findIndex(function(w){return w.name===d.replacedName});
+      if(idx>=0)S.luckyWinners.splice(idx,1);
+    }
+    if(d.noReplacement||!d.winners||!d.winners.length){
+      saveLocal();renderLuckyWinners();renderRecords();
+      toast('⚠️ 幸运降临补位：'+d.replacedName+' 已删除，无剩余候选可补位');
+      return;
+    }
+  }
+  if(d.winners&&d.winners.length){
+    d.winners.forEach(function(w){
+      // 避免重复添加
+      var exist=S.luckyWinners.find(function(lw){return lw.name===w.name&&(lw.phone||'')===(w.phone||'')});
+      if(!exist){
+        S.luckyWinners.push({
+          name:w.name,
+          phone:w.phone||'',
+          category:d.category||'幸运降临',
+          time:d.time||Date.now(),
+          prize:d.category||'幸运降临'
+        });
+        // 更新参与者中奖状态
+        var p=S.participants.find(function(pp){return pp.name===w.name&&(pp.phone||'')===(w.phone||'')});
+        if(p){p.won=true;p.prizeId=d.category||'幸运降临';p.prizeName=d.category||'幸运降临'}
+      }
+    });
+    saveLocal();renderLuckyWinners();renderRecords();renderParticipants();
+    if(d.isReplacement){
+      toast('🔄 幸运降临补位：'+d.winners.map(function(w){return w.name}).join('、')+' ('+(d.category||'')+')');
+    }else{
+      toast('🎁 幸运降临：'+d.winners.map(function(w){return w.name}).join('、')+' ('+(d.category||'')+')');
+    }
+  }
+}
+function renderLuckyWinners(){
+  var l=document.getElementById('luckyWinnersList');
+  if(!l)return;
+  if(!S.luckyWinners||!S.luckyWinners.length){l.innerHTML='<div style="text-align:center;color:var(--sub);padding:20px;font-size:.85em">暂无幸运降临中奖记录</div>';return}
+  var catColors={'西柚达人':'#00b894','幸运小柚子':'#fdcb6e','天选之子':'#fd79a8'};
+  l.innerHTML=S.luckyWinners.map(function(w,i){
+    var catColor=catColors[w.category]||'#fdcb6e';
+    return '<div class="section" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-left:4px solid '+catColor+'">'+
+      '<div style="font-weight:bold;color:'+catColor+';min-width:30px">'+(i+1)+'</div>'+
+      '<div style="flex:1;font-weight:bold">'+w.name+'</div>'+
+      '<div style="font-size:.82em;color:var(--sub)">'+(w.phone||'')+'</div>'+
+      '<span style="padding:2px 8px;border-radius:8px;font-size:.76em;background:'+catColor+';color:#333;white-space:nowrap">'+w.category+'</span>'+
+      '<div style="font-size:.8em;color:var(--sub)">'+fmt(w.time)+'</div>'+
+    '</div>';
+  }).join('');
+}
+function clearLuckyWinners(){
+  if(!S.luckyWinners||!S.luckyWinners.length){toast('暂无记录');return}
+  if(!confirm('确定清空所有幸运降临中奖记录？'))return;
+  S.luckyWinners.forEach(function(w){
+    var p=S.participants.find(function(pp){return pp.name===w.name&&(pp.phone||'')===(w.phone||'')});
+    if(p){p.won=false;p.prizeId=null;p.prizeName=null}
+  });
+  S.luckyWinners=[];
+  saveLocal();renderLuckyWinners();renderRecords();renderParticipants();broadcastConfig();
+  toast('已清空幸运降临记录');
+}
+function exportLuckyWinners(){
+  if(!S.luckyWinners||!S.luckyWinners.length){toast('暂无记录');return}
+  var csv='\uFEFF序号,姓名,手机号,中奖类别,中奖时间\n';
+  S.luckyWinners.forEach(function(w,i){
+    csv+=(i+1)+','+w.name+','+(w.phone||'')+','+w.category+','+fmt(w.time)+'\n';
+  });
+  downloadCSV(csv,'幸运降临中奖名单_'+Date.now()+'.csv');
+  toast('已导出');
 }
 function handleRegister(d){
   if(!d.data)return;
@@ -830,6 +919,7 @@ function broadcastConfig(){
     quizIntro:S.quizIntro||'',
     quizResults:getBestQuizResults().map(function(qr){return{name:qr.name||'',phone:qr.phone||'',gender:qr.gender||'',round:qr.round||1,correctCount:qr.correctCount||0,totalCount:qr.totalCount||0,totalTimeMs:qr.totalTimeMs||0,time:qr.time||0,allRoundCount:qr.allRoundCount||1,bestCorrectCount:qr.bestCorrectCount||qr.correctCount||0,bestAccuracy:qr.bestAccuracy||'0',bestTotalTimeMs:qr.bestTotalTimeMs||qr.totalTimeMs||0,dataBreakdown:qr.dataBreakdown||null}}),
     lotteryRule:S.lotteryRule||{enable:false,hitList:[]},
+    luckyWinners:S.luckyWinners||[],
      agentDrawEnabled:true,
      time:Date.now()
    }));
@@ -2134,6 +2224,15 @@ function cloudInit(){
         if(row.data){upsertCloudLottery(row)}
       })
       .subscribe();
+    // 订阅 participants（幸运降临标记同步）
+    _sb.channel('lp-sync')
+      .on('postgres_changes',{event:'*',schema:'public',table:'participants',filter:'room=eq.'+S.room},function(payload){
+        if(_cloudFlag)return;
+        var row=payload.new||{};
+        if(row.pid){upsertCloudParticipant(row)}
+        renderParticipants();renderLuckyWinners();
+      })
+      .subscribe();
     cloudPull();
   }catch(e){console.warn('云端初始化失败',e)}
 }
@@ -2164,7 +2263,7 @@ function cloudPull(){
 function applyCloudData(d,isRemote){
   try{
     if(!d||typeof d!=='object')return;
-    var cfgKeys=['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room'];
+    var cfgKeys=['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room','luckyWinners'];
     cfgKeys.forEach(function(k){if(d[k]!==undefined)S[k]=d[k]});
     if(S.accounts&&S.accounts.length){S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}
     if(!S.room||S.room.length<4){S.room=space();S.topic='cj2026/'+S.room+'/'}
@@ -2174,7 +2273,7 @@ function applyCloudData(d,isRemote){
   }catch(e){console.warn('应用云端数据失败',e)}
 }
 function pickCfg(){
-  var o={};['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room'].forEach(function(k){if(S[k]!==undefined)o[k]=S[k]});return o;
+  var o={};['prizes','accounts','fields','drawCount','noRepeat','screen','signin','baseLink','signFailMsg','signFailNoQuizMsg','signPromptMsg','flowInterval','danmaku','gameConfig','music','voidedWinners','quizConfig','quizFields','quizBoardName','quizIntro','lotteryRule','room','luckyWinners'].forEach(function(k){if(S[k]!==undefined)o[k]=S[k]});return o;
 }
 function space(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
 function cloudPush(){
@@ -2317,13 +2416,13 @@ function upsertCloudLottery(row){
 }
 // ========== 存储渲染 ==========
 // 保存配置到本地缓存（不自动推送云端，云端为权威来源）
-function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,lotteryRule:S.lotteryRule||{}}))}catch(e){}
+function saveLocal(){try{localStorage.setItem('cj_admin',JSON.stringify({prizes:S.prizes,accounts:S.accounts,fields:S.fields,drawCount:S.drawCount,noRepeat:S.noRepeat,screen:S.screen,signin:S.signin,room:S.room,baseLink:S.baseLink,signFailMsg:S.signFailMsg,signFailNoQuizMsg:S.signFailNoQuizMsg,signPromptMsg:S.signPromptMsg||'请于9月5日17:00-17:30前往一食堂外电信展台进行现场签到，请确认已经完成信息登记及新生知识竞答',flowInterval:S.flowInterval,danmaku:S.danmaku,gameConfig:S.gameConfig,music:S.music,voidedWinners:S.voidedWinners||[],quizConfig:S.quizConfig,quizFields:S.quizFields,quizBoardName:S.quizBoardName,lotteryRule:S.lotteryRule||{},luckyWinners:S.luckyWinners||[]}))}catch(e){}
 }
 // 只读本地账号（登录需要），业务数据（参与者/答题/设置）一律以云端为准，不恢复本地缓存
 function loadLocal(){try{const d=JSON.parse(localStorage.getItem('cj_admin'));if(d&&d.accounts&&d.accounts.length){S.accounts=d.accounts;S.accounts.forEach(a=>{if(!a.role)a.role=(a.user==='admin'?'super':'staff')})}}catch(e){}}
 function initCloudSync(){cloudInit();}
 function renderAll(){
-  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();
+  renderPrizes();renderAccounts();renderFields();renderParticipants();renderRecords();renderElements();renderDanmakuHistory();renderDanmakuReview();renderVoidedWinners();renderQuizQuestions();renderQuizResults();renderLotteryRule();renderLuckyWinners();
   document.getElementById('ltDrawCount').value=S.drawCount;document.getElementById('ltNoRepeat').checked=S.noRepeat;
   document.getElementById('ltSignFailMsg').value=S.signFailMsg||'';
   var ltNqm=document.getElementById('ltSignFailNoQuizMsg');if(ltNqm)ltNqm.value=S.signFailNoQuizMsg||'';document.getElementById('ltFlowInterval').value=S.flowInterval||0;
