@@ -156,6 +156,16 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .thinking-nav-btn{padding:4px 12px;border-radius:8px;background:var(--card2);border:1px solid var(--bd);color:var(--sub);cursor:pointer;font-size:.72em}
 .thinking-nav-btn:disabled{opacity:.3;cursor:not-allowed}
 .thinking-nav-btn.active{background:var(--pri);color:#fff}
+.ad-custom-layer{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50;overflow:hidden}
+.ad-custom-el{position:absolute;pointer-events:auto;cursor:move;user-select:none;border:2px dashed transparent;transition:border-color .2s;display:flex;align-items:center;justify-content:center}
+.ad-custom-el:hover{border-color:rgba(108,92,231,.5)}
+.ad-custom-el.active{border-color:var(--pri)}
+.ad-custom-el .ad-close-btn{position:absolute;top:-10px;right:-10px;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;border:none;cursor:pointer;display:none;font-size:14px;line-height:1;z-index:10;align-items:center;justify-content:center}
+.ad-custom-el:hover .ad-close-btn{display:flex}
+.ad-custom-el .ad-resize-handle{position:absolute;bottom:-6px;right:-6px;width:16px;height:16px;background:var(--pri);border-radius:3px;cursor:nwse-resize;display:none}
+.ad-custom-el:hover .ad-resize-handle{display:block}
+.ad-custom-text{padding:4px 10px;text-align:center;white-space:pre-wrap;word-break:break-word;line-height:1.4}
+.ad-custom-img{width:100%;height:100%;object-fit:contain}
 </style>
 </head>
 <body>
@@ -271,6 +281,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <div class="game-result" id="gameResult"></div>
 </div>
 <div id="toast"></div>
+<div class="ad-custom-layer" id="adCustomLayer"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -295,7 +306,8 @@ var S={
   bridgeStepTimer:null,
   bridgeHeartbeat:null,
   _lastBridgePong:0,
-  luckyDrawWinners:[]
+  luckyDrawWinners:[],
+  agentDrawConfig:{reqReg:false,reqQuiz:true,reqSign:true,reqNotWon:true,customElements:[]}
 };
 var SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
@@ -632,6 +644,7 @@ function cloudPullPage(table,cols,offset,acc,cb){
 function applyCloudConfig(d){
   if(!d||typeof d!=='object')return;
   if(d.danmaku){S.danmakuOn=d.danmaku.enable!==false;S.danmakuMax=d.danmaku.max||50;S.danmakuSpeed=d.danmaku.speed||8;S.danmakuFontSize=d.danmaku.fontSize||24}
+  if(d.agentDrawConfig){S.agentDrawConfig=d.agentDrawConfig;renderCustomElements()}
   updateDanmakuStatus();
 }
 function buildQuizMap(){
@@ -646,16 +659,176 @@ function buildQuizMap(){
 function updatePool(){
   buildQuizMap();
   var winnerKeys=(S.luckyDrawWinners||[]).map(function(w){return w.name+'|'+w.phone});
+  var cfg=S.agentDrawConfig||{reqReg:false,reqQuiz:true,reqSign:true,reqNotWon:true};
   S.eligiblePool=S.participants.filter(function(p){
-    return p.signed&&!p.won;
-  }).filter(function(p){
-    return S.quizMap[(p.name||'')+'|'+(p.phone||'')];
+    // 按智能体抽奖配置筛选候选池
+    if(cfg.reqReg&&p.signed===undefined){return false}
+    if(cfg.reqSign&&!p.signed){return false}
+    if(cfg.reqQuiz&&!S.quizMap[(p.name||'')+'|'+(p.phone||'')]){return false}
+    if(cfg.reqNotWon&&p.won){return false}
+    return true;
   }).filter(function(p){
     return winnerKeys.indexOf((p.name||'')+'|'+(p.phone||''))<0;
   }).map(preCalcParticipant);
   document.getElementById('actCount').textContent=S.eligiblePool.length;
-  // 不再自动触发规则执行——只在用户点击"执行"按钮时主动触发
-  // 避免数据刷新时本地计算覆盖 TeleAgent 的智能筛选结果
+}
+
+// ========== 自定义元素渲染 ==========
+function renderCustomElements(){
+  var layer=document.getElementById('adCustomLayer');
+  if(!layer)return;
+  var cfg=S.agentDrawConfig||{};
+  var els=cfg.customElements||[];
+  // 移除已不存在的元素
+  var existingIds={};
+  layer.querySelectorAll('.ad-custom-el').forEach(function(el){
+    existingIds[el.dataset.elId]=el;
+  });
+  var cfgIds={};
+  els.forEach(function(el){cfgIds[el.id]=true});
+  // 删除不在配置中的元素
+  Object.keys(existingIds).forEach(function(id){
+    if(!cfgIds[id]){existingIds[id].remove()}
+  });
+  // 渲染/更新元素
+  els.forEach(function(el){
+    if(el.visible===false){
+      var ex=layer.querySelector('[data-el-id="'+el.id+'"]');
+      if(ex)ex.remove();
+      return;
+    }
+    var dom=layer.querySelector('[data-el-id="'+el.id+'"]');
+    if(!dom){
+      dom=document.createElement('div');
+      dom.className='ad-custom-el';
+      dom.dataset.elId=el.id;
+      dom.style.left=el.x+'px';
+      dom.style.top=el.y+'px';
+      dom.style.width=el.width+'px';
+      dom.style.height=el.height+'px';
+      // 关闭按钮
+      var closeBtn=document.createElement('button');
+      closeBtn.className='ad-close-btn';
+      closeBtn.textContent='×';
+      closeBtn.title='关闭显示';
+      closeBtn.onclick=function(e){e.stopPropagation();el.visible=false;dom.remove()};
+      dom.appendChild(closeBtn);
+      // 缩放手柄
+      var resize=document.createElement('div');
+      resize.className='ad-resize-handle';
+      dom.appendChild(resize);
+      // 内容
+      if(el.type==='text'){
+        var txt=document.createElement('div');
+        txt.className='ad-custom-text';
+        txt.textContent=el.content||'';
+        txt.style.fontSize=(el.fontSize||18)+'px';
+        txt.style.color=el.color||'#fdcb6e';
+        dom.appendChild(txt);
+      }else if(el.type==='image'){
+        var img=document.createElement('img');
+        img.className='ad-custom-img';
+        img.src=el.content||'';
+        img.draggable=false;
+        dom.appendChild(img);
+      }
+      // 拖拽
+      makeDraggable(dom,el);
+      // 缩放
+      makeResizable(dom,resize,el);
+      layer.appendChild(dom);
+    }else{
+      // 更新内容（如文字修改）
+      if(el.type==='text'){
+        var txt=dom.querySelector('.ad-custom-text');
+        if(txt){txt.textContent=el.content||'';txt.style.fontSize=(el.fontSize||18)+'px';txt.style.color=el.color||'#fdcb6e'}
+      }
+      dom.style.left=el.x+'px';
+      dom.style.top=el.y+'px';
+      dom.style.width=el.width+'px';
+      dom.style.height=el.height+'px';
+    }
+  });
+}
+function makeDraggable(dom,el){
+  var dragging=false,ox=0,oy=0,sx=0,sy=0;
+  dom.addEventListener('mousedown',function(e){
+    if(e.target.classList.contains('ad-close-btn')||e.target.classList.contains('ad-resize-handle'))return;
+    dragging=true;
+    sx=e.clientX;sy=e.clientY;
+    ox=parseInt(dom.style.left)||0;oy=parseInt(dom.style.top)||0;
+    dom.classList.add('active');
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging)return;
+    el.x=ox+(e.clientX-sx);
+    el.y=oy+(e.clientY-sy);
+    dom.style.left=el.x+'px';
+    dom.style.top=el.y+'px';
+  });
+  document.addEventListener('mouseup',function(){
+    if(dragging){dragging=false;dom.classList.remove('active')}
+  });
+  // 触摸支持
+  dom.addEventListener('touchstart',function(e){
+    if(e.target.classList.contains('ad-close-btn')||e.target.classList.contains('ad-resize-handle'))return;
+    dragging=true;
+    var t=e.touches[0];
+    sx=t.clientX;sy=t.clientY;
+    ox=parseInt(dom.style.left)||0;oy=parseInt(dom.style.top)||0;
+    e.preventDefault();
+  },{passive:false});
+  document.addEventListener('touchmove',function(e){
+    if(!dragging)return;
+    var t=e.touches[0];
+    el.x=ox+(t.clientX-sx);
+    el.y=oy+(t.clientY-sy);
+    dom.style.left=el.x+'px';
+    dom.style.top=el.y+'px';
+    e.preventDefault();
+  },{passive:false});
+  document.addEventListener('touchend',function(){if(dragging){dragging=false}});
+}
+function makeResizable(dom,handle,el){
+  var resizing=false,sx=0,sy=0,sw=0,sh=0;
+  handle.addEventListener('mousedown',function(e){
+    e.stopPropagation();
+    resizing=true;
+    sx=e.clientX;sy=e.clientY;
+    sw=parseInt(dom.style.width)||el.width;
+    sh=parseInt(dom.style.height)||el.height;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!resizing)return;
+    var nw=Math.max(30,sw+(e.clientX-sx));
+    var nh=Math.max(20,sh+(e.clientY-sy));
+    el.width=nw;el.height=nh;
+    dom.style.width=nw+'px';
+    dom.style.height=nh+'px';
+  });
+  document.addEventListener('mouseup',function(){if(resizing){resizing=false}});
+  handle.addEventListener('touchstart',function(e){
+    e.stopPropagation();
+    var t=e.touches[0];
+    resizing=true;
+    sx=t.clientX;sy=t.clientY;
+    sw=parseInt(dom.style.width)||el.width;
+    sh=parseInt(dom.style.height)||el.height;
+    e.preventDefault();
+  },{passive:false});
+  document.addEventListener('touchmove',function(e){
+    if(!resizing)return;
+    var t=e.touches[0];
+    var nw=Math.max(30,sw+(t.clientX-sx));
+    var nh=Math.max(20,sh+(t.clientY-sy));
+    el.width=nw;el.height=nh;
+    dom.style.width=nw+'px';
+    dom.style.height=nh+'px';
+    e.preventDefault();
+  },{passive:false});
+  document.addEventListener('touchend',function(){if(resizing){resizing=false}});
 }
 
 // ========== MQTT ==========
@@ -715,6 +888,7 @@ function handleMsg(t,d){
     if(d.music)S.music=d.music;
     if(d.quizConfig)S.quizConfig=d.quizConfig;
     if(d.lotteryRule)S.lotteryRule=d.lotteryRule;
+    if(d.agentDrawConfig){S.agentDrawConfig=d.agentDrawConfig;renderCustomElements()}
     updateDanmakuStatus();
     // 不覆盖 participants 和 quizResults — 保留 Supabase 直连数据
   }else if(t.endsWith('draw_cmd')){
