@@ -365,6 +365,7 @@ function handleMsg(t,d){
   }else if(t.endsWith('reaction_click')&&reactionState==='go'){
     reactionPlayers[d.name]=(reactionPlayers[d.name]||0)+1;
   }else if(t.endsWith('quiz_answer')){
+    if(!quizState.answers||!quizState.roundStart)return;
     if(!quizState.answers[d.name]){quizState.answers[d.name]=d.answer;quizState.roundTimes[d.name]=Date.now()-quizState.roundStart;}
 
   }else if(t.endsWith('register')||t.endsWith('sign_in')){
@@ -994,7 +995,10 @@ function openGame(id){
 
 // --- 摇一摇游戏 ---
 let shakePlayers={},shakeTimer;
+let _gameTimers=[];
+function clearGameTimers(){_gameTimers.forEach(function(t){clearInterval(t);clearTimeout(t)});_gameTimers=[]}
 function runShakeGame(){
+  clearGameTimers();
   shakePlayers={};
   var duration=(S.gameConfig&&S.gameConfig.shakeDuration)||10;
   gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
@@ -1008,6 +1012,7 @@ function runShakeGame(){
     if(cd<=0){clearInterval(cdInterval);startShakeRound(duration)}
     cd--;
   },1000);
+  _gameTimers.push(cdInterval);
 }
 function startShakeRound(duration){
   document.getElementById('gameDesc').textContent='开始摇一摇！';
@@ -1022,6 +1027,7 @@ function startShakeRound(duration){
     if(timeLeft<=0){clearInterval(roundInterval);endShakeGame(sorted)}
     timeLeft--;
   },1000);
+  _gameTimers.push(roundInterval);
 }
 function endShakeGame(sorted){
   document.getElementById('gameDesc').textContent='游戏结束！';
@@ -1034,6 +1040,7 @@ function endShakeGame(sorted){
 // --- 反应速度游戏 ---
 let reactionState='waiting',reactionTime=0,reactionPlayers={};
 function runReactionGame(){
+  clearGameTimers();
   reactionState='waiting';reactionPlayers={};
   var duration=(S.gameConfig&&S.gameConfig.reactionDuration)||15;
   gameCtx.fillStyle='#e17055';gameCtx.fillRect(0,0,gameCanvas.width,gameCanvas.height);
@@ -1051,6 +1058,7 @@ function runReactionGame(){
     document.getElementById('gameDesc').textContent='倒计时 '+cd+' 秒';
     cd--;
   },1000);
+  _gameTimers.push(cdInterval);
 }
 function startReactionRound(duration){
   reactionState='go';reactionTime=Date.now();
@@ -1067,6 +1075,7 @@ function startReactionRound(duration){
     if(timeLeft<=0){clearInterval(roundInterval);reactionState='done';endReactionGame()}
     timeLeft--;
   },1000);
+  _gameTimers.push(roundInterval);
 }
 function endReactionGame(){
   const sorted=Object.entries(reactionPlayers).sort((a,b)=>b[1]-a[1]).slice(0,10);
@@ -1079,7 +1088,8 @@ function endReactionGame(){
 }
 
 // --- 趣味抢答 ---
-let quizState={},quizzes=[
+let quizState={currentRound:0,totalRounds:0,answers:{},current:null,scores:{},totalTime:{},roundStart:0,roundTimes:{},roundTimesByRound:{}};
+var quizzes=[
 {q:'一分钟有多少秒？',a:'60',options:['30','60','90','120']},
 {q:'一小时有多少分钟？',a:'60',options:['30','45','60','90']},
 {q:'一天有多少小时？',a:'24',options:['12','24','36','48']},
@@ -1184,6 +1194,7 @@ let quizState={},quizzes=[
 {q:'光速大约是每秒多少万公里？',a:'30',options:['15','30','50','100']}
 ];
 function runQuizGame(){
+  clearGameTimers();
   var rounds=(S.gameConfig&&S.gameConfig.quizRounds)||3;
   var interval=(S.gameConfig&&S.gameConfig.quizInterval)||5;
   quizState={currentRound:0,totalRounds:rounds,answers:{},current:null,scores:{},totalTime:{},roundStart:0,roundTimes:{}};
@@ -1215,7 +1226,7 @@ function runQuizRound(roundIdx,totalRounds,interval){
   }
   // 等待答题时间（使用轮间间隔作为每轮答题时间）
   var answerTime=interval*1000;
-  setTimeout(function(){
+  var quizTimer=setTimeout(function(){
     if(!S.gameRunning){return}
     // 记录本轮结果
     var roundEnd=Date.now();
@@ -1251,10 +1262,12 @@ function runQuizRound(roundIdx,totalRounds,interval){
       S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'round_end',game:'quiz',round:roundIdx+1,correct:q.a,correctNames:correct.map(function(e){return e[0]}),time:Date.now()}));
     }
     // 间隔后开始下一轮
-    setTimeout(function(){
+    var nextRoundTimer=setTimeout(function(){
       if(S.gameRunning){runQuizRound(roundIdx+1,totalRounds,interval)}
     },3000);
+    _gameTimers.push(nextRoundTimer);
   },answerTime);
+  _gameTimers.push(quizTimer);
 }
 function endQuizGameFinal(){
   // 按总时长升序排名
@@ -1267,10 +1280,11 @@ function endQuizGameFinal(){
 }
 
 function closeGame(){
+  clearGameTimers();
   S.gameRunning=false;
   document.getElementById('gameOverlay').classList.remove('show');
   document.getElementById('gameResult').classList.remove('show');
-  if(S.mqtt){S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'close'}))}
+  if(S.mqtt){S.mqtt.unsubscribe(S.topic+'shake_data');S.mqtt.unsubscribe(S.topic+'reaction_click');S.mqtt.unsubscribe(S.topic+'quiz_answer');S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'close'}))}
   gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
 }
 </script>
