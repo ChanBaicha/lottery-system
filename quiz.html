@@ -311,7 +311,7 @@ function updateMqtt(s){const d=document.getElementById('mDot'),t=document.getEle
 function handleMsg(t,d){
   if(t.endsWith('config')){
     S.configReceived=true;
-    S.quizConfig=d.quizConfig||null;
+    S.quizConfig=(d.quizConfig&&d.quizConfig.questions&&d.quizConfig.questions.length)?d.quizConfig:S.quizConfig;
     S.quizFields=d.quizFields||[];
     S.allParticipants=d.participants||[];
     // 新增：接收签到配置与提示语
@@ -418,6 +418,7 @@ function applyCloudConfig(d,cb){
     S.quizConfig=d.quizConfig;
     S.quizFields=d.quizFields||S.quizFields;
     if(d.quizIntro&&!S.quizIntro){S.quizIntro=d.quizIntro;updateIntro()}
+    _qcloudReady=true;
     console.log('题库已从云端兜底加载：'+d.quizConfig.questions.length+' 道题');
     if(cb)cb(true);
     return;
@@ -439,9 +440,10 @@ function cloudQuizPull(){
       });
       _qdoneCache=Object.keys(doneMap).map(function(k){var p=k.split('|');return{name:p[0],phone:p[1]}});
       _qroundsCache=roundsMap;
+      _qcloudReady=true;
       setTimeout(function(){_qcloudFlag=false},500);
       refreshQuizStateUI();
-    });
+    }).catch(function(e){console.warn('答题云端拉取异常(supabase-js)',e)});
   }else{
     // REST API 兜底拉取答题状态
     try{
@@ -457,6 +459,7 @@ function cloudQuizPull(){
         });
         _qdoneCache=Object.keys(doneMap).map(function(k){var p=k.split('|');return{name:p[0],phone:p[1]}});
         _qroundsCache=roundsMap;
+        _qcloudReady=true;
         setTimeout(function(){_qcloudFlag=false},500);
         refreshQuizStateUI();
       }).catch(function(e){console.warn('REST API答题状态拉取失败',e)});
@@ -480,12 +483,29 @@ function restUpsertQuizResult(qrData){
     }).catch(function(e){console.warn('REST API答题结果写入失败',e)});
   }catch(e){console.warn('REST API答题结果写入异常',e)}
 }
+// REST API 兜底写入答题轮次
+function restUpsertQuizState(payload){
+  try{
+    fetch(SB_URL+'/rest/v1/quiz_state?on_conflict=room,name,phone',{
+      method:'POST',
+      headers:{
+        'apikey':SB_KEY,
+        'Authorization':'Bearer '+SB_KEY,
+        'Content-Type':'application/json',
+        'Prefer':'resolution=merge-duplicates'
+      },
+      body:JSON.stringify(payload)
+    }).then(function(r){
+      if(!r.ok)console.warn('REST API答题轮次写入HTTP错误(catch)',r.status);
+    }).catch(function(e){console.warn('REST API答题轮次写入失败(catch)',e)});
+  }catch(e){console.warn('REST API答题轮次写入异常(catch)',e)}
+}
 function cloudQuizPushRound(name,phone,rounds){
   var payload={room:S.room,name:name,phone:phone,rounds:rounds,updated_at:new Date().toISOString()};
   if(_sbq){
     _sbq.from('quiz_state').upsert(payload,{onConflict:'room,name,phone'}).then(function(res){
       if(res.error)console.warn('答题轮次supabase-js写入失败,尝试REST API',res.error.message);
-    });
+    }).catch(function(e){console.warn('答题轮次supabase-js写入异常,尝试REST API',e);restUpsertQuizState(payload)});
   }else{
     try{
       fetch(SB_URL+'/rest/v1/quiz_state?on_conflict=room,name,phone',{
@@ -687,6 +707,11 @@ function continueQuizReg(){
 
 // ========== 答题 ==========
 function startQuiz(){
+  // 数据就绪守卫：quizConfig 未加载时不允许开始
+  if(!S.quizConfig||!S.quizConfig.questions||!S.quizConfig.questions.length){
+    toast('题库加载中，请稍候...');
+    return;
+  }
   // 随机抽题或按配置
   var pool=S.quizConfig.questions||[];
   var count=S.quizConfig.questionCount||pool.length;
@@ -852,8 +877,7 @@ function finishRound(){
 
   S.allRoundResults.push(roundResult);
 
-  // 记录已完成答题（用于再次进入时显示选项页）与轮次
-  markQuizDone(S.quizUserInfo.name,S.quizUserInfo.phone);
+  // 记录轮次（仅调用 markQuizRoundDone，避免双写竞态）
   markQuizRoundDone(S.quizUserInfo.name,S.quizUserInfo.phone);
 
   // 找最佳轮次
@@ -889,7 +913,7 @@ function finishRound(){
   if(_sbq){
     _sbq.from('quiz_results').upsert(qrData,{onConflict:'room,name,phone,round'}).then(function(res){
       if(res.error){console.warn('答题结果supabase-js写入失败,尝试REST API',res.error.message);restUpsertQuizResult(qrData);}
-    });
+    }).catch(function(e){console.warn('答题结果supabase-js写入异常,尝试REST API',e);restUpsertQuizResult(qrData);});
   }else{
     // supabase-js 未加载，走 REST API 写入
     restUpsertQuizResult(qrData);
