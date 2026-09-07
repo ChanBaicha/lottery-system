@@ -311,8 +311,9 @@ var S={
 };
 var SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
 var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
-var _sb=null,_cloudFlag=false;
+var _sb=null,_cloudFlag=false,_cloudReady=false;
 var gameCanvas,gameCtx;
+var _gameTimers=[];
 
 // ========== Utils ==========
 function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
@@ -642,6 +643,7 @@ function cloudPull(){
     if(pendingUpdates<=0){updatePool()}
   }
   // 分批拉取 participants（最小字段，避免大数据量超时）
+  var _ptOk=false,_qrOk=false;
   cloudPullPage('participants','pid,name,phone,data->signed,data->won,data->prizeId,data->team,data->avatar',0,[],function(rows){
     if(rows.length){
       _cloudFlag=true;
@@ -650,7 +652,9 @@ function cloudPull(){
         return d;
       });
       setTimeout(function(){_cloudFlag=false},500);
+      _ptOk=true;
     }
+    _cloudReady=true;
     debouncedUpdate();
   });
   // 分批拉取 quiz_results（最小字段，避免大数据量超时）
@@ -662,7 +666,9 @@ function cloudPull(){
       });
       buildQuizMap();
       setTimeout(function(){_cloudFlag=false},500);
+      _qrOk=true;
     }
+    _cloudReady=true;
     debouncedUpdate();
   });
 }
@@ -903,7 +909,6 @@ function connectMQTT(){
       S.mqtt.subscribe(S.topic+'game_cmd');
       S.mqtt.subscribe(S.topic+'shake_data');
       S.mqtt.subscribe(S.topic+'reaction_click');
-      S.mqtt.subscribe(S.topic+'quiz_answer');
       S.mqtt.subscribe(S.topic+'danmaku_show');
       S.mqtt.subscribe(S.topic+'avatar_update');
       S.mqtt.subscribe(S.topic+'teleagent_status');
@@ -937,6 +942,7 @@ function handleMsg(t,d){
   if(t.endsWith('config')){
     // 已有 Supabase 直连拉取 participants 和 quiz_results，不覆盖这两个数据源
     // 只同步配置类字段（奖品/字段/签到设置等）
+    // 云端为权威来源：未拉取到云端配置前不接受 MQTT 配置覆盖
     if(d.prizes)S.prizes=d.prizes;
     if(d.fields)S.fields=d.fields;
     if(d.signin)S.signin=d.signin;
@@ -945,7 +951,7 @@ function handleMsg(t,d){
     if(d.gameConfig)S.gameConfig=d.gameConfig;
     if(d.danmaku){S.danmakuOn=d.danmaku.enable!==false;S.danmakuMax=d.danmaku.max||50;S.danmakuSpeed=d.danmaku.speed||8;S.danmakuFontSize=d.danmaku.fontSize||24}
     if(d.music)S.music=d.music;
-    if(d.quizConfig)S.quizConfig=d.quizConfig;
+    if(d.quizConfig&&d.quizConfig.questions&&d.quizConfig.questions.length){S.quizConfig=d.quizConfig}
     if(d.lotteryRule)S.lotteryRule=d.lotteryRule;
     if(d.agentDrawConfig){S.agentDrawConfig=d.agentDrawConfig;renderCustomElements()}
     updateDanmakuStatus();
@@ -959,6 +965,7 @@ function handleMsg(t,d){
   }else if(t.endsWith('reaction_click')&&reactionState==='go'){
     reactionPlayers[d.name]=(reactionPlayers[d.name]||0)+1;
   }else if(t.endsWith('quiz_answer')){
+    if(!quizState.answers||!quizState.roundStart)return;
     if(!quizState.answers[d.name]){quizState.answers[d.name]=d.answer;quizState.roundTimes[d.name]=Date.now()-quizState.roundStart;}
   }else if(t.endsWith('teleagent_status')){
     handleBridgeStatus(d);
@@ -1552,6 +1559,7 @@ function runShakeGame(){
     if(cd<=0){clearInterval(cdInterval);startShakeRound(duration)}
     cd--;
   },1000);
+  _gameTimers.push(cdInterval);
 }
 function startShakeRound(duration){
   document.getElementById('gameDesc').textContent='开始摇一摇！';
@@ -1566,6 +1574,7 @@ function startShakeRound(duration){
     if(timeLeft<=0){clearInterval(roundInterval);endShakeGame(sorted)}
     timeLeft--;
   },1000);
+  _gameTimers.push(roundInterval);
 }
 function endShakeGame(sorted){
   document.getElementById('gameDesc').textContent='游戏结束！';
@@ -1595,6 +1604,7 @@ function runReactionGame(){
     document.getElementById('gameDesc').textContent='倒计时 '+cd+' 秒';
     cd--;
   },1000);
+  _gameTimers.push(cdInterval);
 }
 function startReactionRound(duration){
   reactionState='go';reactionTime=Date.now();
@@ -1611,6 +1621,7 @@ function startReactionRound(duration){
     if(timeLeft<=0){clearInterval(roundInterval);reactionState='done';endReactionGame()}
     timeLeft--;
   },1000);
+  _gameTimers.push(roundInterval);
 }
 function endReactionGame(){
   var sorted=Object.entries(reactionPlayers).sort(function(a,b){return b[1]-a[1]}).slice(0,10);
@@ -1621,7 +1632,7 @@ function endReactionGame(){
   result.classList.add('show');
   if(S.mqtt){S.mqtt.unsubscribe(S.topic+'reaction_click');S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'end',game:'reaction',rankings:sorted.slice(0,3).map(function(e,i){return{name:e[0],score:e[1],rank:i+1}})}))}
 }
-var quizState={},quizzes=[
+var quizState={currentRound:0,totalRounds:0,answers:{},current:null,scores:{},totalTime:{},roundStart:0,roundTimes:{},roundTimesByRound:{}},quizzes=[
 {q:'一分钟有多少秒？',a:'60',options:['30','60','90','120']},
 {q:'一小时有多少分钟？',a:'60',options:['30','45','60','90']},
 {q:'一天有多少小时？',a:'24',options:['12','24','36','48']},
@@ -1757,7 +1768,7 @@ function runQuizRound(roundIdx,totalRounds,interval){
   }
   // 等待答题时间（使用轮间间隔作为每轮答题时间）
   var answerTime=interval*1000;
-  setTimeout(function(){
+  _gameTimers.push(setTimeout(function(){
     if(!S.gameRunning){return}
     // 记录本轮结果
     var roundEnd=Date.now();
@@ -1800,10 +1811,10 @@ function runQuizRound(roundIdx,totalRounds,interval){
       S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'round_end',game:'quiz',round:roundIdx+1,correct:q.a,correctNames:correct.map(function(e){return e[0]}),time:Date.now()}));
     }
     // 间隔后开始下一轮
-    setTimeout(function(){
+    _gameTimers.push(setTimeout(function(){
       if(S.gameRunning){runQuizRound(roundIdx+1,totalRounds,interval)}
-    },3000);
-  },answerTime);
+    },3000));
+  },answerTime));
 }
 function endQuizGameFinal(){
   // 按总时长升序排名
@@ -1816,9 +1827,11 @@ function endQuizGameFinal(){
 }
 function closeGame(){
   S.gameRunning=false;
+  _gameTimers.forEach(function(t){clearTimeout(t);clearInterval(t)});
+  _gameTimers=[];
   document.getElementById('gameOverlay').classList.remove('show');
   document.getElementById('gameResult').classList.remove('show');
-  if(S.mqtt){S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'close'}))}
+  if(S.mqtt){S.mqtt.unsubscribe(S.topic+'quiz_answer');S.mqtt.unsubscribe(S.topic+'reaction_click');S.mqtt.publish(S.topic+'game_cmd',JSON.stringify({action:'close'}))}
   gameCtx.clearRect(0,0,gameCanvas.width,gameCanvas.height);
 }
 
