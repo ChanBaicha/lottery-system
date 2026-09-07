@@ -69,7 +69,7 @@ textarea{width:100%;padding:10px;border-radius:10px;background:var(--card2);bord
         <span class="func-label">弹幕互动</span>
         <span class="func-desc">发送弹幕上大屏</span>
       </button>
-      <button class="func-btn" style="background:var(--grn);color:#fff" onclick="showSigninFormPage()">
+      <button class="func-btn" id="signBtn" style="background:var(--grn);color:#fff" onclick="showSigninFormPage()">
         <span class="func-icon">📝</span>
         <span class="func-label">签到参与</span>
         <span class="func-desc">填写信息完成签到</span>
@@ -269,7 +269,7 @@ function fmt(d){const dt=new Date(d);return(dt.getMonth()+1)+'/'+dt.getDate()+' 
 // ========== 初始化 ==========
 const SB_URL='https://ohkcvvqumwliuwpsucui.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9oa2N2dnF1bXdsaXV3cHN1Y3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzOTM2MTAsImV4cCI6MjEwMzk2OTYxMH0.azDTOFRgfS-dJp8Pw-4fZsVQYfidx5f2x7xqHkwgNVE';
-let _sb=null,_cloudFlag=false;
+let _sb=null,_cloudFlag=false,_signinReady=false;
 (function init(){
   const p=new URLSearchParams(location.search);S.room=p.get('room')||'demo';S.topic='cj2026/'+S.room+'/';
   // 从知识问答端跳转携带的自动填充参数
@@ -316,12 +316,15 @@ function cloudPullT(){
   _sb.from('participants').select('*').eq('room',S.room).then(function(pr){
     if(pr.error){console.warn('云端参与者拉取失败',pr.error.message);return}
     if(pr.data){_cloudFlag=true;S.allParticipants=pr.data.map(function(r){return r.data||{}});setTimeout(function(){_cloudFlag=false},500)}
+    _signinReady=true;
     // 恢复签到状态（从云端：当前用户是否已签到）
     restoreSigninState();
+    updateSigninUI();
   });
   _sb.from('quiz_results').select('*').eq('room',S.room).then(function(qr){
     if(qr.error){console.warn('云端答题拉取失败',qr.error.message);return}
     if(qr.data){_cloudFlag=true;S.allQuizResults=qr.data.map(function(r){return r.data||{}});setTimeout(function(){_cloudFlag=false},500)}
+    _signinReady=true;
     updateSigninUI();
   });
 }
@@ -343,6 +346,18 @@ function applyCloudConfig(d){
   renderLuckyVoucher();
 }
 function updateSigninUI(){
+  var btn=document.getElementById('signBtn');
+  if(btn){
+    if(!_signinReady||!S.allParticipants||!S.allParticipants.length||!S.allQuizResults||!S.allQuizResults.length){
+      btn.textContent='数据加载中...';
+      btn.style.opacity='0.6';
+      btn.style.pointerEvents='none';
+    }else{
+      btn.textContent='签到参与';
+      btn.style.opacity='1';
+      btn.style.pointerEvents='auto';
+    }
+  }
 }
 function restoreSigninState(){
   // 检查当前会话中是否已签到（从云端参与者数据判断）
@@ -445,10 +460,9 @@ function checkSigninEligibility(){
     if(S.signin.startTime){var st=new Date(S.signin.startTime);if(now<st)return{ok:false,reason:msg}}
     if(S.signin.endTime){var et=new Date(S.signin.endTime);if(now>et)return{ok:false,reason:msg}}
   }
-  // 3. 登记数据未加载
-  if(!S.allParticipants||!S.allParticipants.length)return{ok:false,reason:msg};
-  // 4. 答题记录未加载
-  if(!S.allQuizResults||!S.allQuizResults.length)return{ok:false,reason:msg};
+  // 3. 数据尚未加载完成
+  if(!_signinReady||!S.allParticipants||!S.allParticipants.length)return{ok:false,reason:'数据加载中，请稍后重试...',type:'loading'};
+  if(!S.allQuizResults||!S.allQuizResults.length)return{ok:false,reason:'数据加载中，请稍后重试...',type:'loading'};
   return{ok:true}
 }
 function showSigninBlockModal(msg){
@@ -581,7 +595,7 @@ function doSignin(){
   }
   // 校验是否已完成知识问答（姓名+手机号匹配答题记录）
   if(!S.allQuizResults||!S.allQuizResults.length){
-    showFailModal(S.signFailNoQuizMsg);
+    showFailModal('答题数据加载中，请稍后重试');
     return;
   }
   var quizMatched=S.allQuizResults.find(function(qr){
